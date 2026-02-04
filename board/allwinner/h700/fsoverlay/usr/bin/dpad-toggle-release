@@ -1,0 +1,7 @@
+#!/bin/bash
+
+DPAD_BUTTON_STATE="/var/run/dpad-toggle.held"
+
+rm -f "$DPAD_BUTTON_STATE"
+
+exit 0

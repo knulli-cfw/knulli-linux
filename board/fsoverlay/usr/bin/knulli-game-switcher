@@ -1,0 +1,24 @@
+#!/bin/sh
+
+GAMESWITCHER_FLAG="/var/run/gameswitcher.flag"
+
+check_ingame() {
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
+    test $? != 0                 && return 0
+    test "${HTTP_STATUS}" != 201 && return 0 # in game
+    return 1  # 201 when not in game
+}
+
+    touch "$GAMESWITCHER_FLAG" # So the system or any scripts can tell if the shutdown sequence has started
+
+    if check_ingame; then
+        curl http://127.0.0.1:1234/gameswitcher
+        knulli-es-swissknife --emukill >/dev/null 2>&1
+    else
+        curl http://127.0.0.1:1234/gameswitcher
+    fi
+
+    # If ES is paused things will stall during shutdown
+    # /etc/init.d/S31emulationstation resume
+
+exit 0
