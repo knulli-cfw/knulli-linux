@@ -9,16 +9,13 @@ check_ingame() {
     return 1  # 201 when not in game
 }
 
-    touch "$GAMESWITCHER_FLAG" # So the system or any scripts can tell if the shutdown sequence has started
-
-    if check_ingame; then
-        curl http://127.0.0.1:1234/gameswitcher
-        knulli-es-swissknife --emukill >/dev/null 2>&1
-    else
-        curl http://127.0.0.1:1234/gameswitcher
-    fi
-
-    # If ES is paused things will stall during shutdown
-    # /etc/init.d/S31emulationstation resume
+if check_ingame; then
+    # In game - create flag for Quick Resume mode and kill emulator
+    touch "$GAMESWITCHER_FLAG"
+    knulli-es-swissknife --emukill >/dev/null 2>&1
+else
+    # Not in game - ES is running, call the HTTP endpoint directly
+    curl -s http://127.0.0.1:1234/gameswitcher >/dev/null
+fi
 
 exit 0
