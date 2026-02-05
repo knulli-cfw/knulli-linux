@@ -9,14 +9,13 @@ check_ingame() {
     return 1  # 201 when not in game
 }
 
+# Call the game-switcher endpoint to invoke the UI
+curl -s http://127.0.0.1:1234/gameswitcher > /dev/null
+
 if check_ingame; then
-    # In game - set pending flag via HTTP, create flag for Quick Resume mode, and kill emulator
-    curl -s http://127.0.0.1:1234/gameswitcher >/dev/null
+    # In game - Create flag for Quick Resume mode, and kill emulator
     touch "$GAMESWITCHER_FLAG"
     knulli-es-swissknife --emukill >/dev/null 2>&1
-else
-    # Not in game - ES is running, call the HTTP endpoint directly
-    curl -s http://127.0.0.1:1234/gameswitcher >/dev/null
 fi
 
 exit 0
