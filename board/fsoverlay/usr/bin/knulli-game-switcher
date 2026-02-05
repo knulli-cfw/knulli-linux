@@ -10,7 +10,8 @@ check_ingame() {
 }
 
 if check_ingame; then
-    # In game - create flag for Quick Resume mode and kill emulator
+    # In game - set pending flag via HTTP, create flag for Quick Resume mode, and kill emulator
+    curl -s http://127.0.0.1:1234/gameswitcher >/dev/null
     touch "$GAMESWITCHER_FLAG"
     knulli-es-swissknife --emukill >/dev/null 2>&1
 else
