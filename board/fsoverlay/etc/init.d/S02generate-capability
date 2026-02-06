@@ -45,6 +45,7 @@ case "$ARCH" in
         BOARD_CAPABILITIES[analogstick]="trimui-smart-pro magicx-zero-28"
         BOARD_CAPABILITIES[rumble]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
         BOARD_CAPABILITIES[adb]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
+        BOARD_CAPABILITIES[hud]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
         BOARD_CAPABILITIES[bezelproject]="trimui-smart-pro"
         BOARD_CAPABILITIES[toggleswitch]="trimui-smart-pro trimui-brick"
         ;;

@@ -30,6 +30,8 @@ define AETHERSX2_INSTALL_TARGET_CMDS
     mkdir -p $(TARGET_DIR)/usr/bin
     mkdir -p $(TARGET_DIR)/usr/share/aethersx2
     mkdir -p $(TARGET_DIR)/usr/config/aethersx2
+    mkdir -p $(TARGET_DIR)/usr/share/evmapy
+    mkdir -p $(TARGET_DIR)/usr/share/knulli/datainit/bios/ps2
 
     # Install shared resources
     if [ -d $(@D)/usr/share ]; then \
@@ -50,6 +52,16 @@ define AETHERSX2_INSTALL_TARGET_CMDS
     # Install device-specific config
     if [ -d $(AETHERSX2_PKG_DIR)/config/$(KNULLI_DEVICE) ]; then \
         cp -rf $(AETHERSX2_PKG_DIR)/config/$(KNULLI_DEVICE)/aethersx2 $(TARGET_DIR)/usr/config/; \
+    fi
+
+    # Install evmapy keymap for AetherSX2
+    if [ -f $(AETHERSX2_PKG_DIR)/ps2.aethersx2.keys ]; then \
+        cp -f $(AETHERSX2_PKG_DIR)/ps2.aethersx2.keys $(TARGET_DIR)/usr/share/evmapy/ps2.aethersx2.keys; \
+    fi
+
+    # Install patches.zip for AetherSX2
+    if [ -f $(AETHERSX2_PKG_DIR)/patches.zip ]; then \
+        cp -f $(AETHERSX2_PKG_DIR)/patches.zip $(TARGET_DIR)/usr/share/knulli/datainit/bios/ps2/patches.zip; \
     fi
 endef
 

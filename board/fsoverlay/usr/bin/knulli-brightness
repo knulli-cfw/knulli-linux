@@ -31,6 +31,18 @@ fi
 
 FB_BLANK=/sys/class/graphics/fb0/blank
 
+update_rgb_brightness() {
+    [ -n "$1" ] || return 0
+
+    knulli-board-capability "rgb" || return 0
+
+    [ "$(knulli-settings-get led.brightness.adaptive 2>/dev/null)" = "1" ] || return 0
+
+    curl -fsS --connect-timeout 1 --max-time 1 \
+        -X POST -d "$1" \
+        "http://127.0.0.1:1235/update-screen-state" >/dev/null 2>&1 || true
+}
+
 animate_brightness() {
     current=$1
     target=$2
@@ -97,6 +109,8 @@ setValue() {
     test "${NEWVAL}" -gt "${XMAX}" && NEWVAL="${XMAX}"
 
     bl_set "${NEWVAL}"
+
+    update_rgb_brightness "$(get_percent "$NEWVAL")"
 }
 
 cycle() {
@@ -123,6 +137,7 @@ display_off() {
         echo 4 > "$FB_BLANK"
     fi
 
+    update_rgb_brightness 0
     exit 0
 }
 
@@ -137,6 +152,8 @@ display_on() {
     if [ -z "$BACKLIGHT_DIR" ] && [ -w "$FB_BLANK" ]; then
         echo 0 > "$FB_BLANK"
     fi
+
+    update_rgb_brightness "$PERCENT_SAVED"
     exit 0
 }
 
@@ -169,6 +186,7 @@ then
             echo "${PERCENT}" > "${VALPATH}"
             animate_brightness "$ABS" "$XMIN"
         fi
+        update_rgb_brightness 1
         exit 0
    elif [ "${1}" = "undim" ]; then
         ABS=$(bl_get)
@@ -181,6 +199,7 @@ then
         RESTORE_ABS=$(percent_to_abs "$PERCENT_SAVED")
         animate_brightness "$ABS" "$RESTORE_ABS"
         rm -f "${VALPATH}"
+        update_rgb_brightness "$PERCENT_SAVED"
         exit 0
     else
         if [ "$1" -eq 1 ]; then

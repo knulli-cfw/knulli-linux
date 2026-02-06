@@ -1,0 +1,11 @@
+--- a/yabause/src/retro_arena/InputManager.cpp	2026-01-30 15:29:31.868636296 +0000
++++ b/yabause/src/retro_arena/InputManager.cpp	2026-01-30 15:29:48.913601778 +0000
+@@ -1209,7 +1209,7 @@ void InputManager::writeDeviceConfig(Inp
+ std::string InputManager::getConfigPath()
+ {
+   std::string path = getenv("HOME");
+-  path += "/.emulationstation/es_temporaryinput.cfg";
++  path += "/.yabasanshiro/es_temporaryinput.cfg";
+   return path;
+ }
+ 

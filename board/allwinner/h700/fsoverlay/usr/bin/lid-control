@@ -24,9 +24,11 @@ if [[ -z "$MODE" || ! "$MODE" =~ ^(suspend|shutdown|dispoff|none)$ ]]; then
     /usr/bin/knulli-settings-set system.lid "$MODE"
 fi
 
+MUTE="$(/usr/bin/knulli-settings-get system.batterysaver.mute)"
+
 display_off() {
     knulli-brightness dispoff
-    knulli-audio setSystemVolume mute
+    [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume mute
 }
 
 suspend_system() {
@@ -40,7 +42,7 @@ shutdown_system() {
 do_open() {
     if [ "$MODE" == "dispoff" ] || [ -f "$FLAG_FILE" ]; then
         knulli-brightness dispon
-        knulli-audio setSystemVolume unmute
+        [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume unmute
         [ -f "$FLAG_FILE" ] && rm -f "$FLAG_FILE"
     fi
 }

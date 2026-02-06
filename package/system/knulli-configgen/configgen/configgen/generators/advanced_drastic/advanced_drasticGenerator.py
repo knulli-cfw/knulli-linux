@@ -33,25 +33,35 @@ class Advanced_DrasticGenerator(Generator):
         advanced_drastic_saves = "/userdata/saves/nds/advanced_drastic/saves"
         advanced_drastic_states = "/userdata/saves/nds/advanced_drastic/states"
 
-        board = os.popen("cat /boot/boot/knulli.board").read()
-        board=board.rstrip("\n\r ")
+        board = open("/boot/boot/knulli.board").read().strip()
 
-        if os.path.isfile(advanced_drastic_root + "/knulli.board"):
-            board_installed = os.popen("cat " + advanced_drastic_root + "/knulli.board").read()
-            board_installed = board_installed.rstrip("\n\r ")
-        else:
-            board_installed = ""
+        board_installed = ""
+        board_file = f"{advanced_drastic_root}/knulli.board"
+        if os.path.isfile(board_file):
+            board_installed = open(board_file).read().strip()
 
-        if (not os.path.exists(advanced_drastic_root)) or (board != board_installed):
-            os.makedirs(advanced_drastic_root, exist_ok = True)
-            os.system("cp -rv /usr/share/advanced_drastic/* /userdata/system/configs/advanced_drastic")
-            if os.path.exists("/usr/share/advanced_drastic/devices/" + board ):
-                os.system("cp -rv /usr/share/advanced_drastic/devices/" + board + "/* /userdata/system/configs/advanced_drastic/config")
-            os.system("cp /boot/boot/knulli.board /userdata/system/configs/advanced_drastic")
+        board_changed = (board != board_installed)
 
-        if (not os.path.isfile(advanced_drastic_conf)) or (not os.path.isdir(advanced_drastic_root + "/config")):
-            os.makedirs(advanced_drastic_root + "/config", exist_ok=True)
-            os.system("cp -rv /usr/share/advanced_drastic/devices/" + board + "/* /userdata/system/configs/advanced_drastic/config")
+        # Reinstall/refresh default config if missing or board changed
+        if (not os.path.exists(advanced_drastic_root)) or board_changed:
+            os.makedirs(advanced_drastic_root, exist_ok=True)
+            os.system(f"cp -rv /usr/share/advanced_drastic/* {advanced_drastic_root}")
+            os.system(f"cp /boot/boot/knulli.board {advanced_drastic_root}")
+
+        advanced_drastic_config_dir = f"{advanced_drastic_root}/config"
+        os.makedirs(advanced_drastic_config_dir, exist_ok=True)
+
+        config_missing = not os.path.isfile(advanced_drastic_conf)
+
+        if board_changed or config_missing:
+            # Restore if config missing
+            if config_missing:
+                os.system(f"cp -rv /usr/share/advanced_drastic/config/* {advanced_drastic_config_dir}/")
+
+            # board config
+            board_config_src = f"/usr/share/advanced_drastic/devices/{board}/config"
+            if os.path.isdir(board_config_src):
+                os.system(f"cp -rv {board_config_src}/* {advanced_drastic_config_dir}/")
 
         # Bind mount saves and states locations
         saves_target = os.path.join(advanced_drastic_root, "backup")

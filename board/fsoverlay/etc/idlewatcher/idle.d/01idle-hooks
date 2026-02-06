@@ -10,6 +10,8 @@ MODE="$(/usr/bin/knulli-settings-get system.batterysaver.mode)"
 
 AGGRESSIVE="$(/usr/bin/knulli-settings-get system.batterysaver.aggressive)"
 
+MUTE="$(/usr/bin/knulli-settings-get system.batterysaver.mute)"
+
 check_pause() {
   # return 0 if any *.pause exists, else 1
   compgen -G "$BATTSAVER_DIR"/*.pause > /dev/null && return 0
@@ -40,12 +42,12 @@ do_idle() {
     case "$MODE" in
         dim)
             knulli-brightness dim
-            knulli-audio setSystemVolume mute
+            [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume mute
 
             [[ "$AGGRESSIVE" == "1" ]] && do_aggressive
         ;;
         dispoff)
-            knulli-audio setSystemVolume mute
+            [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume mute
             knulli-brightness dispoff
 
             [[ "$AGGRESSIVE" == "1" ]] && do_aggressive

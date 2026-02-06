@@ -37,3 +37,6 @@ n64dd:
 cdi:
   emulator: libretro
   core:     same_cdi
+ps2:
+  emulator: aethersx2
+  core:     aethersx2

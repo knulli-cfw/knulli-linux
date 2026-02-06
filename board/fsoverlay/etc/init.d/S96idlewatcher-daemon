@@ -38,6 +38,12 @@ do_initialize() {
     AGGRESSIVE="0" # default
     /usr/bin/knulli-settings-set system.batterysaver.aggressive "$AGGRESSIVE"
   fi
+
+  MUTE="$(/usr/bin/knulli-settings-get system.batterysaver.mute)"
+  if [[ -z "$MUTE" || ! "$MUTE" =~ ^(1|0)$ ]]; then
+    MUTE="1" # default
+    /usr/bin/knulli-settings-set system.batterysaver.mute "$MUTE"
+  fi
 }
 
 # Ensure config exists with defaults if empty

@@ -3,9 +3,8 @@
 # yabasanshiro
 #
 ################################################################################
-# Version: branch pi4-1-9-0-muOS from ljhmd0825 repo
-YABASANSHIRO_VERSION = pi4-1-9-0-muOS
-YABASANSHIRO_SITE = https://github.com/ljhmd0825/yabause.git
+YABASANSHIRO_VERSION = pi4-update
+YABASANSHIRO_SITE = https://github.com/sydarn/yabause.git
 YABASANSHIRO_SITE_METHOD = git
 YABASANSHIRO_GIT_SUBMODULES = YES
 YABASANSHIRO_LICENSE = GPLv2
@@ -27,8 +26,11 @@ YABASANSHIRO_CONF_OPTS += -DCMAKE_INSTALL_PREFIX="/usr"
 
 # Ports / features from the script
 YABASANSHIRO_CONF_OPTS += -DYAB_PORTS=retro_arena
-YABASANSHIRO_CONF_OPTS += -DUSE_EGL=ON -DUSE_OPENGL=ON
+YABASANSHIRO_CONF_OPTS += -DUSE_EGL=ON -DUSE_OPENGL=OFF
 YABASANSHIRO_CONF_OPTS += -DYAB_WANT_VULKAN=OFF
+YABASANSHIRO_CONF_OPTS += -DYAB_WANT_ARM7=ON
+YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=ON
+YABASANSHIRO_CONF_OPTS += -DSH2_TRACE=OFF
 YABASANSHIRO_CONF_OPTS += -DCMAKE_BUILD_TYPE=Release
 
 # Ensure CMake picks up SDL2 headers from the target sysroot
@@ -54,8 +56,8 @@ YABASANSHIRO_CONF_OPTS += -DYAB_DISABLE_EXTERNAL_DEPS=ON
 
 # Standard buildroot cross-compilation flags
 ifeq ($(BR2_aarch64),y)
-    YABASANSHIRO_CONF_ENV += CFLAGS="$(TARGET_CFLAGS) -g -std=c99"
-    YABASANSHIRO_CONF_ENV += CXXFLAGS="$(TARGET_CXXFLAGS) -g -std=c++17"
+    YABASANSHIRO_CONF_ENV += CFLAGS="$(TARGET_CFLAGS) -O3 -std=c99"
+    YABASANSHIRO_CONF_ENV += CXXFLAGS="$(TARGET_CXXFLAGS) -O3 -std=c++17"
 endif
 
 # Use buildroot PKG_CONFIG_PATH
@@ -67,8 +69,8 @@ ifeq ($(BR2_arm)$(BR2_aarch64),y)
     YABASANSHIRO_CONF_OPTS += -DYAB_ASYNC_RENDERING=ON
     YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=ON
     # add build-time target flags (note: CMake/Cross toolchain will also apply TARGET_CFLAGS)
-    YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS) -D__RP64__"
-    YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_FLAGS="$(TARGET_CFLAGS) -D__RP64__"
+    YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS)"
+    YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_FLAGS="$(TARGET_CFLAGS)"
 else ifeq ($(BR2_x86_64),y)
     YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=OFF
     YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS) -D__PC__"
@@ -119,7 +121,7 @@ endef
 define YABASANSHIRO_BUILD_HOST_TOOLS
 	# Build bin2c host tool
 	$(HOSTCC) $(HOST_CFLAGS) $(@D)/yabause/src/retro_arena/nanogui-sdl/resources/bin2c.c \
-		-o $(@D)/bin2c_host
+		-o $(@D)/yabause/bin2c_host
 
 	# Build m68kmake host tool  
 	$(HOSTCC) $(HOST_CFLAGS) $(@D)/yabause/src/musashi/m68kmake.c \

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# We only want to run the script if the board has RGB capability
+if ! knulli-board-capability "rgb"; then
+    exit 1
+fi
+
+PCT=$1
+
+if [ -n "$PCT" ]; then
+  if [ "$PCT" == "100" ]; then
+    curl -d "$PCT Full" -X POST localhost:1235/update-battery-state >/dev/null 2>&1
+  else
+    curl -d "$PCT Charging" -X POST localhost:1235/update-battery-state >/dev/null 2>&1
+  fi
+fi
+
+exit 0

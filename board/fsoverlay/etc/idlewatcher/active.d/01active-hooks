@@ -10,6 +10,8 @@ MODE="$(/usr/bin/knulli-settings-get system.batterysaver.mode)"
 
 AGGRESSIVE="$(/usr/bin/knulli-settings-get system.batterysaver.aggressive)"
 
+MUTE="$(/usr/bin/knulli-settings-get system.batterysaver.mute)"
+
 undo_aggressive() {
   # Pause emulator processes (we set to -4 niceness so this is easy to target)
   for pid in $(ps -eo pid,ni | awk '$2==-4 {print $1}'); do
@@ -34,14 +36,14 @@ do_active() {
         dim)
             [[ "${AGGRESSIVE:-0}" == "1" ]] && undo_aggressive
 
-            knulli-audio setSystemVolume unmute
+            [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume unmute
             knulli-brightness undim
         ;;
         dispoff)
             [[ "${AGGRESSIVE:-0}" == "1" ]] && undo_aggressive
 
             knulli-brightness dispon
-            knulli-audio setSystemVolume unmute
+            [[ "$MUTE" == "1" ]] && knulli-audio setSystemVolume unmute
         ;;
     esac
 }

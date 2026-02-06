@@ -1,0 +1,9 @@
+#!/bin/sh
+
+case "$1" in
+    active)
+        sm8250-audio-resync
+    ;;
+esac
+
+exit 0

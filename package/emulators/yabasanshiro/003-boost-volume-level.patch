@@ -1,0 +1,51 @@
+--- a/yabause/src/sndsdl.c	2026-01-30 22:16:19.497863764 +0000
++++ b/yabause/src/sndsdl.c	2026-01-30 22:16:42.589802358 +0000
+@@ -75,6 +75,8 @@ SNDSDLMidiOut
+ };
+ 
+ #define NUMSOUNDBLOCKS  4
++#define INTERNAL_BOOST_NUM 3
++#define INTERNAL_BOOST_DEN 2
+ 
+ static u16 *stereodata16;
+ static u32 soundoffset;
+@@ -193,21 +195,24 @@ static void sdlConvert32uto16s(s32 *srcL
+ 
+    for (i = 0; i < len; i++)
+    {
+-      // Left Channel
+-      *srcL = ( *srcL *soundvolume ) /SDL_MIX_MAXVOLUME;
+-      if (*srcL > 0x7FFF) *dst = 0x7FFF;
+-      else if (*srcL < -0x8000) *dst = -0x8000;
+-      else *dst = *srcL;
+-      srcL++;
+-      dst++;
+-      // Right Channel
+-	  *srcR = ( *srcR *soundvolume ) /SDL_MIX_MAXVOLUME;
+-      if (*srcR > 0x7FFF) *dst = 0x7FFF;
+-      else if (*srcR < -0x8000) *dst = -0x8000;
+-      else *dst = *srcR;
+-      srcR++;
+-      dst++;
+-   } 
++     // Left Channel
++     s64 l = ((s64)*srcL * soundvolume) / SDL_MIX_MAXVOLUME;
++     l = (l * INTERNAL_BOOST_NUM) / INTERNAL_BOOST_DEN;
++     if (l >  0x7FFF) *dst =  0x7FFF;
++     else if (l < -0x8000) *dst = -0x8000;
++     else *dst = (s16)l;
++     srcL++;
++     dst++;
++
++     // Right Channel
++     s64 r = ((s64)*srcR * soundvolume) / SDL_MIX_MAXVOLUME;
++     r = (r * INTERNAL_BOOST_NUM) / INTERNAL_BOOST_DEN;
++     if (r >  0x7FFF) *dst =  0x7FFF;
++     else if (r < -0x8000) *dst = -0x8000;
++     else *dst = (s16)r;
++     srcR++;
++     dst++;
++   }
+ }
+ 
+ static void SNDSDLUpdateAudio(u32 *leftchanbuffer, u32 *rightchanbuffer, u32 num_samples)

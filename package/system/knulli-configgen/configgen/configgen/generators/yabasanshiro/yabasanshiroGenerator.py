@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Dict, Any
 
 from ... import Command
-from ...batoceraPaths import BIOS, HOME, SAVES, ensure_parents_and_open
+from ...batoceraPaths import BIOS, HOME, SAVES, ES_SETTINGS, ensure_parents_and_open
 from ...controller import generate_sdl_game_controller_config
 from ..Generator import Generator
 
@@ -16,7 +17,10 @@ if TYPE_CHECKING:
 
 eslog = logging.getLogger(__name__)
 
-YABA_KEYMAP: Final = HOME / ".yabasanshiro" / "keymapv2.json"
+ES_INPUT_SRC: Final = Path("/usr/share/emulationstation/es_input.cfg")
+YABA_ROOT: Final = HOME / ".yabasanshiro"
+YABA_ES_INPUT: Final = YABA_ROOT / "es_temporaryinput.cfg"
+YABA_KEYMAP:   Final = YABA_ROOT / "keymapv2.json"
 YABA_SAVES: Final = SAVES / "saturn" / "yabasanshiro-sa"
 YABA_BIOS: Final = BIOS / "saturn_bios.bin"
 
@@ -34,10 +38,14 @@ ES_TO_YABA = {
     "r2": "r",
     "start": "start",
     "select": "select",
-    "up": "up", "down": "down", "left": "left", "right": "right",
+    "up": "up",
+    "down": "down",
+    "left": "left",
+    "right": "right",
     "joystick1left": "analogx",
     "joystick1up": "analogy",
 }
+
 
 # Temp fix for rk3566
 def ensure_libmali_symlink() -> bool:
@@ -97,6 +105,70 @@ def ensure_libmali_symlink() -> bool:
 
     return _target_exists(link)
 
+def generateESInput(playersControllers: "ControllerMapping", swap_ab: bool = False) -> bool:
+    c = playersControllers.get(1)
+    if c is None:
+        eslog.warning("yaba-es-input: no P1 controller; not writing %s", YABA_ES_INPUT)
+        return False
+
+    guid = (c.guid or "").strip()
+    name = (c.name or "").strip() or "Unknown Controller"
+
+    out_root = ET.Element("inputList")
+    out_ic = ET.SubElement(out_root, "inputConfig", attrib={
+        "type": "joystick",
+        "deviceName": name,
+        "deviceGUID": guid,
+    })
+
+    by_name = {inp.name: inp for inp in c.inputs.values() if inp.name is not None}
+
+    def emit(nm: str, inp_obj) -> None:
+        attrib = {
+            "name": nm,
+            "type": str(inp_obj.type),
+            "id": str(inp_obj.id),
+            "value": str(inp_obj.value),
+        }
+        code = getattr(inp_obj, "code", None)
+        if code is not None:
+            attrib["code"] = str(code)
+        ET.SubElement(out_ic, "input", attrib=attrib)
+
+    try:
+        # DPAD
+        emit("up", by_name["up"])
+        emit("down", by_name["down"])
+        emit("left", by_name["left"])
+        emit("right", by_name["right"])
+
+        # A/B mapping for menu
+        a_obj = by_name["a"]
+        b_obj = by_name["b"]
+        if not swap_ab:
+            emit("a", b_obj)
+            emit("b", a_obj)
+        else:
+            emit("a", a_obj)
+            emit("b", b_obj)
+
+        # select = hotkey
+        emit("select", by_name["hotkey"])
+
+        xml_bytes = ET.tostring(out_root, encoding="utf-8", xml_declaration=True)
+        with ensure_parents_and_open(YABA_ES_INPUT, "wb") as f:
+            f.write(xml_bytes)
+
+        return True
+
+    except KeyError as e:
+        # If something is unexpectedly missing, log once and fail.
+        eslog.warning("yaba-es-input: missing required input %s; not writing %s", e, YABA_ES_INPUT)
+        return False
+    except Exception as e:
+        eslog.warning("yaba-es-input: failed to write %s: %s", YABA_ES_INPUT, e)
+        return False
+
 def generateYabaKeymap(playersControllers: ControllerMapping):
     store = {}
 
@@ -155,6 +227,44 @@ def generateYabaKeymap(playersControllers: ControllerMapping):
         json.dump(store, f, indent=2, ensure_ascii=False)
     return YABA_KEYMAP
 
+def generateConfig(system, rom: str) -> Path:
+    rom_path = Path(rom)
+    cfg_path = YABA_ROOT / (rom_path.name + ".config")
+
+    cfg: dict[str, object] = {}
+
+    if system.isOptSet('yaba_res'):
+        cfg["Resolution"] = int(system.config.get('yaba_res'))
+    else:
+        cfg["Resolution"] = 3
+
+    if system.isOptSet('yaba_ratio'):
+        cfg["Aspect rate"] = int(system.config.get('yaba_res'))
+    else:
+        cfg["Aspect rate"] = 1
+
+
+    if system.isOptSet('yaba_rotate') and system.config['yaba_rotate'] == '1':
+        cfg["Rotate screen"] = True
+    else:
+        cfg["Rotate screen"] = False
+
+    if system.isOptSet('yaba_rotate_res'):
+        cfg["Rotate screen resolution"] = int(system.config.get('yaba_rotate_res'))
+    else:
+        cfg["Rotate screen resolution"] = 0
+
+
+    if system.isOptSet('yaba_compute_shader') and system.config['yaba_compute_shader'] == '1':
+        cfg["Use compute shader"] = True
+    else:
+        cfg["Use compute shader"] = False
+
+    with ensure_parents_and_open(cfg_path, "w") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+    return cfg_path
+
 class YabasanshiroGenerator(Generator):
 
     def supportsExternalBezels(self) -> bool:
@@ -165,6 +275,18 @@ class YabasanshiroGenerator(Generator):
             "name": "yabasanshiro",
             "keys": { "exit": ["KEY_LEFTALT", "KEY_F4"] }
         }
+    # Return value for es invertedbuttons
+    def getInvertButtonsValue(self) -> bool:
+        try:
+            tree = ET.parse(ES_SETTINGS)
+            root = tree.getroot()
+            # Find the InvertButtons element and return value
+            elem = root.find(".//bool[@name='InvertButtons']")
+            if elem is not None:
+                return elem.get('value') == 'true'
+            return False  # Return False if not found
+        except:
+            return False # when file is not yet here or malformed
 
     def generate(self, system, rom, playersControllers, metadata, guns, wheels, gameResolution):
         # temp fix for rk3566
@@ -172,9 +294,11 @@ class YabasanshiroGenerator(Generator):
 
         YABA_SAVES.mkdir(parents=True, exist_ok=True)
 
+        generateESInput(playersControllers, swap_ab=self.getInvertButtonsValue())
         generateYabaKeymap(playersControllers)
+        generateConfig(system, rom)
 
-        commandArray = ["yabasanshiro", "-r", "3", "-a", "-i", rom]
+        commandArray = ["yabasanshiro", "-i", rom]
 
         if not (system.isOptSet('yaba_bios_hle') and system.config['yaba_bios_hle'] == '1'):
             if YABA_BIOS.exists():

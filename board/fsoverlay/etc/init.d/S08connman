@@ -5,6 +5,9 @@ KNULLICONF="/userdata/system/knulli.conf"
 DEFAULTCONF="/usr/share/knulli/datainit/system/knulli.conf"
 BOOTCONF="/boot/knulli-boot.conf"
 
+# This is needed in case an overlay is saved which results in udev rule accumulating wlan entries
+rm -f /etc/udev/rules.d/70-persistent-net.rules 2>/dev/null
+
 # if /userdata is not yet available
 if ! [ -f "$KNULLICONF" ]; then
     # use the boot version of the file
@@ -112,57 +115,34 @@ wifi_configure_all() {
     done
 }
 
-wifi_powered() {
-    connmanctl technologies 2>/dev/null | awk '
-        $0 ~ /Type = wifi/ {inwifi=1; next}
-        infwifi && $0 ~ /Type = / {inwifi=0}
-        infwifi && $0 ~ /Powered = True/ {ok=1}
-        END { exit(ok ? 0 : 1) }
-    '
+connman_ready() {
+    connmanctl state 2>/dev/null | grep -qE '^[[:space:]]*State[[:space:]]*='
 }
 
-do_ping() {
-    if ping -q -c1 -W1 8.8.8.8 >/dev/null 2>&1; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-wifi_check_connected() {
-    # Loop over all managed wifi interfaces (excluding p2p)
-    for iface in $(iw dev 2>/dev/null | awk '
-        /Interface/ {iface=$2}
-        /type managed/ {
-            if (iface !~ /^p2p/) print iface
-        }
-    '); do
-        if iw dev "$iface" link 2>/dev/null | grep -q "Connected to"; then
-            do_ping && return 0
-            return 1
-        fi
+wait_wifi_iface() {
+    for i in $(seq 1 40); do
+        iw dev 2>/dev/null | awk '/Interface/ {print $2; exit}' | grep -q . && return 0
+        sleep 0.1
     done
-
-    # no connection if we got to this point
     return 1
 }
 
-wifi_retry() {
-    timeout=10
-    while [ $timeout -gt 0 ]; do
-        # Any managed wifi interface connected yet?
-        if wifi_check_connected; then
-            return 0
-        fi
-
-        sleep 1
-        timeout=$((timeout - 1))
+wait_connman_ready() {
+    for i in $(seq 1 80); do
+        connman_ready && return 0
+        sleep 0.1
     done
+    echo "ERROR: connmanctl never became ready..." >&2
+    return 1
+}
 
-    printf "wifi failed to connect on first try... Retrying...\n" >&2
-    wifi_disable
-    sleep 0.5
-    wifi_enable
+wifi_powered() {
+    connmanctl technologies 2>/dev/null | awk '
+        $0 ~ /Type = wifi/ {inwifi=1; next}
+        inwifi && $0 ~ /Type = / {inwifi=0}
+        inwifi && $0 ~ /Powered = True/ {ok=1}
+        END { exit(ok ? 0 : 1) }
+    '
 }
 
 wifi_enable() {
@@ -170,6 +150,8 @@ wifi_enable() {
     [ -n "$settingsCountry" ] && /usr/sbin/iw reg set "$settingsCountry"
 
     connmanctl enable wifi 2>/dev/null
+
+    wait_wifi_iface >/dev/null 2>&1 || true
 
     # Wait briefly for wifi to be enabled (1s)
     for i in 1 2 3 4; do
@@ -190,16 +172,10 @@ do_start() {
     printf "Starting connman: "
     start-stop-daemon -S -q -m -b -p /var/run/connmand.pid --exec /usr/sbin/connmand -- -n -r 2>/dev/null
 
-    for i in $(seq 1 20); do
-        if connmanctl state 2>/dev/null | grep -qE '^[ ]*State[ ]='; then
-            break
-        fi
-        sleep 0.25
-    done
+    wait_connman_ready >/dev/null 2>&1 || true
 
     if [ "$settingsWlan" = "1" ]; then
         wifi_enable
-        wifi_retry
     else
         wifi_disable
     fi

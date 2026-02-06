@@ -3,6 +3,9 @@
 #knulli-screenshot 20241105 by dopaz for Knulli
 #20241115 change default filename (include resolution)
 
+# Make sure the screenshots directory exists
+mkdir -p /userdata/screenshots
+
 #get the width
 FB_WIDTH=$(fbset | grep "geometry" | awk '{print $2}')
 

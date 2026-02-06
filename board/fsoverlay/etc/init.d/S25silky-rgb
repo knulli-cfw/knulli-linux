@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# We only want to run the script if the board has RGB capability
+if ! knulli-board-capability "rgb"; then
+    exit 1
+fi
+
+DAEMON="/usr/bin/knulli-rgb"
+PIDFILE="/var/run/knulli-rgb.pid"
+DAEMON_NAME=$(basename "$DAEMON")
+DAEMON_ENABLED_KEY="led.enabled"
+
+is_running() {
+    [ -f "$PIDFILE" ] && start-stop-daemon --status --pidfile "$PIDFILE" >/dev/null 2>&1
+}
+
+curl_kill() {
+    curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:1235/kill" >/dev/null 2>&1
+}
+
+post_battery_sync() {
+    local TIMEOUT=30
+    local COUNT=0
+    local BATTERY_STATE BATTERY_PERCENTAGE
+
+    BATTERY_STATE="$(/usr/bin/knulli-battery-check status 2>/dev/null || true)"
+    BATTERY_PERCENTAGE="$(/usr/bin/knulli-battery-check capacity 2>/dev/null || true)"
+
+    # Error cases: No state/percentage given.
+    [ -n "$BATTERY_STATE" ] && [ -n "$BATTERY_PERCENTAGE" ] || return 61
+
+    while [ "$COUNT" -lt "$TIMEOUT" ]; do
+      # Stop retrying if daemon died
+      is_running || return 63
+
+      if curl -fsS --connect-timeout 1 --max-time 2 \
+          -X POST -d "${BATTERY_PERCENTAGE} ${BATTERY_STATE}" \
+          "http://127.0.0.1:1235/update-battery-state" >/dev/null 2>&1; then
+        return 0
+      fi
+
+      sleep 1
+      COUNT=$((COUNT + 1))
+    done
+
+    return 62
+}
+
+
+start_daemon() {
+    echo "Starting $DAEMON_NAME."
+    if is_running; then
+        echo "$DAEMON_NAME is already running."
+        return 0
+    fi
+
+    DAEMON_ENABLED=$(/usr/bin/knulli-settings-get $DAEMON_ENABLED_KEY)
+
+    if [ ! -z "$DAEMON_ENABLED" ] && [ "$DAEMON_ENABLED" == "0" ]; then
+        echo "$DAEMON_NAME is disabled."
+        return 0
+    fi
+
+    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PIDFILE" --exec "$DAEMON" \
+        && echo "$DAEMON_NAME started OK" || { echo "$DAEMON_NAME failed to start"; exit 1; }
+
+    # sync battery status
+    post_battery_sync
+}
+
+stop_daemon() {
+    echo "Stopping $DAEMON_NAME."
+
+    if ! is_running; then
+        echo "$DAEMON_NAME is not running."
+        rm -f "$PIDFILE"
+        return 0
+    fi
+
+    curl_kill || true
+
+    for _ in 1 2 3 4; do
+        is_running || break
+        sleep 0.5
+    done
+
+    if is_running; then
+        start-stop-daemon --stop --quiet --pidfile "$PIDFILE" || true
+        echo "$DAEMON_NAME force-stopped"
+    else
+        echo "$DAEMON_NAME stopped"
+    fi
+
+    rm -f "$PIDFILE"
+}
+
+# Sanity check
+[ -e "$DAEMON" ] || exit 0
+
+case "$1" in
+    start)
+        start_daemon
+        ;;
+    stop)
+        stop_daemon
+        ;;
+    restart)
+        stop_daemon
+        sleep 0.5
+        start_daemon
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

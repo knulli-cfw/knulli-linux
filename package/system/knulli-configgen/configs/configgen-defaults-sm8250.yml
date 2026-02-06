@@ -17,8 +17,8 @@ nds:
   emulator: libretro
   core:     melonds
 ps2:
-  emulator: libretro
-  core:     play
+  emulator: aethersx2
+  core:     aethersx2
 plugnplay:
   emulator: mame
   core:     mame

@@ -134,6 +134,11 @@ case "${ACTION}" in
                             amixer -c 0 sset 'Resume Path' 'ON'
                             LANG=C pactl set-default-sink "${MODE}" || exit 1
                             ;;
+                        "sm8250")
+                            # boost max volume a bit
+                            amixer -c 0 sset 'WSA_RX0 Digital' 112
+                            amixer -c 0 sset 'WSA_RX1 Digital' 112
+                            ;;
                         *)
                             # do nothing!
                             ;;

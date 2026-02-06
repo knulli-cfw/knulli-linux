@@ -1,6 +1,7 @@
 #!/bin/sh
 
-for D in /var/run/emulationstation/scripts/achievements /userdata/system/configs/emulationstation/scripts/achievements
+for D in /var/run/emulationstation/scripts/achievements /userdata/system/configs/emulationstation/scripts/achievements /usr/share/emulationstation/scripts/achievements
+
 do
     find -L "${D}" -type f | while read X
     do

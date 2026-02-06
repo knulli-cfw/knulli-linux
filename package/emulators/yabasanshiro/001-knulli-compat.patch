@@ -1,0 +1,490 @@
+diff --git a/yabause/CMake/Packages/external_libchdr.cmake b/yabause/CMake/Packages/external_libchdr.cmake
+index f6a8db60..2b486d8f 100644
+--- a/yabause/CMake/Packages/external_libchdr.cmake
++++ b/yabause/CMake/Packages/external_libchdr.cmake
+@@ -36,6 +36,11 @@ ExternalProject_Add(
+               -DCMAKE_BUILD_TYPE:STRING=Release 
+               -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
++              -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
++              -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
++              -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
++              -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
++              -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+               ${ADDITIONAL_CMAKE_ARGS}
+ )
+ 
+diff --git a/yabause/src/CMakeLists.txt b/yabause/src/CMakeLists.txt
+index 3cbafb74..2e44c6ed 100644
+--- a/yabause/src/CMakeLists.txt
++++ b/yabause/src/CMakeLists.txt
+@@ -87,10 +87,10 @@ if (ANDROID)
+ endif()
+ 
+ 
+-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Switch")
++if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Switch" OR (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)" AND USE_EGL))
+ add_definitions(-DYAB_PORT_OSD)
+ add_definitions(-D_OGLES3_)
+-#add_definitions(-DYAB_ASYNC_RENDERING)
++add_definitions(-DYAB_ASYNC_RENDERING)
+ add_definitions(-DYAB_PORT_OSD)
+ include_directories(./ ./nanovg)		
+ set(yabause_SOURCES
+@@ -153,7 +153,7 @@ endif()
+ 
+ #-------------------------------------------------------
+ 
+-option(YAB_WANT_DYNAREC_DEVMIYAX "Enable Sh2 denyarec by devMiyax" OFF)
++option(YAB_WANT_DYNAREC_DEVMIYAX "Enable Sh2 denyarec by devMiyax" ON)
+ if (YAB_WANT_DYNAREC_DEVMIYAX)
+ 	add_definitions(-DDYNAREC_DEVMIYAX=1)
+ 	
+@@ -891,7 +891,7 @@ if (YAB_OPTIMIZED_DMA)
+ endif()
+ 
+ # SH2 Trace
+-option(SH2_TRACE "Enable SH2 tracing" ON)
++option(SH2_TRACE "Enable SH2 tracing" OFF)
+ if (SH2_TRACE)
+ 	add_definitions(-DSH2_TRACE=1)
+ endif()
+@@ -1023,7 +1023,7 @@ else()
+ 	add_library(yabause ${yabause_SOURCES} ${yabause_HEADERS})
+ endif()
+ 
+-assign_source_group(${yabause_SOURCES})
++#assign_source_group(${yabause_SOURCES})
+ 
+ #----------------------------------------------------------------------
+ # Library for vulkan plugin
+@@ -1037,7 +1037,7 @@ endif(YAB_WANT_VULKAN)
+ #-----------------------------------------------------------------------
+ # libCHD
+ include( ${CMAKE_SOURCE_DIR}/CMake/Packages/external_libchdr.cmake )
+-include( ${CMAKE_SOURCE_DIR}/CMake/Packages/external_zlib.cmake )
++#include( ${CMAKE_SOURCE_DIR}/CMake/Packages/external_zlib.cmake )
+ #include_directories(${zlib_INCLUDE_DIR})
+ add_dependencies(yabause libchdr)
+ #add_dependencies(yabause zlib)
+diff --git a/yabause/src/retro_arena/CMakeLists.txt b/yabause/src/retro_arena/CMakeLists.txt
+index 682f59f0..2b5f1532 100644
+--- a/yabause/src/retro_arena/CMakeLists.txt
++++ b/yabause/src/retro_arena/CMakeLists.txt
+@@ -1,6 +1,7 @@
+ project(yabause-retro-arena)
+ 
+ add_definitions( -D__RETORO_ARENA__ )
++add_definitions(-DYAB_ASYNC_RENDERING)
+ 
+ yab_port_start()
+ 
+@@ -20,14 +21,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+ 
+ add_subdirectory(pugixml)
+ add_subdirectory(nanogui-sdl)
+-
+-#include( ../glfw/external_zlib.cmake )
+-include( ${CMAKE_SOURCE_DIR}/CMake/Packages/external_libpng.cmake )
++find_package(PNG REQUIRED)
++find_package(ZLIB REQUIRED)
+ 
+ #------------------------------------------------------------------------------
+ # nlohmann/json
+ #  * sets EXTERNAL_JSON_INCLUDE_DIR 
+ 
++if(FALSE) # Disable external JSON download
+ ExternalProject_Add(
+      Json
+      PREFIX ${CMAKE_CURRENT_BINARY_DIR}/Json
+@@ -36,10 +37,14 @@ ExternalProject_Add(
+      CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_DIR "" INSTALL_COMMAND ""
+      )
+ # set include directory
++endif() # Disable external JSON download
+ set(EXTERNAL_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Json/src/Json/single_include")
+ 
+-set(PORT_INCLUDE_DIRS ${EXTERNAL_JSON_INCLUDE_DIR} ${SDL2_INCLUDE_DIR} ${png_INCLUDE_DIR} ${zlib_INCLUDE_DIR} )
+-set(PORT_LIBRARIES ${SDL2_LIBRARY} ${OPENGLES2_LIBRARIES} ${png_STATIC_LIBRARIES} ${zlib_STATIC_LIBRARIES} )
++set(PORT_INCLUDE_DIRS ${EXTERNAL_JSON_INCLUDE_DIR} ${SDL2_INCLUDE_DIR} ${PNG_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR} )
++set(PORT_LIBRARIES ${SDL2_LIBRARY} ${OPENGLES2_LIBRARIES} ${PNG_LIBRARIES} ${ZLIB_LIBRARIES} )
++# Add OpenGL ES include directories for Mali GPU
++include_directories("${CMAKE_SYSROOT}/usr/include/GLES3")
++include_directories("${CMAKE_SYSROOT}/usr/include/EGL")
+ 
+ message("Nlohmann/json dir =" ${EXTERNAL_JSON_INCLUDE_DIR})
+ 
+@@ -61,8 +66,9 @@ include_directories( ${PORT_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} "nanogui-sdl/incl
+ add_executable(yabause-retro-arena ${yabause_ra_SOURCES})
+ target_link_libraries(yabause-retro-arena yabause  ${Boost_LIBRARIES} pugixml ${YABAUSE_LIBRARIES} ${PORT_LIBRARIES} nanogui stdc++fs  ${LIBCHDR_LIBRARIES} )
+ target_link_libraries( yabause-retro-arena ${LIBCHDR_LIBRARIES} )
+-target_link_libraries( yabause-retro-arena ${zlib_STATIC_LIBRARIES} )
+-add_dependencies(yabause-retro-arena Json png zlib libchd )
++target_link_libraries( yabause-retro-arena ${ZLIB_LIBRARIES} )
++target_link_libraries( yabause-retro-arena mali )
++#add_dependencies(yabause-retro-arena Json png zlib libchd )
+ yab_port_success(yabause-retro-arena)
+ set_target_properties(yabause-retro-arena PROPERTIES OUTPUT_NAME yabasanshiro)
+ 
+diff --git a/yabause/src/retro_arena/main.cpp b/yabause/src/retro_arena/main.cpp
+index 3b3b581c..901710ef 100644
+--- a/yabause/src/retro_arena/main.cpp
++++ b/yabause/src/retro_arena/main.cpp
+@@ -189,12 +189,14 @@ void YuiSwapBuffers(void)
+ 
+ int YuiRevokeOGLOnThisThread(){
+   LOG("revoke thread\n");
++  fflush(stdout);
+   SDL_GL_MakeCurrent(wnd,nullptr);
+   return 0;
+ }
+ 
+ int YuiUseOGLOnThisThread(){
+   LOG("use thread\n");
++  fflush(stdout);
+   SDL_GL_MakeCurrent(wnd,glc);
+   return 0;
+ }
+@@ -444,7 +446,7 @@ int main(int argc, char** argv)
+   VIDCore->Resize(0,0,width,height,1,p->getInt("Aspect rate",0));
+   delete p;
+   
+-  SDL_GL_MakeCurrent(wnd,nullptr);
++  SDL_GL_MakeCurrent(wnd,glc);
+ #if defined(__RP64__) || defined(__N2__)
+   YabThreadSetCurrentThreadAffinityMask(0x4);
+ #else
+diff --git a/yabause/src/retro_arena/n2.cmake b/yabause/src/retro_arena/n2.cmake
+index 74d541b3..b0253fb3 100644
+--- a/yabause/src/retro_arena/n2.cmake
++++ b/yabause/src/retro_arena/n2.cmake
+@@ -1,7 +1,20 @@
+ set(CMAKE_SYSTEM_NAME Linux)
+ set(CMAKE_SYSTEM_PROCESSOR aarch64)
+-set (USE_EGL True)
++set(USE_EGL True)
+ 
+-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_POSIX_C_SOURCE=199309L" )
+-add_definitions( -D__N2__ )
+-add_definitions( -D__RETORO_ARENA__ )
++# Buildroot toolchain paths
++set(CMAKE_C_COMPILER /h700/host/bin/aarch64-buildroot-linux-gnu-gcc)
++set(CMAKE_CXX_COMPILER /h700/host/bin/aarch64-buildroot-linux-gnu-g++)
++set(CMAKE_SYSROOT /h700/host/aarch64-buildroot-linux-gnu/sysroot)
++set(CMAKE_FIND_ROOT_PATH /h700/host/aarch64-buildroot-linux-gnu/sysroot)
++
++set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++
++# Performance optimization flags for RK3588
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_POSIX_C_SOURCE=199309L -march=armv8-a+crc+simd -mtune=cortex-a76 -ffast-math")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crc+simd -mtune=cortex-a76 -ffast-math")
++
++add_definitions(-D__N2__)
++add_definitions(-D__RETORO_ARENA__)
+diff --git a/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt b/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
+index 33b8e251..82944ffb 100644
+--- a/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
++++ b/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
+@@ -117,7 +117,14 @@ endif()
+ include_directories(ext ext/eigen include ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+ 
+ # Run simple C converter to put font files into the data segment
+-add_executable(bin2c resources/bin2c.c)
++# When cross-compiling, use pre-built host bin2c
++if(CMAKE_CROSSCOMPILING)
++  set(BIN2C_EXECUTABLE ${CMAKE_BINARY_DIR}/bin2c_host)
++else()
++  add_executable(bin2c resources/bin2c.c)
++  set(BIN2C_EXECUTABLE ./bin2c)
++endif()
++
+ set(bin2c_cmdline nanogui_resources.cpp nanogui_resources.h)
+ file(GLOB resources "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.ttf")
+ foreach(file ${resources})
+@@ -127,11 +134,12 @@ endforeach()
+ # Run bin2c on resource files
+ add_custom_command(
+   OUTPUT nanogui_resources.cpp nanogui_resources.h
+-  COMMAND ./bin2c ARGS ${bin2c_cmdline}
+-  DEPENDS bin2c ${resources}
++  COMMAND ${BIN2C_EXECUTABLE} ARGS ${bin2c_cmdline}
++  DEPENDS ${resources}
+   COMMENT "Running bin2c"
+   PRE_BUILD VERBATIM)
+ 
++
+ # Needed to generated files
+ include_directories(${CMAKE_CURRENT_BINARY_DIR})
+ 
+diff --git a/yabause/src/vidogl.c b/yabause/src/vidogl.c
+index be699718..fe21ae4e 100644
+--- a/yabause/src/vidogl.c
++++ b/yabause/src/vidogl.c
+@@ -41,7 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ /*! \file vidogl.c
+     \brief OpenGL video renderer
+ */
+-#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX)
++#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX) || defined(_OGLES3_)
+ 
+ #include <math.h>
+ #define EPSILON (1e-10 )
+diff --git a/yabause/src/vidogl.h b/yabause/src/vidogl.h
+index c8baf433..8ada3ee3 100644
+--- a/yabause/src/vidogl.h
++++ b/yabause/src/vidogl.h
+@@ -43,7 +43,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ extern "C" {
+ #endif
+ 
+-#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX)
++#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX) || defined(_OGLES3_)
+ 
+ #include "vdp1.h"
+ 
+diff --git a/yabause/src/ygl.h b/yabause/src/ygl.h
+index ea5c89b6..f5a91e21 100644
+--- a/yabause/src/ygl.h
++++ b/yabause/src/ygl.h
+@@ -43,7 +43,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+ extern "C" {
+ #endif
+ 
+-#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX)
++#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX) || defined(_OGLES3_)
+ 
+ #if defined(__LIBRETRO__) && !defined(_USEGLEW_)
+     #include <glsym/glsym.h>
+@@ -884,7 +884,7 @@ void YglRebuildGramebuffer();
+ 
+ #endif // YGL_H
+ 
+-#endif // defined(HAVE_LIBGL) || defined(__ANDROID__)
++#endif // defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(_OGLES3_)
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/yabause/src/ygles.c b/yabause/src/ygles.c
+index a3622522..d5804e84 100644
+--- a/yabause/src/ygles.c
++++ b/yabause/src/ygles.c
+@@ -522,7 +522,7 @@ YglTextureManager *YglTMInit(unsigned int w, unsigned int h)
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to init YglTM->textureID %04X", error);
+-      abort();
++      return;
+     }
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+@@ -535,7 +535,7 @@ YglTextureManager *YglTMInit(unsigned int w, unsigned int h)
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to init YglTM->texture %04X", error);
+-      abort();
++      return;
+     }
+   }
+   tm->texture = tm->texture_in[tm->current];
+@@ -623,7 +623,7 @@ void YglTmPull(YglTextureManager *tm, u32 flg)
+     }
+     if (tm->texture_in[tm->current] == NULL)
+     {
+-      abort();
++      return;
+     }
+     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+     /*
+@@ -674,7 +674,7 @@ void YglTMRealloc(YglTextureManager *tm, unsigned int width, unsigned int height
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to init new_textureID %d, %04X(%d,%d)\n", new_textureID, error, width, height);
+-      abort();
++      return;
+     }
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+@@ -695,7 +695,7 @@ void YglTMRealloc(YglTextureManager *tm, unsigned int width, unsigned int height
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to init new_texture %04X", error);
+-      abort();
++      return;
+     }
+   }
+ 
+@@ -710,7 +710,7 @@ void YglTMRealloc(YglTextureManager *tm, unsigned int width, unsigned int height
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to init new_texture %04X", error);
+-      abort();
++      return;
+     }
+ 
+     // Free textures
+@@ -1022,7 +1022,7 @@ void YglDrawCpuFramebufferWrite(int target)
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail on YglDrawCpuFramebufferWrite at %d %04X %d %d", __LINE__, error, _Ygl->rwidth, _Ygl->rheight);
+-      abort();
++      return;
+     }
+   }
+   if (_Ygl->smallfbotex != 0)
+@@ -1106,7 +1106,7 @@ void VIDOGLVdp1ReadFrameBuffer(u32 type, u32 addr, void *out)
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail on VIDOGLVdp1ReadFrameBuffer at %d %04X %d %d", __LINE__, error, _Ygl->rwidth, _Ygl->rheight);
+-      abort();
++      return;
+     }
+     YGLDEBUG("glTexImage2D %d\n", _Ygl->smallfbotex);
+     glGenFramebuffers(1, &_Ygl->smallfbo);
+@@ -1117,7 +1117,7 @@ void VIDOGLVdp1ReadFrameBuffer(u32 type, u32 addr, void *out)
+     if (status != GL_FRAMEBUFFER_COMPLETE)
+     {
+       YGLLOG("YglRenderVDP1: Framebuffer status = %08X\n", status);
+-      abort();
++      return;
+     }
+     else
+     {
+@@ -1128,13 +1128,13 @@ void VIDOGLVdp1ReadFrameBuffer(u32 type, u32 addr, void *out)
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail on VIDOGLVdp1ReadFrameBuffer at %d %04X", __LINE__, error);
+-      abort();
++      return;
+     }
+     YGLDEBUG("glGenBuffers %d\n", _Ygl->vdp1pixelBufferID);
+     if (_Ygl->vdp1pixelBufferID == 0)
+     {
+       YGLLOG("Fail to glGenBuffers %X", glGetError());
+-      abort();
++      return;
+     }
+     glBindBuffer(GL_PIXEL_PACK_BUFFER, _Ygl->vdp1pixelBufferID);
+     glBufferData(GL_PIXEL_PACK_BUFFER, _Ygl->rwidth * _Ygl->rheight * 4, NULL, GL_STATIC_READ);
+@@ -1280,6 +1280,14 @@ int YglGenFrameBuffer()
+   {
+     return 0;
+   }
++
++  // When context is rebound, all GL object IDs are invalidated
++  // Force full recreation by clearing all cached IDs
++  _Ygl->vdp1FrameBuff[0] = 0;
++  _Ygl->vdp1FrameBuff[1] = 0;
++  _Ygl->rboid_depth = 0;
++  _Ygl->rboid_stencil = 0;
++  _Ygl->vdp1fbo = 0;
+   glBindFramebuffer(GL_FRAMEBUFFER, _Ygl->default_fbo);
+   glFinish();
+   glGetError();
+@@ -1293,14 +1301,14 @@ int YglGenFrameBuffer()
+   if ((error = glGetError()) != GL_NO_ERROR)
+   {
+     YGLDEBUG("Fail to YglGLInit at %d %04X %d %d", __LINE__, error, GlWidth, GlHeight);
+-    abort();
++    return -1;
+   }
+ 
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _Ygl->width, _Ygl->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+   if ((error = glGetError()) != GL_NO_ERROR)
+   {
+     YGLDEBUG("Fail to YglGLInit at %d %04X %d %d", __LINE__, error, GlWidth, GlHeight);
+-    abort();
++    return -1;
+   }
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+@@ -1312,7 +1320,7 @@ int YglGenFrameBuffer()
+   if ((error = glGetError()) != GL_NO_ERROR)
+   {
+     YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-    abort();
++    return -1;
+   }
+ 
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+@@ -1333,7 +1341,7 @@ int YglGenFrameBuffer()
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-      abort();
++      return -1;
+     }
+   }
+   else
+@@ -1352,7 +1360,7 @@ int YglGenFrameBuffer()
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-      abort();
++      return -1;
+     }
+   }
+ 
+@@ -1371,7 +1379,7 @@ int YglGenFrameBuffer()
+              status, _Ygl->width, _Ygl->height,
+              _Ygl->vdp1fbo, _Ygl->vdp1FrameBuff[0],
+              _Ygl->rboid_depth, _Ygl->rboid_stencil);
+-    abort();
++    return -1;
+   }
+   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+@@ -1386,7 +1394,7 @@ int YglGenFrameBuffer()
+   if (status != GL_FRAMEBUFFER_COMPLETE)
+   {
+     YGLDEBUG("YglGLInit:Framebuffer status = %08X\n", status);
+-    abort();
++    return -1;
+   }
+ 
+   if (YglIsNeedFrameBuffer() == 1)
+@@ -1477,14 +1485,14 @@ int YglGenerateAABuffer()
+   if ((error = glGetError()) != GL_NO_ERROR)
+   {
+     YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-    abort();
++    return;
+   }
+ 
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+   if ((error = glGetError()) != GL_NO_ERROR)
+   {
+     YGLDEBUG("Fail to YglGLInit at %d %04X %d %d", __LINE__, error, width, height);
+-    abort();
++    return;
+   }
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+@@ -1502,7 +1510,7 @@ int YglGenerateAABuffer()
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-      abort();
++      return;
+     }
+   }
+   else
+@@ -1521,7 +1529,7 @@ int YglGenerateAABuffer()
+     if ((error = glGetError()) != GL_NO_ERROR)
+     {
+       YGLDEBUG("Fail to YglGLInit at %d %04X", __LINE__, error);
+-      abort();
++      return;
+     }
+   }
+ 
+@@ -1539,7 +1547,7 @@ int YglGenerateAABuffer()
+   if (status != GL_FRAMEBUFFER_COMPLETE)
+   {
+     YGLDEBUG("YglGLInit:Framebuffer status = %08X\n", status);
+-    abort();
++    return;
+   }
+   return 0;
+ }

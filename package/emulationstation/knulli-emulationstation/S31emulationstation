@@ -41,16 +41,9 @@ case "$1" in
 		fi
 
 		# Kill ES after 20 seconds if still active
-		timeout=80
-		while pidof emulationstation > /dev/null; do
-			sleep 0.25
-			timeout=$((timeout - 1))
-			if [ "$timeout" -le 0 ]; then
-				echo "EmulationStation did not stop, force killing..."
-				pkill -9 -f emulationstation
-				break
-			fi
-		done
+		if pidof emulationstation >/dev/null; then
+			timeout -k 5 20 tail -q --pid=$(pidof emulationstation) -f /dev/null
+		fi
 		;;
 
 	suspend)
