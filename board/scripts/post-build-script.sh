@@ -60,6 +60,8 @@ rm -f "${TARGET_DIR}/etc/init.d/S28splash" || exit 1
 
 rm -f "${TARGET_DIR}/etc/init.d/S47fake-hwclock" || exit 1
 
+rm -f "${TARGET_DIR}/etc/init.d/S50dropbear" || exit 1
+
 # Remove base batocera udev rules we don't need
 rm -f "${TARGET_DIR}/etc/udev/rules.d/99-wol.rules" || exit 1
 

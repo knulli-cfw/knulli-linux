@@ -75,9 +75,9 @@ shared:
       choices:
         "On":  1
         "Off": 0
-    srm_dump_ingame_disabled:
-      prompt: DISABLE SRM DUMPS WHILE IN GAME
-      description: If your game allows in-game saving, the corresponding SRM file is updated within 10 seconds after you saved. Disabling might increase performance, however, your SRM will only be dumped when you exit the game.
+    srm_dump_ingame:
+      prompt: DUMP SRM SAVES WHILE IN GAME
+      description: Dumps your ingame saves every 10 seconds while in game. Might wear out your SD card faster if enabled. Works only on libretro cores.
       preset: switchauto
     shaderset:
       prompt: SHADER SET
@@ -556,7 +556,7 @@ global:
   shared: [powermode, batterymode, tdp, videomode, ratio, shaderset, smooth, integerscale, integeroverscale, integerscaleaxis, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo, ai_service_enabled, ai_target_lang, ai_service_url, ai_service_pause, rewind, toggle_fast_forward, runahead, secondinstance, video_frame_delay_auto, vrr_runloop_enable, video_threaded, rumble_gain, hotkey_up, hotkey_down, hotkey_left, hotkey_right, hotkey_y, hotkey_x, hotkey_b, hotkey_a, hotkey_l1, hotkey_r1, hotkey_l2, hotkey_r2]
 
 libretro:
-  shared: [powermode, tdp, videomode, ratio, shaderset, smooth, integerscale, integeroverscale, integerscaleaxis, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo, ai_service_enabled, ai_target_lang, ai_service_url, ai_service_pause, srm_dump_ingame_disabled, toggle_fast_forward, runahead, preemptiveframes, secondinstance, video_frame_delay_auto, vrr_runloop_enable, video_threaded, rumble_gain, audio_volume, hotkey_up, hotkey_down, hotkey_left, hotkey_right, hotkey_y, hotkey_x, hotkey_b, hotkey_a, hotkey_l1, hotkey_r1, hotkey_l2, hotkey_r2]
+  shared: [powermode, tdp, videomode, ratio, shaderset, smooth, integerscale, integeroverscale, integerscaleaxis, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo, ai_service_enabled, ai_target_lang, ai_service_url, ai_service_pause, srm_dump_ingame, toggle_fast_forward, runahead, preemptiveframes, secondinstance, video_frame_delay_auto, vrr_runloop_enable, video_threaded, rumble_gain, audio_volume, hotkey_up, hotkey_down, hotkey_left, hotkey_right, hotkey_y, hotkey_x, hotkey_b, hotkey_a, hotkey_l1, hotkey_r1, hotkey_l2, hotkey_r2]
   cfeatures:
     gfxbackend:
       archs_include: [x86, x86_64, bcm2711, bcm2712, a3gen2]

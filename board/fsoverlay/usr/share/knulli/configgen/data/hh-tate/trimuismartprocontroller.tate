@@ -1,0 +1,17 @@
+{
+  "rotation": "left",
+  "remap": {
+    "stk_r_x+": "18",
+    "stk_r_x-": "19",
+    "stk_r_y+": "17",
+    "stk_r_y-": "16",
+    "btn_down": "6",
+    "btn_left": "4",
+    "btn_right": "5",
+    "btn_up": "7",
+    "btn_a": "0",
+    "btn_b": "1",
+    "btn_x": "8",
+    "btn_y": "-1"
+  }
+}

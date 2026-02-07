@@ -16,8 +16,8 @@ IN=/usr/share/knulli/datainit
 OUT=/userdata
 # force the creation of some directories
 for DIR in cheats \
+           screenshots \
            system/.cache \
-           system/.config/lirc \
            system/bluetooth \
            system/configs \
            system/pacman \

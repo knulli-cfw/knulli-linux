@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import json
 import logging
 import subprocess
@@ -618,6 +619,8 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
     ## TATE mode remap for handhelds
     if system.config['core'] in ['fbneo', 'mame', 'mame078plus']:
 
+        HH_TATE_DIR = "/usr/share/knulli/configgen/data/hh-tate"
+
         def is_hdmi_active():
             state = "/sys/devices/platform/soc/6000000.hdmi/extcon/hdmi/state"
             if not os.path.exists(state):
@@ -639,61 +642,61 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
             else:
                 return False
 
-        def update_handheld_config(name):
-            if name in handhelds:
-                settings = handhelds[name]
-                # set display rotation
-                if settings['rotation'] == 'left':
-                    retroarchConfig['video_rotation'] = '1'
-                elif settings['rotation'] == 'right':
-                    retroarchConfig['video_rotation'] = '3'
-                # remap inputs
-                for btn, value in settings['remap'].items():
-                    retroarchConfig[f'input_player1_{btn}'] = value
+        def normalize_controller_name(name: str) -> str:
+            s = name.strip().lower()
+            s = re.sub(r"\s+", "", s)
+            s = re.sub(r"[^a-z0-9]+", "", s)
+            return s
 
-        common_remap = {
-            'stk_r_x+': '18', 'stk_r_x-': '19', 'stk_r_y+': '17', 'stk_r_y-': '16',
-            'btn_down': '6', 'btn_left': '4', 'btn_right': '5', 'btn_up': '7',
-            'btn_a': '0', 'btn_b': '1', 'btn_x': '8', 'btn_y': '-1'
-        }
+        def load_tate_profile(pad_name: str):
+            key = normalize_controller_name(pad_name)
+            path = os.path.join(HH_TATE_DIR, f"{key}.tate")
 
-        handhelds = {
-            'Anbernic RG35XX-PLUS Controller': {  # rg35xx-plus
-                'rotation': 'left', 'remap': common_remap
-            },
-            'Anbernic RG35XX-H Controller': {  # rg35xx-h
-                'rotation': 'left', 'remap': common_remap
-            },
-            'Anbernic RG40XX-H Controller': {  # rg40xx-h
-                'rotation': 'left', 'remap': common_remap
-            },
-            'Anbernic RG28XX Controller': {  # rg28xx
-                'rotation': 'right',
-                'remap': {
-                    'btn_down': '7', 'btn_left': '5', 'btn_right': '4', 'btn_up': '6',
-                    'btn_start': '0', 'btn_select': '8', 'btn_l2': '1', 'btn_r': '2',
-                    'btn_r2': '3', 'btn_a': '-1', 'btn_b': '-1', 'btn_x': '-1', 'btn_y': '-1',
-                }
-            },
-            'Anbernic RG34XX Controller': {  # rg34xx
-                'rotation': 'right',
-                'remap': {
-                    'btn_down': '7', 'btn_left': '5', 'btn_right': '4', 'btn_up': '6',
-                    'btn_start': '0', 'btn_select': '8', 'btn_l2': '2', 'btn_r': '3',
-                    'btn_r2': '1', 'btn_a': '-1', 'btn_b': '-1', 'btn_x': '-1', 'btn_y': '-1',
-                }
-            },
-            'TRIMUI Smart Pro Controller': {  # trimui-smartpro
-                'rotation': 'left', 'remap': common_remap
-            },
-        }
+            if not os.path.isfile(path):
+                return None, None
+
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                rotation = str(data.get("rotation", "0")).lower()
+                remap = data.get("remap", {})
+
+                if not isinstance(remap, dict):
+                    remap = {}
+
+                # RetroArch expects strings
+                remap = {str(k): str(v) for k, v in remap.items()}
+
+                return rotation, remap
+
+            except Exception:
+                # return none as fall back just in case
+                return None, None
+
+        def apply_tate_profile(retroarchConfig, rotation, remap):
+            if rotation == "left":
+                retroarchConfig["video_rotation"] = "1"
+            elif rotation == "right":
+                retroarchConfig["video_rotation"] = "3"
+            elif rotation in ("0", "none", ""):
+                retroarchConfig["video_rotation"] = "0"
+            else:
+                retroarchConfig["video_rotation"] = rotation
+
+            for btn, value in remap.items():
+                retroarchConfig[f"input_player1_{btn}"] = value
 
         if system.isOptSet(f"{systemCore}-hhtate") and system.config[f"{systemCore}-hhtate"] == "True":
             db_path = "/usr/share/emulationstation/resources/arcaderoms.xml"
-            controller, pad = sorted(controllers.items())[0]
+            pad = list(controllers.values())[0]
             if check_vertical(db_path, rom) and not is_hdmi_active():
-                update_handheld_config(pad.name)
-                bezel = None
+                rotation, remap = load_tate_profile(pad.name)
+                if rotation is not None:
+                    apply_tate_profile(retroarchConfig, rotation, remap)
+                    bezel = None
+                else:
+                    retroarchConfig["video_rotation"] = "0"
             else:
                 retroarchConfig['video_rotation'] = '0'
         else:
@@ -820,7 +823,7 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
         retroarchConfig['savestate_auto_load'] = 'false'
 
     # SRM update interval option
-    if system.isOptSet('srm_dump_ingame_disabled') and system.getOptBoolean('srm_dump_ingame_disabled') == True:
+    if system.isOptSet('srm_dump_ingame') and system.getOptBoolean('srm_dump_ingame') == False:
         retroarchConfig['autosave_interval'] = '0'  # disable autosave interval
     else:
         retroarchConfig['autosave_interval'] = '10' # default RA autosave interval of 10 seconds
