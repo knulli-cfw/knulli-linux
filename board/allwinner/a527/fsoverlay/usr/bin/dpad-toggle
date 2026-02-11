@@ -5,9 +5,23 @@ if knulli-board-capability "analogstick"; then
     exit 1
 fi
 
-DPAD_INPUT_TEMP_FOLDER="/tmp/trimui_inputd"
-DPAD_DISABLED_FILE="/tmp/trimui_inputd/input_no_dpad"
-DPAD_AS_ANALOG_FILE="/tmp/trimui_inputd/input_dpad_to_joystick"
+LOCK_FILE="/var/run/dpad-toggle-script.lock"
+
+exec 200>"${LOCK_FILE}"
+if ! flock -n 200; then
+    exit 0
+fi
+
+trap 'flock -u 200;' EXIT
+
+DPAD_BUTTON_STATE="/var/run/dpad-toggle.held"
+
+# Threshold for long press to toggle d-pad (in seconds)
+LONG_PRESS_THRESHOLD=2
+
+DPAD_DIR="/tmp/trimui_inputd"
+DPAD_DISABLED_FILE="$DPAD_DIR/input_no_dpad"
+DPAD_AS_ANALOG_FILE="$DPAD_DIR/input_dpad_to_joystick"
 
 check_ingame() {
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
@@ -21,28 +35,42 @@ do_notification() {
     curl -s http://localhost:1234/notify -d "$NOTIFICATION" >/dev/null
 }
 
-if [[ ! -d dir ]]; then
-    mkdir "$DPAD_INPUT_TEMP_FOLDER"
-fi
+toggle_dpad() {
+    mkdir -p "$DPAD_DIR"
 
-if [ -f "$DPAD_AS_ANALOG_FILE" ]; then
-    if ! check_ingame; then
-        do_notification "Virtual Joystick OFF"
+    if [ -f "$DPAD_AS_ANALOG_FILE" ]; then
+        if ! check_ingame; then
+            do_notification "Virtual Joystick OFF"
+        fi
+
+        knulli-rumble 0.1
+        sleep 0.2
+        knulli-rumble 0.1
+        rm "$DPAD_DISABLED_FILE"
+        rm "$DPAD_AS_ANALOG_FILE"
+    else
+        if ! check_ingame; then
+            do_notification "Virtual Joystick ON"
+        fi
+
+        knulli-rumble 0.1
+        touch "$DPAD_DISABLED_FILE"
+        touch "$DPAD_AS_ANALOG_FILE"
     fi
+}
 
-    knulli-rumble 0.1
-    sleep 0.2
-    knulli-rumble 0.1
-    rm "$DPAD_DISABLED_FILE"
-    rm "$DPAD_AS_ANALOG_FILE"
+# Set starting state
+: > "$DPAD_BUTTON_STATE"
+
+# Wait for deletion of state file
+if inotifywait -qq -t "$LONG_PRESS_THRESHOLD" -e delete_self "$DPAD_BUTTON_STATE"; then
+    # Buttons released within timeout (short press) - do nothing
+    :
 else
-    if ! check_ingame; then
-        do_notification "Virtual Joystick ON"
+    # Toggle if timeout is reached (long press)
+    if [ -f "$DPAD_BUTTON_STATE" ]; then
+        toggle_dpad
     fi
-
-    knulli-rumble 0.1
-    touch "$DPAD_DISABLED_FILE"
-    touch "$DPAD_AS_ANALOG_FILE"
 fi
 
 exit 0
