@@ -78,6 +78,21 @@ then
     done
 fi
 
+BOARD="$(cat /boot/boot/knulli.board 2>/dev/null | tr -d '\r\n')"
+
+if [ -e "${OUT}/system/configs/emulationstation/es_settings.cfg" ]; then
+    es_settings="es_settings.cfg"
+else
+    case "${BOARD}" in
+        rg-arc-s)
+            es_settings="es_settings.${BOARD}"
+        ;;
+        *)
+            es_settings="es_settings.cfg"
+        ;;
+    esac
+fi
+
 # directories / files to copy when initializing the user data
 #
 # NO UPDATE IS POSSIBLE ON THESE DIRECTORIES WHEN knulli.linux IS UPDATED
@@ -88,7 +103,7 @@ fi
 for FILE in music bios extractions kodi library saves screenshots recordings splash \
             roms/mpv \
             system/.config/lirc/lircd.conf \
-            system/configs/emulationstation/es_settings.cfg \
+            system/configs/emulationstation/${es_settings} \
             system/configs/emulationstation/about.info \
             system/.kodi \
             system/configs/amiberry \
@@ -113,7 +128,7 @@ for FILE in music bios extractions kodi library saves screenshots recordings spl
             system/configs/pironman5
 do
     # Skip updating specific files
-    if [ "$FILE" = "system/configs/emulationstation/es_settings.cfg" ] || [ "$FILE" = "system/knulli.conf" ] || [ "$FILE" = "system/.kodi/userdata/guisettings.xml" ]; then
+    if [ "$FILE" = "system/configs/emulationstation/${es_settings}" ] || [ "$FILE" = "system/knulli.conf" ] || [ "$FILE" = "system/.kodi/userdata/guisettings.xml" ]; then
         # Check if the file doesn't exist, then create it
         if [ ! -e "${OUT}/${FILE}" ]; then
             mkdir -p "$(dirname "${OUT}/${FILE}")"
@@ -129,6 +144,12 @@ do
         fi
     fi
 done
+
+ES_DIR="${OUT}/system/configs/emulationstation"
+if [ "${es_settings}" != "es_settings.cfg" ] && [ -e "${ES_DIR}/${es_settings}" ]; then
+    echo "Renaming ${ES_DIR}/${es_settings} -> ${ES_DIR}/es_settings.cfg"
+    mv -f "${ES_DIR}/${es_settings}" "${ES_DIR}/es_settings.cfg"
+fi
 
 ### specific directories
 # decorations - copy only the readme file

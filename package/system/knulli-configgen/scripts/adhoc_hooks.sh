@@ -14,8 +14,20 @@ hostapd_conf="/tmp/hostapd.conf"
 dnsmasq_pid="/tmp/dnsmasq.pid"
 dnsmasq_leases="/tmp/dnsmasq.leases"
 
+is_quickresume_boot() {
+  local code
+  code="$(curl -s --max-time 0.3 -o /dev/null -w "%{http_code}" \
+          "http://127.0.0.1:1234/runningGame" 2>/dev/null)"
+
+  [ "$code" = "000" ] # api isn't running with quickresume
+}
+
 should_start_ap() {
     if [ "$(knulli-settings-get global.netplay)" != "1" ] || [ "$(knulli-settings-get global.netplay.hotspot)" != "1" ]; then
+        return 1
+    fi
+
+    if is_quickresume_boot; then
         return 1
     fi
 

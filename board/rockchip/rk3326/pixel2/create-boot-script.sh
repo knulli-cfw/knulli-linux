@@ -17,12 +17,13 @@ KNULLI_BINARIES_DIR=$6
 
 mkdir -p "${KNULLI_BINARIES_DIR}/boot/boot" || exit 1
 
-"${HOST_DIR}/bin/mkimage" -A arm64 -O linux -T kernel -C none -a 0x1080000 -e 0x1080000 -n 5.x -d "${BINARIES_DIR}/Image" "${KNULLI_BINARIES_DIR}/boot/boot/linux" || exit 1
-cp "${BINARIES_DIR}/uInitrd"         "${KNULLI_BINARIES_DIR}/boot/boot/uInitrd"         || exit 1
+#"${HOST_DIR}/bin/mkimage" -A arm64 -O linux -T kernel -C none -a 0x1080000 -e 0x1080000 -n 5.x -d "${BINARIES_DIR}/Image" "${KNULLI_BINARIES_DIR}/boot/boot/linux" || exit 1
+cp "${BOARD_DIR}/Image"		     "${KNULLI_BINARIES_DIR}/boot/Image" || exit 1
+#cp "${BINARIES_DIR}/uInitrd"         "${KNULLI_BINARIES_DIR}/boot/boot/uInitrd"         || exit 1
 cp "${BINARIES_DIR}/rootfs.squashfs" "${KNULLI_BINARIES_DIR}/boot/boot/knulli.update" || exit 1
 
-cp "${BOARD_DIR}/boot/boot.ini"                     "${KNULLI_BINARIES_DIR}/boot/"                                    || exit 1
-cp "${BOARD_DIR}/boot/rk3326s-gkd-pixel2.dtb"       "${KNULLI_BINARIES_DIR}/boot/boot/rk3326s-gkd-pixel2.dtb"     || exit 1
+#cp "${BOARD_DIR}/boot/boot.ini"                     "${KNULLI_BINARIES_DIR}/boot/"                                    || exit 1
+cp "${BOARD_DIR}/boot/rk3326s-gkd-pixel2.dtb"       "${KNULLI_BINARIES_DIR}/boot/rk3326s-gkd-pixel2.dtb"     || exit 1
 
 cp -r "${BOARD_DIR}/partitions"         "${KNULLI_BINARIES_DIR}/boot/"                         || exit 1
 

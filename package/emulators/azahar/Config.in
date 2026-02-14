@@ -11,6 +11,9 @@ config BR2_PACKAGE_AZAHAR
     select BR2_PACKAGE_FMT
     select BR2_PACKAGE_OPENAL
     select BR2_PACKAGE_SDL2
+    select BR2_PACKAGE_BATOCERA_QT6
+    select BR2_PACKAGE_VULKAN_HEADERS    if BR2_PACKAGE_BATOCERA_VULKAN
+    select BR2_PACKAGE_VULKAN_LOADER     if BR2_PACKAGE_BATOCERA_VULKAN
     help
       Azahar is a Citra fork and emulator for the Nintendo 3DS.
       

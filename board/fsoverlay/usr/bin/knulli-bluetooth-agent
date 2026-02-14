@@ -302,7 +302,6 @@ def properties_changed(interface, changed, invalidated, path):
   if "Paired" in changed and changed["Paired"] == True:
     # ok, do as in simple-agent, trust and connect
     connect_device(path, gdevices[path]["Address"], gdevices[path], True, getBluetoothWantedAddr())
-    refresh_audio_on_connect(gdevices[path])
     return
 
   # ok, it is now connected, what else ?
@@ -317,8 +316,6 @@ def properties_changed(interface, changed, invalidated, path):
 
   if "Address" in gdevices[path]:
     connect_device(path, gdevices[path]["Address"], gdevices[path], False, getBluetoothWantedAddr())
-
-  refresh_audio_on_connect(gdevices[path])
 
 def merge2dicts(d1, d2):
   res = d1.copy()

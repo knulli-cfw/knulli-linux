@@ -17,15 +17,19 @@
 #   batteryplus-state Discharging
 #   batteryplus-state Full
 
-TS_FILE="/tmp/batteryplus-state.ts"
 STATUS_FILE="/tmp/battery.status"
 HOOK_DIR="/etc/batteryplus/state.d"
+LOCK_FILE="/tmp/batteryplus-state.lock"
 
 IN_STATE="$1"
 OUT_STATE=""
 
 # Exit if no arg
 [ -z "$IN_STATE" ] && exit 0
+
+# Single-instance
+exec 9>"$LOCK_FILE"
+flock -n 9 || exit 0
 
 normalize_state() {
     case "$1" in
@@ -78,20 +82,7 @@ if [ -z $2 ] || [ $2 != "-f" ]; then
     fi
 fi
 
-# Very short debounce using timestamp since flock does not work with udev rules (they just queue)
-now=$(date +%s%3N)  # ms
-last_ts=0
-if [ -f "$TS_FILE" ]; then
-    read -r last_ts < "$TS_FILE" 2>/dev/null || last_ts=0
-fi
-
-if [ "$last_ts" -gt 0 ] && [ "$(( now - last_ts ))" -lt 200 ]; then
-    echo "$now" >"$TS_FILE"
-    exit 0
-fi
-
 echo "$OUT_STATE" > "$STATUS_FILE"
-echo "$now" >"$TS_FILE"
 
 # Ensure hook directory exists
 mkdir -p "$HOOK_DIR"

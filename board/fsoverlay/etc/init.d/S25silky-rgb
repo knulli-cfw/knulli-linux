@@ -18,10 +18,26 @@ curl_kill() {
     curl -fsS --connect-timeout 1 --max-time 2 "http://127.0.0.1:1235/kill" >/dev/null 2>&1
 }
 
+wait_batteryplus_ready() {
+  local timeout=5
+
+  for i in $(seq 1 "$timeout"); do
+    if [ -f /tmp/battery.percent ]; then
+      if grep -Eq '^(100|[0-9]{1,2})$' /tmp/battery.percent; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
 post_battery_sync() {
     local TIMEOUT=30
     local COUNT=0
-    local BATTERY_STATE BATTERY_PERCENTAGE
+    local BATTERY_STATE
+    local BATTERY_PERCENTAGE
 
     BATTERY_STATE="$(/usr/bin/knulli-battery-check status 2>/dev/null || true)"
     BATTERY_PERCENTAGE="$(/usr/bin/knulli-battery-check capacity 2>/dev/null || true)"
@@ -33,7 +49,7 @@ post_battery_sync() {
       # Stop retrying if daemon died
       is_running || return 63
 
-      if curl -fsS --connect-timeout 1 --max-time 2 \
+      if curl -fsS --connect-timeout 1 --max-time 1 \
           -X POST -d "${BATTERY_PERCENTAGE} ${BATTERY_STATE}" \
           "http://127.0.0.1:1235/update-battery-state" >/dev/null 2>&1; then
         return 0
@@ -64,7 +80,7 @@ start_daemon() {
     start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PIDFILE" --exec "$DAEMON" \
         && echo "$DAEMON_NAME started OK" || { echo "$DAEMON_NAME failed to start"; exit 1; }
 
-    # sync battery status
+    wait_batteryplus_ready
     post_battery_sync
 }
 

@@ -1,1 +1,1 @@
-SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/usr/bin/batteryplus-state change"
+SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/bin/sh -c '(/usr/bin/batteryplus-state change) </dev/null >/dev/null 2>&1 &'"

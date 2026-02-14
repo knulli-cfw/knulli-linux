@@ -2,6 +2,7 @@
 # Exit 0 = online, 1 = offline
 
 MODE="$1"
+MAX_WAIT="${2:-0}" # Will retry until max wait time expires
 
 HOST_GENERIC="one.one.one.one"
 HOST_CHEEVOS="retroachievements.org"
@@ -11,6 +12,14 @@ if [ "$(knulli-settings-get wifi.enabled 2>/dev/null)" != "1" ]; then
   echo "internet check: wifi disabled"
   exit 1
 fi
+
+uptime_s() {
+  if read -r up _ < /proc/uptime 2>/dev/null; then
+    echo "${up%%.*}"
+  else
+    echo 0
+  fi
+}
 
 # Reachability probe
 http_try() {
@@ -32,16 +41,43 @@ case "$MODE" in
     ;;
 esac
 
-# Try probes in order
-for host in $PROBES; do
-  echo "internet check: checking $host"
-  if http_try "$host"; then
-    echo "internet check: $host reachable"
-    exit 0
-  else
+probe_once() {
+  # Try probes in order
+  for host in $PROBES; do
+    echo "internet check: checking $host"
+    if http_try "$host"; then
+      echo "internet check: $host reachable"
+      return 0
+    fi
     echo "internet check: $host unreachable"
-  fi
-done
+  done
+  return 1
+}
 
+# Single shot mode
+if [ "$MAX_WAIT" -le 0 ]; then
+  probe_once && exit 0
+  echo "internet check: offline"
+  exit 1
+fi
+
+# Wait mode
+START="$(uptime_s)"
+SLEEP=1
+
+while :; do
+  probe_once && exit 0
+
+  NOW="$(uptime_s)"
+  ELAPSED=$((NOW - START))
+
+  if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
+    echo "internet check: offline (timed out after ${MAX_WAIT}s)"
+    exit 1
+  fi
+
+  sleep "$SLEEP"
+  [ "$SLEEP" -lt 5 ] && SLEEP=$((SLEEP + 1))
+done
 echo "internet check: offline"
 exit 1

@@ -2,7 +2,10 @@ config BR2_PACKAGE_AETHERSX2
     bool "aethersx2"
     depends on BR2_aarch64
     select BR2_PACKAGE_LIBFUSE
-    depends on BR2_PACKAGE_QT6
+    select BR2_PACKAGE_LIBGPG_ERROR
+    select BR2_PACKAGE_XZ
+    select BR2_PACKAGE_LIBPCAP
+    select BR2_PACKAGE_BATOCERA_QT6
     help
       AetherSX2 - ARM PS2 Emulator (Standalone AppImage)
       
@@ -11,4 +14,4 @@ config BR2_PACKAGE_AETHERSX2
       https://github.com/ROCKNIX/packages
 
 comment "aethersx2 needs aarch64 and Qt6"
-    depends on !BR2_aarch64 || !BR2_PACKAGE_QT6
+    depends on !BR2_aarch64 || !BR2_PACKAGE_BATOCERA_QT6

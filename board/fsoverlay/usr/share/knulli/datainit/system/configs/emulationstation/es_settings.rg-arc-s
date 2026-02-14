@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<config>
+        <int name="MusicVolume" value="90" />
+        <string name="CollectionSystemsAuto" value="all,favorites,recent" />
+        <string name="ThemeSet" value="es-theme-art-book-next" />
+</config>

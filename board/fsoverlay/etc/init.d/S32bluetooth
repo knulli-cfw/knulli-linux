@@ -20,10 +20,6 @@ case "$1" in
             /usr/bin/knulli-settings-set -f /etc/bluetooth/input.conf ClassicBondedOnly true
         fi
 
-        if [ "$ARCH" = "a527" ]; then
-            echo 1 > /proc/bluetooth/sleep/btwrite
-        fi
-
         # Reset radio
         rfkill block bluetooth >/dev/null 2>&1
         sleep 0.3
@@ -41,10 +37,11 @@ case "$1" in
                 is_hci0=1
                 ;;
             a527)
+                echo 1 > /proc/bluetooth/sleep/btwrite
                 /usr/bin/aic_hciattach -n ttyAS1 aic &
                 is_hci0=1
                 ;;
-            	*)
+            *)
                 ;;
         esac
 
@@ -91,11 +88,7 @@ case "$1" in
     stop)
         start-stop-daemon -K -q -p /var/run/bluetooth-agent.pid
 
-        #Don't kill bluetoothd, stopping it can break audio and switch to dummy output
-        #start-stop-daemon -K -q -p /var/run/bluetoothd.pid
-
-        # Instead of killing bluetoothhd, just block
-        rfkill block bluetooth >/dev/null 2>&1
+        start-stop-daemon -K -q -p /var/run/bluetoothd.pid
 
         # If pidfile remains but no procoss, clean it up
         if [ -e /var/run/bluetoothd.pid ] && ! kill -0 "$(cat /var/run/bluetoothd.pid 2>/dev/null)" 2>/dev/null; then

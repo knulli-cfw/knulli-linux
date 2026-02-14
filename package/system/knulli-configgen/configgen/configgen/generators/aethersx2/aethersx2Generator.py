@@ -261,10 +261,11 @@ def configureINI(config_directory: Path, bios_directory: Path, system: Emulator,
 
         try:
             rc = subprocess.run(
-                ["/usr/bin/knulli-internet-check", "cheevos"],
+                ["/usr/bin/knulli-internet-check", "cheevos", "10"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                timeout=15,   # should be slightly above max wait arg
             ).returncode
         except Exception as e:
             eslog.error(f"ERROR: knulli-internet-check failed: {e}")

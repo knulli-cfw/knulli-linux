@@ -85,7 +85,7 @@ systemNetplayModes = {'host', 'client', 'spectator'}
 coreForceSlangShaders = { 'mupen64plus-next' }
 
 def connected_to_internet() -> bool:
-    cmd = ["/usr/bin/knulli-internet-check", "cheevos"]
+    cmd = ["/usr/bin/knulli-internet-check", "cheevos", "10"]
 
     try:
         rc = subprocess.run(
@@ -93,6 +93,7 @@ def connected_to_internet() -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=False,
+            timeout=15,   # should be slightly above max wait arg
         ).returncode
 
         if rc == 0:
