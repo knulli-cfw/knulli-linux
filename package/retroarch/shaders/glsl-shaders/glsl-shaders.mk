@@ -4,7 +4,7 @@
 #
 ################################################################################
 # Version: Commits on Apr 4, 2025
-GLSL_SHADERS_VERSION = f3dc75a3bb57ac83801b3873617feecfb34d6c78
+GLSL_SHADERS_VERSION = ad982c951e70a5a9609b173a2c5fa50afb5f58ad
 GLSL_SHADERS_SITE = $(call github,libretro,glsl-shaders,$(GLSL_SHADERS_VERSION))
 GLSL_SHADERS_LICENSE = GPL
 
@@ -24,6 +24,8 @@ define GLSL_SHADERS_INSTALL_TARGET_CMDS
 	sed -e 's:^shader0 = "shaders/crt-pi.glsl":shader0 = "shaders/crt-pi-curvature.glsl":' \
 	    $(TARGET_DIR)/usr/share/knulli/shaders/crt/crt-pi.glslp > \
 		    $(TARGET_DIR)/usr/share/knulli/shaders/crt/crt-pi-curvature.glslp
+	sed -i "s/PT_SHADOW_BLUR_MODE \"== Shadow blur (impacts performance) == (0=OFF,1=Lite,2=Full)\" 1\.0 0\.0 2\.0 1\.0/PT_SHADOW_BLUR_MODE \"== Shadow blur (impacts performance) == (0=OFF,1=Lite,2=Full)\" 0\.0 0\.0 2\.0 1\.0/" \
+	    $(TARGET_DIR)/usr/share/knulli/shaders/handheld/shaders/pixel_transparency.glsl
 endef
 
 $(eval $(generic-package))

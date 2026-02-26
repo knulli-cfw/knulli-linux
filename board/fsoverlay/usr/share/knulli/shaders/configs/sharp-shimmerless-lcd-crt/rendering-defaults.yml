@@ -2,49 +2,61 @@ default:
   shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-scanlines
 
 gamegear:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gameandwatch:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
-pokemini:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gb: 
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gba: 
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gbc:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 virtualboy: 
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 ds:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 lynx:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gamate:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gmaster:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 supervision:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 megaduck: 
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gamecom:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 ngpc:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 ngp:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 wswan:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 wswanc:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gp32:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 arduboy:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 lowresnx:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 
-lcdgames: 
+pokemini:
+  shader: none
+lutro:
+  shader: none
+pico8:
+  shader: none
+tic80:
+  shader: none
+uzebox:
+  shader: none
+vircon32:
+  shader: none
+scummvm:
   shader: none
 gameandwatch:
   shader: none
+lcdgames:
+  shader: none  

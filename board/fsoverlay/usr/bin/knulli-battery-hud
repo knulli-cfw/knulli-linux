@@ -1,0 +1,17 @@
+#!/bin/sh
+
+align="${1:-l}"
+
+IFS= read -r b < /tmp/battery.percent 2>/dev/null || b=0
+
+case "$align" in
+  r)
+    printf "%3s%%      \n" "$b"
+    ;;
+  *)
+    # default left
+    printf "%s%%      \n" "$b"
+    ;;
+esac
+
+exit 0

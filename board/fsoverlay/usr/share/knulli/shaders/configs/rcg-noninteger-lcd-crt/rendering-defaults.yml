@@ -4,18 +4,16 @@ default:
   shader: crt/crt-blurPi-soft
 
 gb: 
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gbc:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 gba:
-  shader: sharp-shimmerless/shaders_glsl/sharp-shimmerless-grid
+  shader: presets/sharp-shimmerless-lcd1x
 ds:
   shader: handheld/lcd1x_nds
 psp:
   shader: handheld/lcd1x_psp
 gamegear:
-  shader: handheld/lcd3x
-pokemini:
   shader: handheld/lcd3x
 virtualboy: 
   shader: handheld/lcd3x
@@ -46,6 +44,8 @@ arduboy:
 lowresnx:
   shader: handheld/lcd3x
 
+pokemini:
+  shader: none
 lutro:
   shader: none
 pico8:

@@ -310,10 +310,6 @@ def getHudBezel(system: Emulator, generator: Generator, rom: str, gameResolution
     bezel_ratio  = bezel_width / bezel_height
     ingame_ratio = generator.getInGameRatio(system.config, gameResolution, rom)
 
-    if (bezel_ratio == ingame_ratio):
-        eslog.debug("game resolution equals bezel size - no bezel applied")
-        return None
-
     # the screen and bezel ratio must be approximatly the same
     if bordersSize is None:
         if abs(screen_ratio - bezel_ratio) > max_ratio_delta:
@@ -493,7 +489,8 @@ def getHudConfig(system: Emulator, systemName: str, emulator: str, core: str, ro
         configstr += system.config["hud_custom"].replace("\\n", "\n")
     elif mode == "bat":
         batt_font, batt_width = bat_layout(gameResolution)
-        configstr += f"position={hud_position}\nlegacy_layout=false\nhud_compact\nwidth={batt_width}\nfps=0\nframe_timing=0\ncpu_stats=0\ngpu_stats=0\nexec=sh -c 'IFS= read -r b < /tmp/battery.percent; printf \"%s%%\" \"$b\"'\nfont_size={batt_font}\ntext_outline_thickness=0.7\nalpha=0.9\nbackground_alpha=0\nfont_file=/usr/share/fonts/dejavu/DejaVuSansMono.ttf"
+        align = "r" if hud_position in ("top-right", "bottom-right") else "l"
+        configstr += f"position={hud_position}\nlegacy_layout=false\nhud_compact\nwidth={batt_width}\nfps=0\nframe_timing=0\ncpu_stats=0\ngpu_stats=0\nexec=/usr/bin/knulli-battery-hud {align}\nfont_size={batt_font}\ntext_outline_thickness=0.7\nalpha=0.9\nbackground_alpha=0\nfont_file=/usr/share/fonts/dejavu/DejaVuSansMono.ttf"
     else:
         configstr = configstr + "background_alpha=0\n" # hide the background
 

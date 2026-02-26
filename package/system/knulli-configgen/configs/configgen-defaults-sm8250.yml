@@ -1,3 +1,16 @@
+default:
+  options:
+    # menu retroarch
+    retroarch.menu_driver: ozone
+    retroarch.menu_scale_factor: "1.500000"
+    retroarch.audio_driver: alsathread
+    retroarch.ozone_font_scale: "1"
+    retroarch.ozone_font_scale_factor_global: "1.200000"
+    retroarch.menu_battery_level_enable: "false"
+
+3ds:
+  emulator: azahar
+  core:     azahar
 advision:
   emulator: mame
   core:     mame

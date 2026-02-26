@@ -1,19 +1,36 @@
 #!/bin/bash
 
+ZRAM_DEV="/dev/zram0"
+ZRAM_SYS="/sys/block/zram0"
+
 start() {
-    /sbin/modprobe zram
-    [ -e /dev/zram0 ] || exit 1
-    totalmem=$(free -b | grep "^Mem:" | tr -s ' ' | cut -d ' ' -f2)
+    /sbin/modprobe zram 2>/dev/null || true
+
+    # Check if compatible
+    [ -e "$ZRAM_DEV" ] || {
+        curl -s -X POST http://127.0.0.1:1234/messagebox -d "Device not compatible." >/dev/null 2>&1
+        knulli-services disable zramswap
+        exit 1
+    }
+
+    echo lz4 > "$ZRAM_SYS/comp_algorithm" 2>/dev/null \
+    || echo lzo > "$ZRAM_SYS/comp_algorithm" 2>/dev/null || true
+
+    totalmem=$(free -b | grep -m1 "^Mem:" | tr -s ' ' | cut -d ' ' -f2)
     swapmem=$(( totalmem  / 2 ))
-    echo $swapmem > /sys/block/zram0/disksize
-    /sbin/mkswap /dev/zram0 || exit 1
-    /sbin/swapon -p 1000 /dev/zram0 || exit 1
+
+    echo "$swapmem" > "$ZRAM_SYS/disksize" || exit 1
+    /sbin/mkswap "$ZRAM_DEV" || exit 1
+    /sbin/swapon -p 1000 "$ZRAM_DEV" || exit 1
+
+    echo 100 > /proc/sys/vm/swappiness
+    echo 0   > /proc/sys/vm/page-cluster
 }
 
 stop() {
-    [ -e /dev/zram0 ] || exit 1
-    /sbin/swapoff /dev/zram0 || exit 1
-    /sbin/modprobe -r zram || exit 1
+    [ -e "$ZRAM_DEV" ] || exit 0
+    /sbin/swapoff "$ZRAM_DEV" >/dev/null 2>&1 || true
+    /sbin/modprobe -r zram >/dev/null 2>&1 || true
 }
 
 restart() {

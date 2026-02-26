@@ -46,7 +46,6 @@ case "$ARCH" in
         BOARD_CAPABILITIES[rumble]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
         BOARD_CAPABILITIES[adb]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
         BOARD_CAPABILITIES[hud]="trimui-smart-pro trimui-brick powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
-        BOARD_CAPABILITIES[bezelproject]="trimui-smart-pro"
         BOARD_CAPABILITIES[toggleswitch]="trimui-smart-pro trimui-brick"
         ;;
     rk3128)
@@ -56,10 +55,10 @@ case "$ARCH" in
         BOARD_CAPABILITIES[hud]="powkiddy_a13 ps5000 ps7000"
         ;;
     rk3326)
-        BOARD_CAPABILITIES[analogstick]="r36s g350 magicx-mini-m"
-        BOARD_CAPABILITIES[rumble]="r36s g350 magicx-mini-m"
-        BOARD_CAPABILITIES[adb]="r36s g350 magicx-mini-m powkiddy-rgb30 powkiddy_a13 ps5000 ps7000"
-        BOARD_CAPABILITIES[hud]="r36s g350 magicx-mini-m powkiddy-rgb30 powkiddy_a13 ps5000 ps7000"
+        BOARD_CAPABILITIES[analogstick]="r36s g350 magicx-mini-m pixel2"
+        BOARD_CAPABILITIES[rumble]="r36s g350 magicx-mini-m pixel2"
+        BOARD_CAPABILITIES[adb]="r36s g350 magicx-mini-m pixel2"
+        BOARD_CAPABILITIES[hud]="r36s g350 magicx-mini-m pixel2"
         ;;
     rk3568)
         # Technically the flip has a lid/hall sensor but it's just wired to the power button
@@ -70,9 +69,19 @@ case "$ARCH" in
         BOARD_CAPABILITIES[analogstick]="powkiddy-x55 powkiddy-rgb30"
         BOARD_CAPABILITIES[rumble]="rg-arc-s powkiddy-x55 powkiddy-rgb30"
         BOARD_CAPABILITIES[adb]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
-        BOARD_CAPABILITIES[bezelproject]="powkiddy-x55"
         BOARD_CAPABILITIES[pwrled]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
         ;;
+    rk3576)
+        BOARD_CAPABILITIES[rgb]="rg-vita-pro"
+        BOARD_CAPABILITIES[hdmi]="rg-vita-pro"
+        BOARD_CAPABILITIES[wifi]="rg-vita-pro"
+        BOARD_CAPABILITIES[bluetooth]="rg-vita-pro"
+        BOARD_CAPABILITIES[analogstick]="rg-vita-pro"
+        BOARD_CAPABILITIES[rumble]="rg-vita-pro"
+        BOARD_CAPABILITIES[adb]="rg-vita-pro"
+        BOARD_CAPABILITIES[hud]="rg-vita-pro"
+        BOARD_CAPABILITIES[fan]="rg-vita-pro"
+	;;
     sm8250)
         BOARD_CAPABILITIES[rgb]="rp5"
         BOARD_CAPABILITIES[hdmi]="rp5"
@@ -81,7 +90,6 @@ case "$ARCH" in
         BOARD_CAPABILITIES[analogstick]="rp5"
         BOARD_CAPABILITIES[rumble]="rp5"
         BOARD_CAPABILITIES[adb]="rp5"
-        BOARD_CAPABILITIES[bezelproject]="rp5"
         BOARD_CAPABILITIES[hud]="rp5"
         BOARD_CAPABILITIES[fan]="rp5"
         ;;
@@ -92,7 +100,6 @@ case "$ARCH" in
         BOARD_CAPABILITIES[analogstick]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[rumble]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[adb]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[bezelproject]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[hud]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[fan]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[toggleswitch]="trimui-smart-pro-s"

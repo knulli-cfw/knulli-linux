@@ -2353,6 +2353,7 @@ libretro:
                     "Show":                     enabled
                     "Skip":                     disabled
             gb_mix_frames:
+                group: ADVANCED OPTIONS
                 prompt:      LCD GHOSTING EFFECT
                 description: Required for certain visual effects.
                 choices:
@@ -2658,7 +2659,7 @@ libretro:
             description: Simulates the color display of the original hardware.
             choices:
                 preset: switchauto
-        interframe_blending:
+          interframe_blending:
             group: ADVANCED OPTIONS
             prompt:      INTERFRAME BLENDING
             description: Simulates the LCD ghosting used for transparency effects on the original hardware.
@@ -13632,6 +13633,15 @@ azahar:
         "Separate Windows":      4-false
         "Hybrid Screen Top":     5-false
         "Hybrid Screen Bottom":  5-true
+    azahar_large_screen_proportion:
+      prompt: SCREEN PROPORTION
+      description: Determines the proportion of the larger screen relative to the smaller one.
+      choices:
+        "2":            2
+        "3":            3
+        "4 (Default)":  4
+        "5":            5
+        "6":            6
     azahar_resolution_factor:
       submenu: GRAPHICS
       prompt: RENDERING RESOLUTION

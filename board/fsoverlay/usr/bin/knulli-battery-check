@@ -35,9 +35,31 @@ get_status() {
     echo "$status"
 }
 
+# Get voltage
+get_voltage() {
+    volt_raw=$(cat /sys/class/power_supply/*{BAT,bat}*/voltage_now 2>/dev/null)
+
+    # Detect units by magnitude
+    if [ "$volt_raw" -gt 100000 ]; then
+        # microvolts, convert to mV
+        mv=$((volt_raw / 1000))
+    elif [ "$volt_raw" -gt 1000 ]; then
+        # already millivolts
+        mv="$volt_raw"
+    fi
+
+    # Round
+    cv=$(( (mv + 5) / 10 ))
+
+    printf "%d.%02d\n" $((cv / 100)) $((cv % 100))
+}
+
 case "$1" in
     capacity)
         get_battery
+        ;;
+    voltage)
+        get_voltage
         ;;
     status)
         get_status
@@ -48,7 +70,7 @@ case "$1" in
         echo "  Status:     $(get_status)"
         ;;
     *)
-        echo "Usage: $0 {capacity|status|report}" >&2
+        echo "Usage: $0 {capacity|voltage|status|report}" >&2
         exit 1
         ;;
 esac

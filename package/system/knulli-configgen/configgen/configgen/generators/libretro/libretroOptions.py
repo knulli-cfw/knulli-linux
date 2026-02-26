@@ -1523,7 +1523,7 @@ def generateCoreSettings(coreSettings: UnixSettings, system: Emulator, rom: Path
         if system.isOptSet('gb_mix_frames'):
             coreSettings.save('gambatte_mix_frames', '"' + system.config['gb_mix_frames'] + '"')
         else:
-            coreSettings.save('gambatte_mix_frames', '"disabled"')
+            coreSettings.save('gambatte_mix_frames', '"lcd_ghosting_fast"')
 
         if (system.name == 'gbc'):
             # GBC Color Correction

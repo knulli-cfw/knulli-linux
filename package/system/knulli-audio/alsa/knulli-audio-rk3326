@@ -36,6 +36,8 @@ case "${ACTION}" in
 
     set)
 	MODE="$2"
+        # Needed for audio resume after suspend
+        amixer -c 0 sset 'Resume Path' 'ON'
 	case "${MODE}" in
 	    auto | speakers)
 		LANG=C pactl set-default-sink INTERNAL

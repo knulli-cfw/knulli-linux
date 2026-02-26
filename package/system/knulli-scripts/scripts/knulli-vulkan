@@ -1,21 +1,25 @@
 #!/bin/bash
 
+VULKANINFO="/usr/bin/vulkaninfo"
+
 # Ensure a valid display is set
 if [ -z "$WAYLAND_DISPLAY" ]; then
     if [ -z "$DISPLAY" ]; then
-        export DISPLAY=$(getLocalXDisplay)
+        export DISPLAY="$(getLocalXDisplay)"
     fi
 fi
 
 # Check if vulkaninfo exists
-if [ ! -x "/usr/bin/vulkaninfo" ]; then
+if [ ! -e "$VULKANINFO" ]; then
     echo "Vulkan not found"
     exit 1
 fi
 
+VK_OUT="$("$VULKANINFO" 2>/dev/null)"
+
 # Function to list Vulkan GPU devices
 list_devices() {
-    vulkaninfo | grep deviceName | awk -F'= ' '{print $2}'
+    printf '%s\n' "$VK_OUT" | grep 'deviceName' | awk -F'= ' '{print $2}'
 }
 
 # Function to count the number of Vulkan GPU devices
@@ -23,70 +27,9 @@ num_devices() {
     list_devices | wc -l
 }
 
-# Function to check if a discrete GPU exists
-has_discrete() {
-    vulkaninfo | grep -q PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-    if [ $? -eq 0 ]; then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
-# Function to retrieve the UUID of the discrete GPU
-discrete_uuid() {
-    device_type_output=$(vulkaninfo | grep deviceType)
-    discrete_gpu_index=$(echo "$device_type_output" | grep -n PHYSICAL_DEVICE_TYPE_DISCRETE_GPU | cut -d: -f1)
-    if [ -z "$discrete_gpu_index" ]; then
-        echo "No discrete GPU found."
-        exit 1
-    fi
-
-    device_uuid=$(vulkaninfo | grep deviceUUID | sed -n "${discrete_gpu_index}p" | awk -F'=' '{print $2}' | tr -d '[:space:]')
-    if [ -z "$device_uuid" ]; then
-        echo "Failed to retrieve UUID for the discrete GPU."
-        exit 1
-    fi
-
-    echo "$device_uuid"
-}
-
-# Function to retrieve the name of the discrete GPU
-discrete_name() {
-    device_type_output=$(vulkaninfo | grep deviceType)
-    discrete_gpu_index=$(echo "$device_type_output" | grep -n PHYSICAL_DEVICE_TYPE_DISCRETE_GPU | cut -d: -f1)
-    if [ -z "$discrete_gpu_index" ]; then
-        echo "No discrete GPU found."
-        exit 1
-    fi
-
-    device_name=$(vulkaninfo | grep deviceName | sed -n "${discrete_gpu_index}p" | awk -F'= ' '{print $2}')
-    if [ -z "$device_name" ]; then
-        echo "Failed to retrieve name for the discrete GPU."
-        exit 1
-    fi
-
-    echo "$device_name"
-}
-
-# Function to retrieve the index (GPU number) of the discrete GPU
-discrete_index() {
-    device_type_output=$(vulkaninfo | grep deviceType)
-    discrete_gpu_index=$(echo "$device_type_output" | grep -n PHYSICAL_DEVICE_TYPE_DISCRETE_GPU | cut -d: -f1)
-    # Subtract 1 from the index to get the Vulkan GPU number
-    discrete_gpu_index=$((discrete_gpu_index - 1))
-    if [ -z "$discrete_gpu_index" ]; then
-        echo "No discrete GPU found."
-        exit 1
-    fi
-
-    echo "$discrete_gpu_index"
-}
-
 # Function to check if Vulkan is available
 has_vulkan() {
-    vulkaninfo | grep -q deviceName
-    if [ $? -eq 0 ]; then
+    if printf '%s\n' "$VK_OUT" | grep -q 'deviceName'; then
         echo "true"
     else
         echo "false"
@@ -94,18 +37,12 @@ has_vulkan() {
 }
 
 vulkan_version() {
-    if [ "$(knulli-vulkan hasVulkan)" = "true" ]; then
-        if [ "$(knulli-vulkan hasDiscrete)" = "true" ]; then
-            discreteIndex=$(knulli-vulkan discreteIndex)
-            apiVersion=$(vulkaninfo | grep -A8 "GPU$discreteIndex" | awk '/apiVersion/ {print $3}')
-            echo $apiVersion
-        else
-            apiVersion=$(vulkaninfo | grep -A8 "GPU0" | awk '/apiVersion/ {print $3}')
-            echo $apiVersion
-        fi
-    else
-        echo "No Vulkan driver found!"
+    apiVersion="$(printf '%s\n' "$VK_OUT" | awk '/apiVersion/ {print $3; exit}')"
+    if [ -n "$apiVersion" ]; then
+      echo "$apiVersion"
+      return 0
     fi
+    echo "No Vulkan driver found!"
 }
 
 # Handle input options
@@ -117,16 +54,11 @@ case "$1" in
         num_devices
         ;;
     "hasDiscrete")
-        has_discrete
+        # Knulli will probably never have descrete gpu's
+        echo "false"
         ;;
-    "discreteUUID")
-        discrete_uuid
-        ;;
-    "discreteName")
-        discrete_name
-        ;;
-    "discreteIndex")
-        discrete_index
+    "discreteUUID"|"discreteName"|"discreteIndex")
+        exit 1
         ;;
     "hasVulkan")
         has_vulkan

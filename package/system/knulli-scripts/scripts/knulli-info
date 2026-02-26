@@ -45,6 +45,9 @@ if [ -n "${BATTERY_DIR}" ]; then
     fi
 fi
 
+# Detect voltage
+VOLT=$(knulli-battery-check voltage)
+
 ### short version (for osd)
 if test "$1" = "--short"; then
     DT=$(date +%H:%M)
@@ -219,6 +222,10 @@ if test -n "${BATT}"; then
     echo "Battery: ${BATT}%"
 fi
 
+if test -n "${VOLT}"; then
+    echo "Voltage: ${VOLT}V"
+fi
+
 # battery health
 design_energy_file="/sys/class/power_supply/BAT0/energy_full_design"
 current_energy_file="/sys/class/power_supply/BAT0/energy_full"
@@ -226,10 +233,10 @@ current_energy_file="/sys/class/power_supply/BAT0/energy_full"
 if [ -e "$design_energy_file" ]; then
     design_energy=$(cat "$design_energy_file")
     current_energy=$(cat "$current_energy_file")
-    
+
     battery_health=$(awk "BEGIN {
         health = ($current_energy / $design_energy) * 100;
-        if (health > 100) 
+        if (health > 100)
             health = 100;
         printf \"%.0f\", health
     }")

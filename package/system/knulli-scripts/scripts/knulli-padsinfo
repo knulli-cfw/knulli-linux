@@ -2,7 +2,7 @@
 
 read_value() {
   local key="${1}" file="${2}"
-  sed -nE "s/^${key}=(.+)/\1/p" "${file}"
+  timeout 0.2 sed -nE "s/^${key}=(.+)/\1/p" "${file}"
 }
 
 read_battery_capacity() {

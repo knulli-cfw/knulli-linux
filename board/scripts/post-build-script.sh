@@ -33,6 +33,8 @@ ln -sf "/userdata/cheats" "${TARGET_DIR}/usr/share/knulli/datainit/cheats/custom
 ## === REMOVE ===
 # Temp stuff that changes during consecutive builds. Meant to be cleaned/updated as-needed
 rm -f "${TARGET_DIR}/etc/batteryplus/state.d/00batterysaver-chargingbypass" || exit 1
+rm -f "${TARGET_DIR}/usr/README.md" || exit 1 # why am I here?
+rm -f "${TARGET_DIR}/usr/yabasanshiro" || exit 1 # why am I here?
 
 # Remove base batocera init scripts we don't need
 rm -f "${TARGET_DIR}/etc/init.d/S50kodi" || exit 1

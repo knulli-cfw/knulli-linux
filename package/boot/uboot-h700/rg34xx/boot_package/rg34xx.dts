@@ -2740,6 +2740,8 @@
 					pmu_usbad_vol = <0x1068>;
 					pmu_usbad_cur = <0x9c4>;
 					pmu_usb_typec_used = <0x01>;
+					wakeup_usb_in;
+					wakeup_usb_out;
 					det_acin_supply = <0x4a>;
 					pmu_acin_usbid_drv = <0x4b 0x07 0x0c 0x01>;
 					pmu_vbus_det_gpio = <0x4b 0x07 0x0d 0x01>;
@@ -3835,7 +3837,7 @@
 			pinctrl-names = "active", "sleep";
 			status = "okay";
 			lcd_used = <0x01>;
-			lcd_driver_name = "fog_fj035fhd05_v1";
+			lcd_driver_name = "rg34xx_v1";
 			lcd_backlight = <0x32>;
 			lcd_if = <0x00>;
 			lcd_hv_if = <0x00>;
@@ -3843,14 +3845,14 @@
 			lcd_y = <0x1e0>;
 			lcd_width = <0x96>;
 			lcd_height = <0x5e>;
-			lcd_dclk_freq = <0x36>;
+			lcd_dclk_freq = <0x1a>;
 			lcd_pwm_used = <0x01>;
 			lcd_pwm_ch = <0x00>;
 			lcd_pwm_freq = <0xc350>;
 			lcd_pwm_pol = <0x01>;
 			lcd_pwm_max_limit = <0xff>;
 			lcd_hbp = <0x2e>;
-			lcd_ht = <0x68f>;
+			lcd_ht = <0x334>;
 			lcd_hspw = <0x02>;
 			lcd_vbp = <0x14>;
 			lcd_vt = <0x218>;
@@ -4968,12 +4970,12 @@
 
 		dram_select_para {
 			device_type = "dram_select_para";
-			select_mode = <0x00>;
+			select_mode = <0x01>;
 			gpadc_channel = <0x01>;
-			select_gpio0;
-			select_gpio1;
-			select_gpio2 = <0x4b 0x07 0x09 0x00 0x01 0xffffffff 0xffffffff>;
-			select_gpio3;
+			select_gpio0 = <0x4b 0x07 0x06 0x00 0x01 0xffffffff 0xffffffff>;
+			select_gpio1 = <0x4b 0x07 0x07 0x00 0x01 0xffffffff 0xffffffff>;
+			select_gpio2 = <0x4b 0x07 0x08 0x00 0x01 0xffffffff 0xffffffff>;
+			select_gpio3 = <0x4b 0x07 0x0a 0x00 0x01 0xffffffff 0xffffffff>;
 		};
 
 		dram_para1 {
@@ -5433,18 +5435,18 @@
 
 		dram_para14 {
 			device_type = "dram_para14";
-			dram_clk = <0x318>;
-			dram_type = <0x03>;
-			dram_dx_odt = <0x8080808>;
-			dram_dx_dri = <0xe0e0e0e>;
-			dram_ca_dri = <0xe0e>;
-			dram_odt_en = <0x01>;
+			dram_clk = <0x2a0>;
+			dram_type = <0x07>;
+			dram_dx_odt = <0x6060606>;
+			dram_dx_dri = <0xd0d0d0d>;
+			dram_ca_dri = <0x1919>;
+			dram_odt_en = <0x9988eeee>;
 			dram_para1 = <0x30fa>;
 			dram_para2 = <0x1000>;
-			dram_mr0 = <0x840>;
-			dram_mr1 = <0x04>;
-			dram_mr2 = <0x08>;
-			dram_mr3 = <0x00>;
+			dram_mr0 = <0x00>;
+			dram_mr1 = <0xc3>;
+			dram_mr2 = <0x06>;
+			dram_mr3 = <0x01>;
 			dram_mr4 = <0x00>;
 			dram_mr5 = <0x00>;
 			dram_mr6 = <0x00>;
@@ -5457,48 +5459,48 @@
 			dram_mr22 = <0x00>;
 			dram_tpr0 = <0x00>;
 			dram_tpr1 = <0x00>;
-			dram_tpr2 = <0x00>;
+			dram_tpr2 = <0x01>;
 			dram_tpr3 = <0x00>;
-			dram_tpr6 = <0x33808080>;
-			dram_tpr10 = <0xf83438>;
-			dram_tpr11 = <0x00>;
-			dram_tpr12 = <0x00>;
-			dram_tpr13 = <0x40>;
+			dram_tpr6 = <0x2fb08080>;
+			dram_tpr10 = <0x402f4489>;
+			dram_tpr11 = <0xe0e0f0e>;
+			dram_tpr12 = <0xf10110f>;
+			dram_tpr13 = <0x8c60>;
 		};
 
 		dram_para15 {
 			device_type = "dram_para15";
-			dram_clk = <0x318>;
-			dram_type = <0x03>;
+			dram_clk = <0x2a0>;
+			dram_type = <0x08>;
 			dram_dx_odt = <0x8080808>;
 			dram_dx_dri = <0xe0e0e0e>;
 			dram_ca_dri = <0xe0e>;
-			dram_odt_en = <0x01>;
-			dram_para1 = <0x30fa>;
-			dram_para2 = <0x1000>;
-			dram_mr0 = <0x840>;
-			dram_mr1 = <0x04>;
-			dram_mr2 = <0x08>;
-			dram_mr3 = <0x00>;
-			dram_mr4 = <0x00>;
+			dram_odt_en = <0x7887bbbb>;
+			dram_para1 = <0x310a>;
+			dram_para2 = <0x00>;
+			dram_mr0 = <0x00>;
+			dram_mr1 = <0x34>;
+			dram_mr2 = <0x1b>;
+			dram_mr3 = <0x33>;
+			dram_mr4 = <0x03>;
 			dram_mr5 = <0x00>;
 			dram_mr6 = <0x00>;
-			dram_mr11 = <0x00>;
-			dram_mr12 = <0x00>;
+			dram_mr11 = <0x04>;
+			dram_mr12 = <0x72>;
 			dram_mr13 = <0x00>;
-			dram_mr14 = <0x00>;
+			dram_mr14 = <0x09>;
 			dram_mr16 = <0x00>;
 			dram_mr17 = <0x00>;
-			dram_mr22 = <0x00>;
+			dram_mr22 = <0x24>;
 			dram_tpr0 = <0x00>;
 			dram_tpr1 = <0x00>;
-			dram_tpr2 = <0x00>;
+			dram_tpr2 = <0x01>;
 			dram_tpr3 = <0x00>;
-			dram_tpr6 = <0x33808080>;
-			dram_tpr10 = <0xf83438>;
+			dram_tpr6 = <0x40808080>;
+			dram_tpr10 = <0x402f6633>;
 			dram_tpr11 = <0x00>;
 			dram_tpr12 = <0x00>;
-			dram_tpr13 = <0x40>;
+			dram_tpr13 = <0x2008c60>;
 		};
 
 		secure {
