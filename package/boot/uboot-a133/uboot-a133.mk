@@ -47,16 +47,16 @@ define UBOOT_A133_INSTALL_IMAGES_CMDS
     )
     
     # Create a summary file
-    echo "A133 Boot Packages:" > $(BINARIES_DIR)/A133-boot-packages/README.txt
-    echo "==================" >> $(BINARIES_DIR)/A133-boot-packages/README.txt
-    echo "" >> $(BINARIES_DIR)/A133-boot-packages/README.txt
+    echo "A133 Boot Packages:" > $(BINARIES_DIR)/a133-boot-packages/README.txt
+    echo "==================" >> $(BINARIES_DIR)/a133-boot-packages/README.txt
+    echo "" >> $(BINARIES_DIR)/a133-boot-packages/README.txt
     $(foreach device,$(UBOOT_A133_DEVICES), \
         if [ -f "$(BINARIES_DIR)/a133-boot-packages/$(device)_boot_package.fex" ]; then \
             echo "- $(device)_boot_package.fex" >> $(BINARIES_DIR)/a133-boot-packages/README.txt; \
         fi; \
     )
     
-    echo "" >> $(BINARIES_DIR)/A133-boot-packages/README.txt
+    echo "" >> $(BINARIES_DIR)/a133-boot-packages/README.txt
     echo "Generated on: $$(date)" >> $(BINARIES_DIR)/a133-boot-packages/README.txt
 endef
 
