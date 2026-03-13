@@ -19,6 +19,7 @@ if  BR2_PACKAGE_BATOCERA_TARGET_RK3399	|| \
     BR2_PACKAGE_BATOCERA_TARGET_RK3288	|| \
     BR2_PACKAGE_BATOCERA_TARGET_RK3588	|| \
     BR2_PACKAGE_BATOCERA_TARGET_RK3568	|| \
+    BR2_PACKAGE_BATOCERA_TARGET_RK3576	|| \
     BR2_PACKAGE_BATOCERA_TARGET_RK3326
 	config BR2_PACKAGE_BATOCERA_TARGET_ROCKCHIP_GLES3
 	bool "rockchip_gles3"
@@ -399,7 +400,8 @@ config BR2_PACKAGE_KNULLI_SYSTEM
 						   !BR2_PACKAGE_BATOCERA_TARGET_RK3588	&& \
 						   !BR2_PACKAGE_BATOCERA_TARGET_ATM7039 && \
 						   !BR2_PACKAGE_BATOCERA_TARGET_SUNXI_R16 && \
-						   !BR2_PACKAGE_BATOCERA_TARGET_RK3568
+						   !BR2_PACKAGE_BATOCERA_TARGET_RK3568 && \
+						   !BR2_PACKAGE_BATOCERA_TARGET_SM8250
 
 	select BR2_PACKAGE_RTL8822CS        	if BR2_PACKAGE_BATOCERA_TARGET_S905GEN3
 
@@ -530,11 +532,15 @@ config BR2_TARGET_KNULLI_IMAGES_DEFINITIONS
 	default "allwinner/r16/miyoo-a30"								if BR2_PACKAGE_BATOCERA_TARGET_SUNXI_R16
 	default "actions/atm7039/rg35xx"								if BR2_PACKAGE_BATOCERA_TARGET_ATM7039
 	default "qualcomm/sd845/odin"									if BR2_PACKAGE_BATOCERA_TARGET_ODIN
-        default "qualcomm/sm8250/rp5 qualcomm/sm8250/rpmini qualcomm/sm8250/rpflip2 qualcomm/sm8250/rpminiv2"                    if BR2_PACKAGE_BATOCERA_TARGET_SM8250
+    #    default "qualcomm/sm8250/rp5 qualcomm/sm8250/rpmini qualcomm/sm8250/rpflip2 qualcomm/sm8250/rpminiv2"   
+	default "qualcomm/sm8250" \
+	                 								if BR2_PACKAGE_BATOCERA_TARGET_SM8250
 	default "rockchip/rk3399/orangepi-800 rockchip/rk3399/rg552 rockchip/rk3399/rockpro64 rockchip/rk3399/rock960 rockchip/rk3399/orangepi4-lts rockchip/rk3399/rock-pi-4 rockchip/rk3399/nanopi-m4v2 rockchip/rk3399/hugsun-x99" \
 													if BR2_PACKAGE_BATOCERA_TARGET_RK3399
 	default "rockchip/rk3566/miyoo-flip rockchip/rk3566/powkiddy-rgb30 rockchip/rk3566/rg-arc-s rockchip/rk3566/powkiddy-x55 rockchip/rk3566/rg-ds" \
 										 			if BR2_PACKAGE_BATOCERA_TARGET_RK3568
+	default "rockchip/rk3576/rg-vita-pro" \
+													if BR2_PACKAGE_BATOCERA_TARGET_RK3576
 
 	choice
 	prompt "knulli.linux target"
@@ -578,6 +584,9 @@ config BR2_PACKAGE_BATOCERA_TARGET_RK3399
 
 config BR2_PACKAGE_BATOCERA_TARGET_RK3568
 	bool "rk3568"
+
+config BR2_PACKAGE_BATOCERA_TARGET_RK3576
+	bool "rk3576"
 
 config BR2_PACKAGE_BATOCERA_TARGET_RK3588
 	bool "rk3588"
@@ -986,7 +995,7 @@ config BR2_PACKAGE_BATOCERA_HANDHELD_SYSTEMS
 	select BR2_PACKAGE_LIBRETRO_ARDUOUS		# ALL
 
 	# Sony PS Vita
-	select BR2_PACKAGE_VITA3K			if BR2_PACKAGE_BATOCERA_TARGET_X86_64_ANY
+	select BR2_PACKAGE_VITA3K			if BR2_PACKAGE_BATOCERA_TARGET_X86_64_ANY || BR2_PACKAGE_BATOCERA_TARGET_RK3576
 
 	# MegaDuck
 	select BR2_PACKAGE_LIBRETRO_SAMEDUCK		# ALL

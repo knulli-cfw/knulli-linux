@@ -1,0 +1,81 @@
+#!/bin/sh
+BOOTCONF="/boot/knulli-boot.conf"
+
+. /etc/profile.d/xdg.sh
+. /etc/profile.d/dbus.sh
+
+case "$1" in
+	start)
+		enabled="$(/usr/bin/knulli-settings-get system.es.atstartup)"
+		if [ "$enabled" != "0" ]; then
+			if pidof emulationstation > /dev/null; then
+				echo "Emulationstation is already running..."
+				exit 1
+			fi
+
+			PULSE_SOCK=/var/run/pulse/native
+			i=0
+			while [ $i -lt 100 ]; do
+				ds="$(pactl -s "unix:$PULSE_SOCK" info 2>/dev/null | sed -n 's/^Default Sink: //p')"
+				[ -n "$ds" ] && break
+				i=$((i+1))
+				sleep 0.05
+			done
+
+			emulationstation-standalone &
+		fi
+		;;
+
+	stop)
+		for COMPOSITOR in openbox sway labwc; do
+			pidof "$COMPOSITOR" >/dev/null && break || COMPOSITOR=
+		done
+
+		emulationstation-standalone --stop-rebooting 2>/dev/null
+
+		if [ -n "$COMPOSITOR" ]; then
+			case "$COMPOSITOR" in
+				openbox) openbox --exit 2>/dev/null ;;
+				sway)    swaymsg exit 2>/dev/null ;;
+				labwc)   labwc --exit 2>/dev/null ;;
+			esac
+		fi
+
+		# Send the standard terminate signal (SIGTERM) to other processes.
+		killall touchegg         2>/dev/null
+		killall emulationstation 2>/dev/null
+
+		# Forcefully kill the compositor if they're still running.
+		if [ -n "$COMPOSITOR" ] && pidof "$COMPOSITOR" >/dev/null; then
+			killall -9 "$COMPOSITOR" 2>/dev/null
+		fi
+
+		# Kill ES after 20 seconds if still active
+		if pidof emulationstation >/dev/null; then
+			timeout -k 5 20 tail -q --pid=$(pidof emulationstation) -f /dev/null
+		fi
+		;;
+
+	suspend)
+		echo "Suspending EmulationStation process only..."
+		PGID=$(ps -o pgid= -p "$(pidof emulationstation | awk '{print $1}')" | tr -d ' ')
+		[ -n "$PGID" ] && kill -STOP -"$PGID"
+		;;
+
+	resume)
+		echo "Resuming EmulationStation process..."
+		PGID=$(ps -o pgid= -p "$(pidof emulationstation | awk '{print $1}')" | tr -d ' ')
+		[ -n "$PGID" ] && kill -CONT -"$PGID"
+		;;
+
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+
+	*)
+		echo "Usage: $0 {start|stop|restart|suspend|resume}"
+		exit 1
+esac
+
+exit $?

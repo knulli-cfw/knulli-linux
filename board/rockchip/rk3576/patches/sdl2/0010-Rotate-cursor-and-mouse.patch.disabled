@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Knulli Build System <build@knulli.org>
+Date: Tue, 4 Feb 2026 17:05:00 +0000
+Subject: [PATCH] KMSDRM: Rotate cursor and mouse for portrait displays
+
+When display is rotated 270 degrees for portrait mode, rotate cursor
+rendering and mouse coordinates to match.
+
+---
+ src/video/kmsdrm/SDL_kmsdrmmouse.c | 43 +++++++++++++++++++++++++-----
+ 1 file changed, 36 insertions(+), 7 deletions(-)
+
+diff --git a/src/video/kmsdrm/SDL_kmsdrmmouse.c b/src/video/kmsdrm/SDL_kmsdrmmouse.c
+index 955045a7e..84a2d6c9a 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmmouse.c
++++ b/src/video/kmsdrm/SDL_kmsdrmmouse.c
+@@ -146,11 +146,13 @@ static int KMSDRM_DumpCursorToBO(SDL_VideoDisplay *display, SDL_Cursor *cursor)
+ {
+     SDL_DisplayData *dispdata = (SDL_DisplayData *)display->driverdata;
+     KMSDRM_CursorData *curdata = (KMSDRM_CursorData *)cursor->driverdata;
++    SDL_VideoData *viddata = dispdata->viddata;
+     uint8_t *src_row;
+     uint32_t src_row_pixels;
+ 
+     int i;
+     int j;
++    int x, y;
+     int ret;
+ 
+     if (curdata == NULL || !dispdata->cursor_bo) {
+@@ -169,10 +171,25 @@ static int KMSDRM_DumpCursorToBO(SDL_VideoDisplay *display, SDL_Cursor *cursor)
+         return SDL_SetError("Could not map cursor BO");
+     }
+ 
+-    /* Copy from the cursor buffer to a buffer that we can dump to the GBM BO. */
++    /* Copy with rotation if needed (270° for portrait mode) */
+     for (i = 0; i < curdata->h; i++) {
+         for (j = 0; j < curdata->w; j++) {
+-            src_row_pixels = ((uint32_t*)curdata->buffer)[i * curdata->w + j];
++            uint32_t pixel = ((uint32_t*)curdata->buffer)[i * curdata->w + j];
++            size_t offset;
++            
++            if (viddata && viddata->needs_rotation) {
++                /* 270° rotation: (x,y) -> (y, H-1-x) */
++                x = i;
++                y = curdata->w - 1 - j;
++                offset = (y * bo_stride) + (x  * 4);
++            } else {
++                /* No rotation */
++                x = j;
++                y = i;
++                offset = (i * bo_stride) + (j * 4);
++            }
++            
++            *((uint32_t*)(ready_buffer + offset)) = pixel;
+         }
+     }
+ 
+@@ -368,13 +385,19 @@ static int KMSDRM_WarpMouseGlobal(int x, int y)
+         SDL_Window *window = mouse->focus;
+         SDL_DisplayData *dispdata = (SDL_DisplayData *)SDL_GetDisplayForWindow(window)->driverdata;
+         KMSDRM_CursorData *curdata = mouse->cur_cursor->driverdata;
++        SDL_VideoData *viddata = dispdata->viddata;
++        int cursor_x = x;
++        int cursor_y = y;
+ 
+         /* Update internal mouse position. */
+         SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 0, x, y);
+ 
++        /* Rotate cursor position for portrait mode (270°) */
++        if (viddata && viddata->needs_rotation && curdata) {
++            cursor_x = y;
++            cursor_y = dispdata->mode.vdisplay - curdata->w - x;
++        }
++        
+         /* And now update the cursor graphic position on screen. */
+         if (dispdata->cursor_bo) {
+             int ret = 0;
+ 
+-            ret = KMSDRM_drmModeMoveCursor(dispdata->cursor_bo_drm_fd, dispdata->crtc->crtc_id, x, y);
++            ret = KMSDRM_drmModeMoveCursor(dispdata->cursor_bo_drm_fd, dispdata->crtc->crtc_id, cursor_x, cursor_y);
+ 
+             if (ret) {
+                 SDL_SetError("drmModeMoveCursor() failed.");
+@@ -428,16 +451,22 @@ static void KMSDRM_MoveCursor(SDL_Cursor *cursor)
+ 
+         SDL_Window *window = mouse->focus;
+         SDL_DisplayData *dispdata = (SDL_DisplayData *)SDL_GetDisplayForWindow(window)->driverdata;
+-        KMSDRM_CursorData *curdata = mouse->cur_cursor->driverdata;
++        KMSDRM_CursorData *curdata = cursor->driverdata;
++        SDL_VideoData *viddata = dispdata->viddata;
++        int cursor_x = mouse->x;
++        int cursor_y = mouse->y;
+ 
+         if (!dispdata->cursor_bo) {
+             SDL_SetError("Cursor not initialized properly.");
+             return;
+         }
+ 
+-        ret = KMSDRM_drmModeMoveCursor(dispdata->cursor_bo_drm_fd, dispdata->crtc->crtc_id, mouse->x, mouse->y);
++        /* Rotate cursor position for portrait mode (270°) */
++        if (viddata && viddata->needs_rotation && curdata) {
++            cursor_x = mouse->y;
++            cursor_y = dispdata->mode.vdisplay - curdata->w - mouse->x;
++        }
++        
++        ret = KMSDRM_drmModeMoveCursor(dispdata->cursor_bo_drm_fd, dispdata->crtc->crtc_id, cursor_x, cursor_y);
+ 
+         if (ret) {
+             SDL_SetError("drmModeMoveCursor() failed.");
+-- 
+2.43.0

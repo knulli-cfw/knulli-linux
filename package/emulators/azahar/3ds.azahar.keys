@@ -7,10 +7,34 @@
             "description": "Exit emulator"
         },
         {
-           "trigger": ["hotkey", "b"],
+           "trigger": ["hotkey", "y"],
+            "type": "key",
+            "target": ["KEY_LEFTCTRL", "KEY_1"],
+            "description": "Quicksave"
+        },
+        {
+           "trigger": ["hotkey", "x"],
+            "type": "key",
+            "target": ["KEY_LEFTCTRL", "KEY_2"],
+            "description": "Quickload"
+        },
+        {
+           "trigger": ["hotkey", "r3"],
             "type": "key",
             "target": ["KEY_F10"],
-            "description": "Menu"
+            "description": "Swap layout"
+        },
+        {
+           "trigger": ["hotkey", "pagedown"],
+            "type": "key",
+            "target": ["KEY_F9"],
+            "description": "Swap screens"
+        },
+        {
+           "trigger": ["hotkey", "pageup"],
+            "type": "key",
+            "target": ["KEY_LEFTCTRL", "KEY_P"],
+            "description": "screenshot"
         },
         {
             "trigger": "joystick2",

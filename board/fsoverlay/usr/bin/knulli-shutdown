@@ -31,6 +31,13 @@ do_poweroff() {
         /etc/init.d/S06fan-control-daemon stop
     fi
 
+    if knulli-board-capability "rgb"; then
+        led_enabled=$(knulli-settings-get "led.enabled")
+        if [ "$led_enabled" = "1" ]; then
+            curl -fsS --connect-timeout 1 --max-time 1 "http://127.0.0.1:1235/kill" >/dev/null 2>&1
+        fi
+    fi
+
     if [ "$POWEROFF" = "reboot" ]; then
         mount -o remount,rw /boot
         touch "$REBOOT_FLAG" # So the system knows if it's restart or cold boot for the charging binary in rcS

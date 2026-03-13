@@ -31,7 +31,7 @@ set_governor() {
 
 save_governor() {
    local GOVERNOR_TO_SAVE=$1
-   /usr/bin/knulli-settings-set system.cpu.governor "$GOVERNOR_TO_SAVE"
+   /usr/bin/knulli-settings-set-queue system.cpu.governor "$GOVERNOR_TO_SAVE"
 }
 
 case "$1" in

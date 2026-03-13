@@ -3,6 +3,22 @@
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
 #
+read -r BOARD < /boot/boot/knulli.board
+read -r ARCH  < /usr/share/knulli/knulli.arch
+read -r MODEL < /sys/firmware/devicetree/base/model
+
+# Only continue if board and arch match
+if [ "$BOARD" = "$ARCH" ]; then
+    case "$MODEL" in
+        "Retroid Pocket 5")
+            mount -o remount,rw /boot
+            echo "rp5" > /boot/boot/knulli.board
+            sync
+            mount -o remount,ro /boot
+            ;;
+    esac
+fi
+
 for i in /etc/init.d/S??* ; do
 
     # Ignore dangling symlinks (if any).

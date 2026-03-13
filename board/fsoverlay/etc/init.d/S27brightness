@@ -35,7 +35,7 @@ case $1 in
         # Update saved brightness setting if it's different from the current brightness
         if [ "$SAVED_BRI" != "$CURRENT_BRI" ]; then
             if [ -e "/userdata/system/knulli.conf" ]; then
-                knulli-settings-set display.brightness "$CURRENT_BRI"
+                knulli-settings-set-queue display.brightness "$CURRENT_BRI"
             fi
         fi
         ;;

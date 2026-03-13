@@ -2657,14 +2657,12 @@ libretro:
             group: ADVANCED OPTIONS
             prompt:      COLOR CORRECTION
             description: Simulates the color display of the original hardware.
-            choices:
-                preset: switchauto
+            preset: switchauto
           interframe_blending:
             group: ADVANCED OPTIONS
             prompt:      INTERFRAME BLENDING
             description: Simulates the LCD ghosting used for transparency effects on the original hardware.
-            choices:
-                preset: switchauto
+            preset: switchauto
     handy:
       features: [netplay, cheevos]
       shared: [rewind, autosave]
@@ -6384,8 +6382,7 @@ libretro:
                         group: ADVANCED OPTIONS
                         prompt:      COLOR CORRECTION
                         description: Simulates the color display of the original hardware.
-                        choices:
-                            preset: switchauto
+                        preset: switchauto
                     interframe_blending:
                         group: ADVANCED OPTIONS
                         prompt:      INTERFRAME BLENDING
@@ -11650,19 +11647,37 @@ drastic:
 advanced_drastic:
   shared: [powermode, tdp, videomode, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
   cfeatures:
+        adv_drastic_pip:
+            group:       ADVANCED OPTIONS
+            prompt:      PIP CORNER
+            description: Select which corner the Picture-in-Picture (PIP) screen appears in.
+            choices:
+                "Top-Right":            0
+                "Top-Left (Default)":   1
+                "Bottom-Left":          2
+                "Bottom-Right":         3
+        adv_drastic_blur:
+            group:       ADVANCED OPTIONS
+            prompt:      BILINEAR FILTERING
+            description: Smooths image using bilinear filtering. May reduce sharpness.
+            preset: switchauto
         adv_drastic_hires:
+            group:       ADVANCED OPTIONS
             prompt:      ENHANCED RENDERING RESOLUTION
             description: Enhancement. Double the rendering resolution. Makes 3D objects clearer.
             preset: switchauto
         adv_drastic_threaded:
+            group:       ADVANCED OPTIONS
             prompt:      THREADED 3D
             description: Improves performance in 3D games. Can cause glitches.
             preset: switchauto
         adv_drastic_frameskip_type:
+            group:       ADVANCED OPTIONS
             prompt:      ENABLE FRAMESKIP
             description: Skip frames to improve performance, at the cost of choppy motion. Can cause visual glitches.
             preset: switchauto
         adv_drastic_frameskip_value:
+            group:       ADVANCED OPTIONS
             prompt:      FRAMESKIP VALUE
             description: When frameskip type is on automatic or manual, skip up to this many frames consecutively.
             choices:

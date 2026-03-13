@@ -134,10 +134,25 @@ case "${ACTION}" in
                             amixer -c 0 sset 'Resume Path' 'ON'
                             LANG=C pactl set-default-sink "${MODE}" || exit 1
                             ;;
+                        "rk3576")
+                            if [ -f "/sys/class/drm/card0-HDMI-A-1/status" ]; then
+                                read -r HDMI_STATE < "/sys/class/drm/card0-HDMI-A-1/status"
+                            fi
+
+                            if [ "$HDMI_STATE" = "connected" ]; then
+                                MODE=alsa_output._sys_devices_platform_hdmi-sound_sound_card2.stereo-fallback
+                            else
+                                MODE=alsa_output._sys_devices_platform_es8388-sound_sound_card0.stereo-fallback
+                            fi
+
+                            amixer -c 0 sset "OUT2" on
+			    amixer -c 0 sset 'Resume Path' 'ON'
+                            LANG=C pactl set-default-sink "${MODE}" || exit 1
+                            ;;
                         "sm8250")
                             # boost max volume a bit
-                            amixer -c 0 sset 'WSA_RX0 Digital' 112
-                            amixer -c 0 sset 'WSA_RX1 Digital' 112
+                            amixer -c 0 sset 'WSA_RX0 Digital' 104
+                            amixer -c 0 sset 'WSA_RX1 Digital' 104
                             ;;
                         *)
                             # do nothing!

@@ -96,7 +96,7 @@ start_audioconfig() {
 stop_audioconfig() {
     VOLUME=$(knulli-audio getSystemVolume)
 	if [[ -e "/userdata/system/knulli.conf" ]]; then
-	    /usr/bin/knulli-settings-set audio.volume "${VOLUME}"
+	    /usr/bin/knulli-settings-set-queue audio.volume "${VOLUME}"
 	fi
 	echo "OK"
 }

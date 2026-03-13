@@ -1,0 +1,1 @@
+SUBSYSTEM=="extcon", KERNEL=="extcon3", ACTION=="change", RUN+="/usr/bin/headphone-switch %S%p"

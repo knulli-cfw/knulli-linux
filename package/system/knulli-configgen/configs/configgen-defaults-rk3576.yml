@@ -1,0 +1,43 @@
+default:
+  options:
+    # menu retroarch
+    retroarch.menu_driver: ozone
+    retroarch.menu_scale_factor: "1.500000"
+    retroarch.audio_driver: alsathread
+    retroarch.ozone_font_scale: "1"
+    retroarch.ozone_font_scale_factor_global: "1.200000"
+    retroarch.menu_battery_level_enable: "false"
+
+3ds:
+  emulator: azahar
+  core:     azahar
+nds:
+  emulator: libretro
+  core:     melonds
+fmtowns:
+  emulator: libretro
+  core:     mame
+flash:
+  emulator: lightspark
+  core:     lightspark
+atomiswave:
+  emulator: libretro
+  core:     flycastvl
+dreamcast:
+  emulator: libretro
+  core:     flycastvl
+naomi:
+  emulator: libretro
+  core:     flycastvl
+n64:
+  emulator: libretro
+  core:     parallel_n64
+n64dd:
+  emulator: libretro
+  core:     parallel_n64
+cdi:
+  emulator: libretro
+  core:     same_cdi
+ps2:
+  emulator: aethersx2
+  core:     aethersx2

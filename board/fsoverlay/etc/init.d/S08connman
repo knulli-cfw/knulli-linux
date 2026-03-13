@@ -64,7 +64,7 @@ knulli_wifi_configure() {
         if [ -z "$settings_ssid" ]; then
             default_ssid="$(/usr/bin/knulli-settings-get -f "$DEFAULTCONF" wifi${X}.ssid)"
             if [ -n "$default_ssid" ]; then
-                /usr/bin/knulli-settings-set -f "$KNULLICONF" wifi${X}.ssid "$default_ssid"
+                /usr/bin/knulli-settings-set-queue -f "$KNULLICONF" wifi${X}.ssid "$default_ssid"
                 settings_ssid=$default_ssid
             fi
         fi
@@ -72,7 +72,7 @@ knulli_wifi_configure() {
         if [ -z "$settings_key" ]; then
             default_key="$(/usr/bin/knulli-settings-get -f "$DEFAULTCONF" wifi${X}.key)"
             if [ -n "$default_key" ]; then
-                /usr/bin/knulli-settings-set -f "$KNULLICONF" wifi${X}.key "$default_key"
+                /usr/bin/knulli-settings-set-queue -f "$KNULLICONF" wifi${X}.key "$default_key"
                 settings_key=$default_key
             fi
         fi
@@ -115,27 +115,6 @@ wifi_configure_all() {
     done
 }
 
-connman_ready() {
-    connmanctl state 2>/dev/null | grep -qE '^[[:space:]]*State[[:space:]]*='
-}
-
-wait_wifi_iface() {
-    for i in $(seq 1 40); do
-        iw dev 2>/dev/null | awk '/Interface/ {print $2; exit}' | grep -q . && return 0
-        sleep 0.1
-    done
-    return 1
-}
-
-wait_connman_ready() {
-    for i in $(seq 1 80); do
-        connman_ready && return 0
-        sleep 0.1
-    done
-    echo "ERROR: connmanctl never became ready..." >&2
-    return 1
-}
-
 wifi_powered() {
     connmanctl technologies 2>/dev/null | awk '
         $0 ~ /Type = wifi/ {inwifi=1; next}
@@ -145,20 +124,36 @@ wifi_powered() {
     '
 }
 
+wait_wifi_powered() {
+    for i in $(seq 1 20); do
+        wifi_powered && return 0
+        sleep 0.1
+    done
+    return 1
+}
+
+connman_ready() {
+    connmanctl state 2>/dev/null | grep -qE '^[[:space:]]*State[[:space:]]*='
+}
+
+wait_connman_ready() {
+    for i in $(seq 1 80); do
+        connman_ready && return 0
+        sleep 0.1
+    done
+    return 1
+}
+
 wifi_enable() {
     settingsCountry="$(/usr/bin/knulli-settings-get -f "$KNULLICONF" wifi.country)"
-    [ -n "$settingsCountry" ] && /usr/sbin/iw reg set "$settingsCountry"
+    [ -n "$settingsCountry" ] && /usr/sbin/iw reg set "$settingsCountry" 2>/dev/null
 
     connmanctl enable wifi 2>/dev/null
 
-    wait_wifi_iface >/dev/null 2>&1 || true
+    wait_wifi_powered >/dev/null 2>&1
 
-    # Wait briefly for wifi to be enabled (1s)
-    for i in 1 2 3 4; do
-        wifi_powered && break
-        sleep 0.25
-    done
-
+    connmanctl scan wifi 2>/dev/null
+    sleep 1
     connmanctl scan wifi 2>/dev/null
 }
 
@@ -172,10 +167,13 @@ do_start() {
     printf "Starting connman: "
     start-stop-daemon -S -q -m -b -p /var/run/connmand.pid --exec /usr/sbin/connmand -- -n -r 2>/dev/null
 
-    wait_connman_ready >/dev/null 2>&1 || true
+    if ! wait_connman_ready; then
+        printf "failed."
+        return 0
+    fi
 
     if [ "$settingsWlan" = "1" ]; then
-        wifi_enable
+        wifi_enable &
     else
         wifi_disable
     fi

@@ -1,8 +1,16 @@
 #!/bin/sh
 
 BIN="/usr/bin/trimui_inputd"
-
 [ -f "$BIN" ] || exit 0
+
+read -r BOARD < /boot/boot/knulli.board
+case "$BOARD" in
+    trimui-smart-pro|trimui-brick|trimui-smart-pro-s)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
 
 case "$1" in
     start)
@@ -14,3 +22,4 @@ case "$1" in
 esac
 
 exit 0
+

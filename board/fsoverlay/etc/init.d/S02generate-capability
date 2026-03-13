@@ -69,7 +69,8 @@ case "$ARCH" in
         BOARD_CAPABILITIES[analogstick]="powkiddy-x55 powkiddy-rgb30"
         BOARD_CAPABILITIES[rumble]="rg-arc-s powkiddy-x55 powkiddy-rgb30"
         BOARD_CAPABILITIES[adb]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
-        BOARD_CAPABILITIES[pwrled]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
+        BOARD_CAPABILITIES[hud]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
+	BOARD_CAPABILITIES[pwrled]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip"
         ;;
     rk3576)
         BOARD_CAPABILITIES[rgb]="rg-vita-pro"
@@ -81,7 +82,7 @@ case "$ARCH" in
         BOARD_CAPABILITIES[adb]="rg-vita-pro"
         BOARD_CAPABILITIES[hud]="rg-vita-pro"
         BOARD_CAPABILITIES[fan]="rg-vita-pro"
-	;;
+        ;;
     sm8250)
         BOARD_CAPABILITIES[rgb]="rp5"
         BOARD_CAPABILITIES[hdmi]="rp5"

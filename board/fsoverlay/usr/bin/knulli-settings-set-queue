@@ -1,0 +1,34 @@
+#!/bin/sh
+# knulli-settings-set is not safe when multiple processes write to knulli.conf
+# at the same time. Concurrent calls can overwrite each other and occasionally
+# write garbage or empty the file.
+#
+# This can happen during boot when several init scripts run in parallel
+#
+# This wrapper serializes calls to knulli-settings-set by using an atomic
+# directory creation as a lock. Only one process can create the directory,
+# forcing all other callers to wait and effectively form a queue.
+
+
+LOCKDIR="/var/run/knulli-settings-set-queue.lock"
+tries=0
+max_tries=100 # 5 seconds
+
+cleanup() {
+    rmdir "$LOCKDIR" 2>/dev/null
+}
+
+while ! mkdir "$LOCKDIR" 2>/dev/null; do
+    tries=$((tries + 1))
+    [ "$tries" -ge "$max_tries" ] && exit 1
+    sleep 0.05
+done
+
+trap cleanup EXIT INT TERM
+
+/usr/bin/knulli-settings-set "$@"
+ret=$?
+
+trap - EXIT INT TERM
+cleanup
+exit "$ret"

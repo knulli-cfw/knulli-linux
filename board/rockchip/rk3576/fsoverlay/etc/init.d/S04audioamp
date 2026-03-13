@@ -1,0 +1,87 @@
+#!/bin/bash
+# rk3576_audio_amp_init.sh
+
+# RG VITA PRO uses BUS 3
+BUS=3
+AMP_ADDR_LEFT=0x58
+AMP_ADDR_RIGHT=0x5b
+AMP_ENABLE_REG=0x03
+AMP_ENABLE_VAL=0x01
+
+AMP_REGISTERS_ENABLE=(
+    "0x64 0x3a"
+    "0x02 0x58"
+    "0x04 0x45"
+    "0x05 0x4e"
+    "0x5d 0x00"
+    "0x5e 0xb4"
+    "0x5f 0x30"
+    "0x60 0x39"
+    "0x61 0x10"
+    "0x62 0x03"
+    "0x63 0x0d"
+    "0x65 0x0a"
+    "0x66 0x00"
+    "0x67 0x00"
+    "0x68 0x00"
+    "0x6a 0x00"
+    "0x6b 0x00"
+    "0x6c 0x00"
+    "0x6d 0x00"
+    "0x6e 0x00"
+    "0x6f 0x00"
+    "0x70 0x00"
+    "0x71 0x00"
+    "0x72 0x34"
+    "0x73 0x06"
+    "0x74 0x10"
+    "0x75 0x00"
+    "0x7a 0x00"
+    "0x7b 0x00"
+    "0x7c 0x00"
+    "0x7d 0x00"
+    "0x03 0x00"
+    "0x01 0x07"
+    "0x01 0x3f"
+    "0x03 0x01"
+)
+
+write_regs() {
+    local -n reglist=$1
+    for entry in "${reglist[@]}"; do
+        set -- $entry
+        i2cset -y $BUS $AMP_ADDR_LEFT $1 $2
+        i2cset -y $BUS $AMP_ADDR_RIGHT $1 $2
+    done
+}
+
+is_amp_enabled() {
+    local val_l val_r
+    val_l=$(i2cget -y $BUS $AMP_ADDR_LEFT $AMP_ENABLE_REG 2>/dev/null)
+    val_r=$(i2cget -y $BUS $AMP_ADDR_RIGHT $AMP_ENABLE_REG 2>/dev/null)
+    [[ "$val_l" == "$AMP_ENABLE_VAL" && "$val_r" == "$AMP_ENABLE_VAL" ]]
+}
+
+case "$1" in
+    start)
+        if is_amp_enabled; then
+            echo "AW87391 amps already enabled, skipping init."
+            exit 0
+        fi
+
+        echo "Initializing AW87391 audio amplifiers..."
+        write_regs AMP_REGISTERS_ENABLE
+
+        if is_amp_enabled; then
+            echo "Amplifiers enabled successfully."
+        else
+            echo "WARNING: Amplifier enable verification failed." >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Usage: $0 start"
+        exit 1
+        ;;
+esac
+

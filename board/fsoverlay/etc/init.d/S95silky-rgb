@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# We only want to run the script if the board has RGB capability
+if ! knulli-board-capability "rgb"; then
+    exit 1
+fi
+
+DAEMON="/usr/bin/knulli-rgb"
+PIDFILE="/var/run/knulli-rgb.pid"
+DAEMON_NAME=$(basename "$DAEMON")
+DAEMON_ENABLED_KEY="led.enabled"
+
+is_running() {
+    [ -f "$PIDFILE" ] && start-stop-daemon --status --pidfile "$PIDFILE" >/dev/null 2>&1
+}
+
+curl_kill() {
+    curl -fsS --connect-timeout 1 --max-time 1 "http://127.0.0.1:1235/kill" >/dev/null 2>&1
+}
+
+wait_es() {
+    i=0
+    while [ "$i" -lt 50 ]; do
+        [ -f /tmp/emulationstation.ready ] && return 0
+        sleep 0.1
+        i=$((i + 1))
+    done
+    return 1
+}
+
+post_battery_sync() {
+    local LOOP_TIMEOUT=10 # 5 seconds
+    local LOOP_COUNT=0
+    local BATTERY_STATE
+    local BATTERY_PERCENTAGE
+    local A_BRI
+    local BRI
+
+    BATTERY_STATE="$(/usr/bin/knulli-battery-check status 2>/dev/null)"
+    BATTERY_PERCENTAGE="$(/usr/bin/knulli-battery-check capacity 2>/dev/null)"
+
+    # Error cases: No state/percentage given.
+    [ -n "$BATTERY_STATE" ] && [ -n "$BATTERY_PERCENTAGE" ] || return 61
+
+    while [ "$LOOP_COUNT" -lt "$LOOP_TIMEOUT" ]; do
+        # Stop retrying if daemon died
+        is_running || return 63
+
+        if curl -fsS --connect-timeout 0.1 --max-time 0.25 \
+            -X POST -d "${BATTERY_PERCENTAGE} ${BATTERY_STATE}" \
+            "http://127.0.0.1:1235/update-battery-state" >/dev/null 2>&1; then
+
+            A_BRI="$(knulli-settings-get led.brightness.adaptive 2>/dev/null)"
+            if [ "$A_BRI" = "1" ]; then
+                BRI="$(knulli-brightness 2>/dev/null)"
+                if [ -n "$BRI" ]; then
+                    curl -fsS --connect-timeout 0.1 --max-time 0.25 \
+                        -X POST -d "$BRI" \
+                        "http://127.0.0.1:1235/update-screen-state" >/dev/null 2>&1
+                fi
+            fi
+
+            return 0
+        fi
+
+        sleep 0.25
+        LOOP_COUNT=$((LOOP_COUNT + 1))
+    done
+
+    return 62
+}
+
+
+start_daemon() {
+    echo "Starting $DAEMON_NAME."
+    if is_running; then
+        echo "$DAEMON_NAME is already running."
+        return 0
+    fi
+
+    DAEMON_ENABLED=$(/usr/bin/knulli-settings-get $DAEMON_ENABLED_KEY)
+
+    if [ -n "$DAEMON_ENABLED" ] && [ "$DAEMON_ENABLED" = "0" ]; then
+        echo "$DAEMON_NAME is disabled."
+        return 0
+    fi
+
+    wait_es
+
+    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PIDFILE" --exec "$DAEMON" \
+        && echo "$DAEMON_NAME started OK" || { echo "$DAEMON_NAME failed to start"; exit 1; }
+
+    post_battery_sync
+}
+
+stop_daemon() {
+    echo "Stopping $DAEMON_NAME."
+
+    if ! is_running; then
+        echo "$DAEMON_NAME is not running."
+        rm -f "$PIDFILE"
+        return 0
+    fi
+
+    curl_kill
+
+    i=0
+    while [ "$i" -lt 4 ]; do
+        is_running || break
+        sleep 0.5
+        i=$((i + 1))
+    done
+
+    if is_running; then
+        start-stop-daemon --stop --quiet --pidfile "$PIDFILE"
+        echo "$DAEMON_NAME force-stopped"
+    else
+        echo "$DAEMON_NAME stopped"
+    fi
+
+    rm -f "$PIDFILE"
+}
+
+# Sanity check
+[ -e "$DAEMON" ] || exit 0
+
+case "$1" in
+    start)
+        start_daemon
+        ;;
+    stop)
+        stop_daemon
+        ;;
+    restart)
+        stop_daemon
+        sleep 0.5
+        start_daemon
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

@@ -68,7 +68,7 @@ case "${FSTYPE}" in
 	fi
 	;;
     "exfat")
-	if ! mount.exfat "${MOUNTDEVICE}" "${MOUNTPOINT}" -o "${FSMOUNTOPT}"
+	if ! mount "${MOUNTDEVICE}" "${MOUNTPOINT}" -o "${FSMOUNTOPT}"
 	    then
 	    exit 1
 	fi

@@ -15,9 +15,9 @@ case "$1" in
 
         ps3_enabled="$(/usr/bin/knulli-settings-get controllers.ps3.enabled)"
         if [ "$ps3_enabled" = "1" ]; then
-            /usr/bin/knulli-settings-set -f /etc/bluetooth/input.conf ClassicBondedOnly false
+            /usr/bin/knulli-settings-set-queue -f /etc/bluetooth/input.conf ClassicBondedOnly false
         else
-            /usr/bin/knulli-settings-set -f /etc/bluetooth/input.conf ClassicBondedOnly true
+            /usr/bin/knulli-settings-set-queue -f /etc/bluetooth/input.conf ClassicBondedOnly true
         fi
 
         # Reset radio

@@ -1,6 +1,7 @@
 config BR2_PACKAGE_MALI_G57_SUNXI
 	bool "mali-g57-sunxi"
 	depends on BR2_aarch64
+	select BR2_PACKAGE_LIBDRM
 	select BR2_PACKAGE_HAS_LIBEGL
 	select BR2_PACKAGE_HAS_LIBGLES
 	select BR2_PACKAGE_HAS_LIBMALI

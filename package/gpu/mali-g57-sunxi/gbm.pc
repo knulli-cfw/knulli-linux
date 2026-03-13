@@ -1,12 +1,12 @@
-prefix=/usr/
+prefix=/usr
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 
 Name: gbm
-Description: ARM Mali GBM library
-Version: 22.2.2
-Requires:
-Libs: -L${libdir} -lgbm -lmali
+Description: Generic Buffer Management
+Version: 21.0.0
+Requires.private: libdrm
+Libs: -L${libdir} -lgbm
 Cflags: -I${includedir}
 

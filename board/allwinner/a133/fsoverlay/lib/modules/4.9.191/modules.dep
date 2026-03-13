@@ -1,0 +1,33 @@
+xradio_core_tsp.ko: xradio_mac.ko
+xt_mac.ko:
+lzo.ko:
+dc_sunxi.ko: pvrsrvkm.ko
+vin_io.ko:
+xradio_wlan_tsp.ko: xradio_core.ko xradio_mac.ko
+rtlwifi.ko:
+xradio_core.ko: xradio_mac.ko
+xradio_wlan.ko: xradio_core.ko xradio_mac.ko
+pvrsrvkm.ko:
+xt_mark.ko:
+xt_multiport.ko:
+rtl8xxxu.ko:
+actuator.ko:
+gc2590_mipi.ko: vin_io.ko
+rtl8192c-common.ko: rtlwifi.ko
+xt_LOG.ko:
+videobuf2-dma-contig.ko:
+iptable_filter.ko:
+ov5648_mipi.ko: vin_io.ko
+xradio_mac_tsp.ko:
+zsmalloc.ko:
+xt_limit.ko:
+dw9714_act.ko: actuator.ko vin_io.ko
+xt_time.ko:
+xradio_mac.ko:
+xt_comment.ko:
+vin_v4l2.ko: videobuf2-dma-contig.ko vin_io.ko
+ipt_REJECT.ko:
+rtl_usb.ko: rtlwifi.ko
+zram.ko: zsmalloc.ko
+rtl8192cu.ko: rtl_usb.ko rtl8192c-common.ko rtlwifi.ko
+xt_TCPMSS.ko:

@@ -22,14 +22,14 @@ start_pipewire() {
     i=1
     while [ "$i" -le 50 ]; do
         if pactl -s "unix:$PULSE_SOCK" info >/dev/null 2>&1 && \
-           pactl -s "unix:$PULSE_SOCK" list sinks-raw 2>/dev/null | grep -q '^sink='
+           pactl -s "unix:$PULSE_SOCK" info 2>/dev/null | grep -q '^Default Sink: '
         then
             ok=1; break
         fi
         i=$((i + 1))
         sleep 0.1
     done
-    [ "$ok" -eq 1 ] && echo "OK" || { echo "Failed to find any audio sink"; return 1; }
+    [ "$ok" -eq 1 ] && echo "OK" || { echo "Failed to find default audio sink"; return 1; }
 }
 
 stop_pipewire() {

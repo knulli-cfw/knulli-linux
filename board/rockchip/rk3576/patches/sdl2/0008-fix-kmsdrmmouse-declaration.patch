@@ -1,0 +1,21 @@
+--- a/src/video/kmsdrm/SDL_mksdrmmous.c	2025-10-09 18:21:32.400545411 +0000
++++ b/src/video/kmsdrm/SDL_kmsdrmmouse.c	2025-10-09 18:22:07.936548033 +0000
+@@ -159,6 +159,7 @@ static int KMSDRM_DumpCursorToBO(SDL_Vid
+     int i;
+     int j;
+     int ret;
++    uintptr_t src_buf, dst_buf;
+ 
+     if (!curdata || !dispdata->cursor_bo) {
+         return SDL_SetError("Cursor or display not initialized properly.");
+@@ -177,8 +178,8 @@ static int KMSDRM_DumpCursorToBO(SDL_Vid
+     }
+ 
+     /* Copy from the cursor buffer to a buffer that we can dump to the GBM BO. */
+-    uintptr_t src_buf = (uintptr_t)curdata->buffer;
+-    uintptr_t dst_buf = (uintptr_t)ready_buffer;
++    src_buf = (uintptr_t)curdata->buffer;
++    dst_buf = (uintptr_t)ready_buffer;
+     for (i = 0; i < curdata->h; i++) {
+         for (j = 0; j < curdata->w; j++) {
+             uintptr_t src_pixel = src_buf + (i * curdata->w + j) * 4;

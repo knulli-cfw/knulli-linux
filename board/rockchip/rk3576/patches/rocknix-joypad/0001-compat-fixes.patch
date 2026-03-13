@@ -1,0 +1,56 @@
+--- a/Makefile	2025-01-12 19:44:39.000000000 +0000
++++ b/Makefile	2025-01-28 22:54:24.666556029 +0000
+@@ -1,7 +1 @@
+-ifeq ($(DEVICE),$(filter $(DEVICE), S922X RK3588))
+-	obj-m := rocknix-joypad.o
+-else ifeq ($(DEVICE),$(filter $(DEVICE), H700 RK3399))
+-	obj-m := rocknix-singleadc-joypad.o
+-else
+ 	obj-m := rocknix-joypad.o rocknix-singleadc-joypad.o
+-endif
+--- a/rocknix-joypad.c	2025-01-12 19:44:39.000000000 +0000
++++ b/rocknix-joypad.c	2025-01-28 22:54:24.666556029 +0000
+@@ -11,11 +11,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/iio/consumer.h>
+ #include <linux/version.h>
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0))
+ #include <linux/of_gpio.h>
+-#else
+-#include <linux/of_gpio_legacy.h>
+-#endif
+ #include "rocknix-joypad.h"
+ 
+ /*----------------------------------------------------------------------------*/
+--- a/rocknix-singleadc-joypad.c	2025-01-12 19:44:39.000000000 +0000
++++ b/rocknix-singleadc-joypad.c	2025-01-28 22:54:24.666556029 +0000
+@@ -11,11 +11,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/iio/consumer.h>
+ #include <linux/version.h>
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0))
+ #include <linux/of_gpio.h>
+-#else
+-#include <linux/of_gpio_legacy.h>
+-#endif
+ #include <linux/delay.h>
+ #include <linux/pwm.h>
+ #include "rocknix-joypad.h"
+@@ -234,8 +230,6 @@
+ 
+ };
+ 
+-extern struct input_dev * joypad_input_g;
+-
+ static int pwm_vibrator_start(struct joypad *joypad)
+ {
+ 	struct pwm_state state;
+@@ -1313,8 +1307,6 @@
+ 
+ 	input->name = DRV_NAME;
+ 
+-	joypad_input_g=input;
+-
+ 	device_property_read_string(dev, "joypad-name", &input->name);
+ 	input->phys = DRV_NAME"/input0";
+ 

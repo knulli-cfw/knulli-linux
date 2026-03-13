@@ -15,7 +15,7 @@ case "$1" in
   stop)
     printf "Saving random seed: "
     mount -o remount,rw /boot
-    /usr/bin/knulli-settings-set -f /boot/knulli-boot.conf randomseed `xxd -ps -l 512 -c 512 /dev/urandom`
+    /usr/bin/knulli-settings-set-queue -f /boot/knulli-boot.conf randomseed `xxd -ps -l 512 -c 512 /dev/urandom`
     mount -o remount,ro /boot
     echo "done."
     ;;

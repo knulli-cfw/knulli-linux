@@ -1,0 +1,107 @@
+diff -urpN sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmopengles.c working_sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmopengles.c
+--- sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmopengles.c	2026-02-11 21:58:15.214338094 +0000
++++ working_sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmopengles.c	2026-02-06 04:16:34.718122797 +0000
+@@ -153,7 +153,26 @@ int KMSDRM_GLES_SwapWindow(_THIS, SDL_Wi
+         close(src_info.fd);
+     }
+     src_info.fd = KMSDRM_gbm_bo_get_fd(windata->next_bo);
++
++    // Update src_info rect with actual BO properties to ensure correct stride and no offsets
++    {
++        uint32_t w = KMSDRM_gbm_bo_get_width(windata->next_bo);
++        uint32_t h = KMSDRM_gbm_bo_get_height(windata->next_bo);
++        uint32_t s = KMSDRM_gbm_bo_get_stride(windata->next_bo);
++        rga_set_rect(&src_info.rect, 0, 0, w, h, s / 4, h, RK_FORMAT_BGRA_8888);
++    }
++
+     dst_info.fd = viddata->rga_buffer_prime_fds[viddata->rga_buffer_index];
++
++    // Destination BO properties are mostly static, but let's be safe
++    {
++        struct gbm_bo* dst_bo = viddata->rga_buffers[viddata->rga_buffer_index];
++        uint32_t w = KMSDRM_gbm_bo_get_width(dst_bo);
++        uint32_t h = KMSDRM_gbm_bo_get_height(dst_bo);
++        uint32_t s = KMSDRM_gbm_bo_get_stride(dst_bo);
++        rga_set_rect(&dst_info.rect, 0, 0, w, h, s / 4, h, RK_FORMAT_BGRA_8888);
++    }
++
+     if (c_RkRgaBlit(&src_info, &dst_info, NULL) < 0) {
+         SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+             "Failed to rga blit\n");
+diff -urpN sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmvideo.c working_sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmvideo.c
+--- sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-02-11 21:58:15.233338063 +0000
++++ working_sdl2-2.32.8/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-02-06 04:16:33.889124933 +0000
+@@ -356,25 +356,25 @@ static void KMSDRM_FBDestroyCallback(str
+ static void
+ KMSDRM_InitRotateBuffer(_THIS, int orientation, int frameWidth, int frameHeight)
+ {
+-    int l_frameHeight, l_frameWidth;
++    int rga_buffer_width, rga_buffer_height;
+     SDL_VideoData *viddata = ((SDL_VideoData *)_this->driverdata);
+ 
+     // initialize 2D raster graphic acceleration unit (RGA)
+     c_RkRgaInit();
+ 
+-    if (orientation & 1) {
+-        l_frameWidth = frameWidth;
+-        l_frameHeight = (frameHeight + 31) & (~31);
+-    } else {
+-        l_frameWidth = frameWidth;
+-        l_frameHeight = frameHeight;
++    if (orientation & 1) { // 90 or 270 degrees
++        rga_buffer_width = frameHeight;
++        rga_buffer_height = frameWidth;
++    } else { // 0 or 180 degrees
++        rga_buffer_width = frameWidth;
++        rga_buffer_height = frameHeight;
+     }
+ 
+     // create buffers for RGA with adjusted stride
+     for (int i = 0; i < RGA_BUFFERS_MAX; ++i)
+     {
+         viddata->rga_buffers[i] = KMSDRM_gbm_bo_create(viddata->gbm_dev,
+-            l_frameWidth, l_frameHeight,
++            rga_buffer_width, rga_buffer_height,
+             GBM_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+         assert(viddata->rga_buffers[i]);
+ 
+@@ -392,16 +392,20 @@ KMSDRM_InitRotateBuffer(_THIS, int orien
+     case 3:  src_info.rotation = HAL_TRANSFORM_ROT_270; break;
+     }
+ 
+-    // swap width and height and adjust stride here because our source buffer is 480x854
+-    if (orientation & 1)
+-        rga_set_rect(&src_info.rect, 0, 0, frameHeight, frameWidth, l_frameHeight, l_frameWidth, RK_FORMAT_BGRA_8888);
+-    else
+-        rga_set_rect(&src_info.rect, 0, 0, frameWidth, frameHeight, l_frameWidth, l_frameHeight, RK_FORMAT_BGRA_8888);
++    // The source rectangle. We will update its virtual width/height in SwapWindow
++    // because it depends on the GBM surface's allocated BOs.
++    rga_set_rect(&src_info.rect, 0, 0, frameWidth, frameHeight, frameWidth, frameHeight, RK_FORMAT_BGRA_8888);
+ 
+     dst_info.fd = -1;
+     dst_info.mmuFlag = 1;
+ 
+-    rga_set_rect(&dst_info.rect, 0, 0, frameWidth, frameHeight, frameWidth, frameHeight, RK_FORMAT_BGRA_8888);
++    // The destination is the RGA buffer, which has the rotated dimensions.
++    // For the RGA buffers we create ourselves, we can set the correct virtual width immediately.
++    {
++        uint32_t stride = KMSDRM_gbm_bo_get_stride(viddata->rga_buffers[0]);
++        uint32_t virt_w = stride / 4;
++        rga_set_rect(&dst_info.rect, 0, 0, rga_buffer_width, rga_buffer_height, virt_w, rga_buffer_height, RK_FORMAT_BGRA_8888);
++    }
+ }
+ 
+ KMSDRM_FBInfo *KMSDRM_FBFromBO(_THIS, struct gbm_bo *bo)
+@@ -1819,7 +1823,11 @@ int KMSDRM_CreateWindow(_THIS, SDL_Windo
+     SDL_SetKeyboardFocus(window);
+ 
+     data = (SDL_DisplayData *) SDL_GetDisplayForWindow(window)->driverdata;
+-    KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.hdisplay, data->mode.vdisplay);
++    if (dispdata->orientation & 1) {
++        KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.vdisplay, data->mode.hdisplay);
++    } else {
++        KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.hdisplay, data->mode.vdisplay);
++    }
+   
+     /* Tell the app that the window has moved to top-left. */
+     {

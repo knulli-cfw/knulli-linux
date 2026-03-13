@@ -1,0 +1,19 @@
+#!/bin/sh
+
+STATE_FILE="$1/state"
+AMIXER="/usr/bin/amixer"
+
+# Fallback if the state file is missing
+[ -r "$STATE_FILE" ] || exit 0
+
+# Read extcon state. Typical contents include lines like "HEADPHONE=1" or "HEADPHONE=0".
+if grep -q "HEADPHONE=1" "$STATE_FILE"; then
+  $AMIXER -c 0 -q set 'Playback Path' HP
+  echo "Headphones detected → set Playback Path to HP"
+else
+  $AMIXER -c 0 -q set 'Playback Path' SPK
+  echo "Headphones not detected → set Playback Path to SPK"
+fi
+
+exit 0
+

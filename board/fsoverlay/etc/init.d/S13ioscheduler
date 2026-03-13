@@ -1,0 +1,14 @@
+#!/bin/sh
+# none/noop is better for SD/eMMC media
+# some devices override the scheduler at boot so we enforce it here
+
+case "$1" in
+    start)
+        for s in /sys/block/*/queue/scheduler; do
+            [ -e "$s" ] || continue
+            printf '%s\n' none > "$s" 2>/dev/null || printf '%s\n' noop > "$s" 2>/dev/null
+        done
+        ;;
+esac
+
+exit 0

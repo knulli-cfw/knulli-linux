@@ -42,6 +42,10 @@ do_start () {
         image="/usr/share/knulli/splash/boot-logo-480x640-left.png"
     fi
 
+    if [ "${V_BOARD_MODEL}" = "RG_VITA" ]; then
+        image="/usr/share/knulli/splash/boot-logo-1080x1920-left.png"
+    fi
+
     if [ "${V_BOARD_MODEL}" = "MagicX_Mini_M" ]; then
         image="/usr/share/knulli/splash/boot-logo-480x640-left.png"
     fi

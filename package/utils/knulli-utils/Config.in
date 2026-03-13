@@ -1,0 +1,5 @@
+config BR2_PACKAGE_KNULLI_UTILS
+       bool "Knulli Utils"
+       help
+          Knulli utitlities like progressbar, charger, etc.
+          

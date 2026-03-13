@@ -1,0 +1,347 @@
+#!/bin/sh
+# vim:noexpandtab
+
+
+# Default values go here.  It is important to _not_ initialize some
+# variables here.  They are:
+#
+# PM_CMDLINE
+# RESUME_MODULES
+#
+# for great debugging!
+[ "${PM_DEBUG}" = "true" ] && {
+	export PM_DEBUG
+	set -x
+}
+set -a
+PM_UTILS_LIBDIR="/usr/lib/pm-utils"
+PM_UTILS_ETCDIR="/etc/pm"
+PM_UTILS_RUNDIR="/var/run/pm-utils"
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:"${PM_UTILS_LIBDIR}"/bin
+PM_LOGFILE="/var/log/${STASHNAME}.log"
+TEMPORARY_CPUFREQ_GOVERNOR="performance"
+LOCKDIR="${PM_UTILS_RUNDIR}/locks"
+STORAGEDIR="${PM_UTILS_RUNDIR}/${STASHNAME}/storage"
+NA=254
+NX=253
+DX=252
+PM_FUNCTIONS="$PM_UTILS_LIBDIR/functions"
+PM_QUIRKDB="$PM_UTILS_LIBDIR/video-quirks"
+PM_LKW_QUIRKS="$PM_UTILS_ETCDIR/last_known_working.quirkdb"
+# Use c sort order
+LC_COLLATE=C
+
+# These should be overridden by defaults and/or config.d settings.
+# Specifically, distros should override these by modifying defaults,
+# and end users should modify these using files in /etc/pm/config.
+HIBERNATE_MODE=""
+HIBERNATE_RESUME_POST_VIDEO="no"
+SLEEP_MODULE="auto"
+# These variables will be handled specially when we load the config file.
+SUSPEND_MODULES=""
+HOOK_BLACKLIST=""
+ADD_PARAMETERS=""
+DROP_PARAMETERS=""
+PARAMETERS="${STORAGEDIR}/parameters"
+INHIBIT="${STORAGEDIR}/inhibit"
+PM_CMDLINE="$*"
+BEFORE_HOOKS=""
+MODULE_HELP=""
+SUSPEND_MODULE=""
+HIBERNATE_MODULE=""
+SUSPEND_HYBRID_MODULE=""
+
+# variables to handle hibernate after suspend support
+PM_HIBERNATE_DELAY=900  # 15 minutes
+PM_RTC=/sys/class/rtc/rtc0
+
+# when loading configuration files, allow stash-specific ones
+# to override the pm-utils global ones.
+[ -f "${PM_UTILS_LIBDIR}"/defaults ] && . "${PM_UTILS_LIBDIR}"/defaults
+[ -f "${PM_UTILS_LIBDIR}/${STASHNAME}.defaults" ] && \
+    . "${PM_UTILS_LIBDIR}/${STASHNAME}.defaults"
+set +a
+
+for cfg in "${PM_UTILS_ETCDIR}"/config.d/*[!~] \
+           "${PM_UTILS_ETCDIR}/${STASHNAME}.config.d"/*[!~]; do
+	[ -f "$cfg" ] || continue
+	# Ugly, I know. The goal here is to allow multiple files in
+	# /etc/pm/config.d declare these variables and have those
+	# declarations add together instead of the last one overwriting
+	# all the others.
+	[ "$SUSPEND_MODULES" ] && REAL_SUSPEND_MODULES="$SUSPEND_MODULES"
+	[ "$HOOK_BLACKLIST" ] && REAL_HOOK_BLACKLIST="$HOOK_BLACKLIST"
+	[ "$ADD_PARAMETERS" ] && REAL_ADD_PARAMETERS="$ADD_PARAMETERS"
+	[ "$DROP_PARAMETERS" ] && REAL_DROP_PARAMETERS="$DROP_PARAMETERS"
+	set -a
+	. "${cfg}"
+	SUSPEND_MODULES="$REAL_SUSPEND_MODULES $SUSPEND_MODULES"
+	HOOK_BLACKLIST="$REAL_HOOK_BLACKLIST $HOOK_BLACKLIST"
+	ADD_PARAMETERS="$REAL_ADD_PARAMETERS $ADD_PARAMETERS"
+	DROP_PARAMETERS="$REAL_DROP_PARAMETERS $DROP_PARAMETERS"
+	set +a
+done
+
+. "${PM_FUNCTIONS}"
+
+# Simple little logging function.
+# We do it this way because 'echo -n' is not posix.
+log()
+{
+	is_set "$LOGGING" || return 0;
+	local fmt='%s\n'
+	[ "$1" = "-n" ] && { fmt='%s'; shift; }
+	printf "$fmt" "$*"
+}
+
+profiling() { [ "$PM_PROFILE" = "true" ]; }
+
+if profiling; then
+	profile() {
+		local t1 t2 status msg elapsed
+		msg="$1"
+		shift
+		t1="$(date '+%s.%N')"
+		"$@"
+		status=$?
+		t2="$(date '+%s.%N')"
+		elapsed="$(printf "%s %s - p q" "$t2" "$t1" |dc)"
+		log "$msg: $(printf "%.3f" $elapsed) ($t2 - $t1)"
+		return $status
+	}
+
+else
+	profile() { shift; "$@"; }
+fi
+
+add_before_hooks() {
+	[ -z "$BEFORE_HOOKS" ] && BEFORE_HOOKS="$*" || \
+		BEFORE_HOOKS="$BEFORE_HOOKS $*"
+}
+
+add_module_help() {
+	[ -z "$MODULE_HELP" ] && MODULE_HELP="$*" || \
+		MODULE_HELP="$MODULE_HELP $*"
+}
+
+before_hooks()
+{
+	[ -z "$BEFORE_HOOKS" ] && return 0
+	local meth
+	for meth in $BEFORE_HOOKS; do
+		command_exists "$meth" && "$meth"
+	done
+}
+
+sleep_module_help()
+{
+	[ -z "$MODULE_HELP" ] && return 0
+	local meth
+	for meth in $MODULE_HELP; do
+		command_exists "$meth" && "$meth"
+	done
+}
+
+# update PM_CMDLINE iff someone changed our parameters
+update_parameters()
+{
+	[ -f "$PARAMETERS.new" ] || return
+	export PM_CMDLINE="$(get_parameters)"
+	rm -f "$PARAMETERS.new"
+}
+
+# if the user asked us to blacklist any hooks, do it.
+load_hook_blacklist()
+{
+	[ "$HOOK_BLACKLIST" ] || return
+	local hook
+	for hook in $HOOK_BLACKLIST; do
+		disablehook "${hook}" "blacklisted by user"
+		log "Blacklisting ${hook}."
+	done
+}
+
+load_hook_parameters()
+{
+	[ "$DROP_PARAMETERS" ] && remove_parameters $DROP_PARAMETERS
+	[ "$ADD_PARAMETERS" ]  && add_parameters $ADD_PARAMETERS
+	update_parameters
+}
+
+
+hook_exit_status(){
+	case $1 in
+		0)   log "success." ;;
+		$NA) log "not applicable." ;;
+		$NX) log "not executable." ;;
+		$DX) log "disabled." ;;
+		*)   log "Returned exit code $1."; return 1 ;;
+	esac
+}
+
+# check to see if a hook is a candidate for being run.
+hook_ok()
+{
+	local hook="${1##*/}"
+	# the actual name as passed to us.
+	[ -f "$STORAGEDIR/disable_hook:$hook" ] && return $DX
+	# name with leading digits chopped off the filename
+	[ -f "$STORAGEDIR/disable_hook:${hook#[0-9][0-9]}" ] && return $DX
+	[ -f "$1" ] || return $NX
+	return 0
+}
+
+_run_hook() {
+	# $1 = hook to run
+	# rest of args passed to hook unchanged.
+	log "Running hook $*:"
+	hook_ok "$1" && "$@"
+	log ""
+	log -n "$*: "
+	hook_exit_status $? && LAST_HOOK="${1##*/}" || inhibit
+}
+
+if profiling; then
+	run_hook() { profile "$1:" _run_hook "$@"; }
+else
+	run_hook() { _run_hook "$@"; }
+fi
+
+# Run all applicable hooks, logging success and failure as we go.
+_run_hooks() {
+	# $1 = type of hook to find.
+	# $2 = paramaters to pass to hooks.
+	# $3 = if present and equal to "reverse", run hooks backwards.
+	# Currently only power and sleep are meaningful.
+	local syshooks="${PM_UTILS_ETCDIR}/$1.d"
+	local phooks="${PM_UTILS_LIBDIR}/$1.d"
+	command_exists before_hooks && before_hooks
+	local sort="sort"
+	local base
+	local hook
+	local oifs="${IFS}"
+	# the next two lines are not a typo or a formatting error!
+	local nifs="
+"
+	IFS="${nifs}" # tolerate spaces in filenames.
+	[ "$3" = "reverse" ] && sort="sort -r"
+	for base in $(IFS="${oifs}"; for f in "$syshooks/"*[!~] "$phooks/"*[!~];
+		do [ -O "$f" ] && echo ${f##*/} ; done | $sort | uniq) ;
+	do
+		IFS="${oifs}"
+		# if we are running backwards, skip hooks that we did not
+		# run going forwards due to a hook failing.
+		[ "$3" -a "$3" = "reverse" -a "$LAST_HOOK" ] && \
+		    [ "$base" \> "$LAST_HOOK" ] && continue
+		# if we have already inhibited suspend/resume,
+		# don't run any more hooks.
+		[ ! "$3" ] && inhibited && break
+		update_parameters
+		if [ -f "$syshooks/$base" ]; then
+			hook="$syshooks/$base"
+		elif [ -f "$phooks/$base" ]; then
+			hook="$phooks/$base"
+		fi
+		run_hook "$hook" $2
+		IFS="${nifs}"
+	done
+	IFS="${oifs}"
+	# return value is 1 if something was inhibited, 0 otherwise.
+	inhibited && return 1 || return 0
+}
+
+if profiling; then
+	run_hooks() { profile "$1 $2:" _run_hooks "$@"; }
+else
+	run_hooks() { _run_hooks "$@"; }
+fi
+
+# Try to reinitalize the logfile. Fail unless certian criteria are met.
+init_logfile()
+{
+	if [ -z "$1" ]; then
+		echo "Please pass a filename to init_logfile."
+		return 1
+	elif [ -h "$1" ]; then
+		echo "$1 is a symbolic link, refusing to overwrite."
+		return 1
+	elif [ -f "$1" -a ! -O "$1"  ]; then
+		echo "We do not own $1, refusing to overwrite."
+		return 1
+	fi
+	export LOGGING=true
+	exec > "$1" 2>&1
+}
+
+check_suspend() { [ -n "$SUSPEND_MODULE" ]; }
+check_hibernate() { [ -n "$HIBERNATE_MODULE" ]; }
+check_suspend_hybrid() { [ -n "$SUSPEND_HYBRID_MODULE" ]; }
+
+# allow autodetection of sleep methods
+if [ "$SLEEP_MODULE" = "auto" ]; then
+    SLEEP_MODULE="tuxonice uswsusp"
+fi
+
+for mod in $SLEEP_MODULE; do
+    mod="${PM_UTILS_LIBDIR}/module.d/${mod}"
+    [ -f "$mod" ] || continue
+    . "$mod"
+done
+
+# always fall back to kernel methods if nothing else was declared
+
+if [ -z "$SUSPEND_MODULE" ]; then
+	if grep -q mem /sys/power/state; then
+		SUSPEND_MODULE="kernel"
+		do_suspend() { echo -n "mem" >/sys/power/state; }
+	elif [ -c /dev/pmu ] && pm-pmu --check; then
+		SUSPEND_MODULE="kernel"
+		do_suspend() { pm-pmu --suspend; }
+	elif grep -q standby /sys/power/state; then
+		SUSPEND_MODULE="kernel"
+		do_suspend() { echo -n "standby" >/sys/power/state; }
+	fi
+fi
+
+if [ -z "$HIBERNATE_MODULE" ] && \
+	[ -f /sys/power/disk ] && \
+	grep -q disk /sys/power/state; then
+	HIBERNATE_MODULE="kernel"
+	do_hibernate()
+	{
+		[ -n "${HIBERNATE_MODE}" ] && \
+		grep -qw "${HIBERNATE_MODE}" /sys/power/disk && \
+		echo -n "${HIBERNATE_MODE}" > /sys/power/disk
+		echo -n "disk" > /sys/power/state
+	}
+fi
+
+# since the kernel does not directly support hybrid sleep, we do
+# something else -- suspend and schedule an alarm to go into
+# hibernate if we have slept long enough.
+# Only do this if we do not need to do any special video hackery on resume
+# from hibernate, though.
+if [ -z "$SUSPEND_HYBRID_MODULE" -a -w "$PM_RTC/wakealarm" ] && \
+    check_suspend && check_hibernate && ! is_set $HIBERNATE_RESUME_POST_VIDEO; \
+    then
+    SUSPEND_HYBRID_MODULE="kernel"
+    do_suspend_hybrid() {
+	WAKETIME=$(( $(cat "$PM_RTC/since_epoch") + PM_HIBERNATE_DELAY))
+	echo >"$PM_RTC/wakealarm"
+	echo $WAKETIME > "$PM_RTC/wakealarm"
+	if do_suspend; then
+	    NOW=$(cat "$PM_RTC/since_epoch")
+	    if [ "$NOW" -ge "$WAKETIME" -a "$NOW" -lt $((WAKETIME + 30)) ]; then
+		log "Woken by RTC alarm, hibernating."
+		# if hibernate fails for any reason, go back to suspend.
+		do_hibernate || do_suspend
+	    else
+		echo > "$PM_RTC/wakealarm"
+	    fi
+	else
+	    # if we cannot suspend, just try to hibernate.
+	    do_hibernate
+	fi
+    }
+fi

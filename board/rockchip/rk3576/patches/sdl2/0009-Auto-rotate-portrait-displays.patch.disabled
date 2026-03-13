@@ -1,0 +1,240 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Knulli Build System <build@knulli.org>
+Date: Tue, 4 Feb 2026 17:00:00 +0000
+Subject: [PATCH] KMSDRM: Auto-rotate portrait displays (width < height)
+
+Simplified rotation for portrait displays. If display width < height,
+automatically rotate 270 degrees using librga. This avoids complex
+panel orientation property queries that can break KMSDRM initialization.
+
+---
+ CMakeLists.txt                        |  2 +-
+ Makefile.in                           |  2 +-
+ src/video/kmsdrm/SDL_kmsdrmopengles.c | 27 +++++++++-
+ src/video/kmsdrm/SDL_kmsdrmsym.h      |  1 +
+ src/video/kmsdrm/SDL_kmsdrmvideo.c    | 72 ++++++++++++++++++++++++++-
+ src/video/kmsdrm/SDL_kmsdrmvideo.h    |  6 +++
+ 6 files changed, 105 insertions(+), 5 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d6c82c819..374f24e85 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -663,7 +663,7 @@ if(USE_GCC OR USE_CLANG OR USE_INTELCC)
+     check_c_compiler_flag("" HAVE_NO_UNDEFINED)
+     set(CMAKE_REQUIRED_FLAGS ${ORIG_CMAKE_REQUIRED_FLAGS})
+     if(HAVE_NO_UNDEFINED AND NOT (USE_CLANG AND WINDOWS))
+-      list(APPEND EXTRA_LDFLAGS_BUILD "-Wl,--no-undefined")
++      list(APPEND EXTRA_LDFLAGS_BUILD "-Wl,--no-undefined -lrga")
+     endif()
+   endif()
+ 
+diff --git a/Makefile.in b/Makefile.in
+index eb4c4bc1a..5cd04eeec 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -23,7 +23,7 @@ CXX     = @CXX@
+ INCLUDE = @INCLUDE@
+ CFLAGS  = @BUILD_CFLAGS@
+ EXTRA_CFLAGS = @EXTRA_CFLAGS@
+-LDFLAGS = @BUILD_LDFLAGS@
++LDFLAGS = @BUILD_LDFLAGS@ -lrga
+ EXTRA_LDFLAGS = @EXTRA_LDFLAGS@
+ LIBTOOL = @LIBTOOL@
+ INSTALL = @INSTALL@
+diff --git a/src/video/kmsdrm/SDL_kmsdrmopengles.c b/src/video/kmsdrm/SDL_kmsdrmopengles.c
+index 487168203..8f7e4f9de 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmopengles.c
++++ b/src/video/kmsdrm/SDL_kmsdrmopengles.c
+@@ -29,6 +29,7 @@
+ #include "SDL_kmsdrmopengles.h"
+ #include "SDL_kmsdrmdyn.h"
+ #include <errno.h>
++#include <rga/RgaApi.h>
+ 
+ #ifndef EGL_PLATFORM_GBM_MESA
+ #define EGL_PLATFORM_GBM_MESA 0x31D7
+@@ -93,6 +94,7 @@ int KMSDRM_GLES_SwapWindow(_THIS, SDL_Window *window)
+     SDL_VideoData *viddata = ((SDL_VideoData *)_this->driverdata);
+     KMSDRM_FBInfo *fb_info;
+     int ret = 0;
++    struct gbm_bo* target_bo = NULL;
+ 
+     /* Always wait for the previous issued flip before issuing a new one,
+        even if you do async flips. */
+@@ -135,8 +137,29 @@ int KMSDRM_GLES_SwapWindow(_THIS, SDL_Window *window)
+         return 0;
+     }
+ 
+-    /* Get an actual usable fb for the next front buffer. */
+-    fb_info = KMSDRM_FBFromBO(_this, windata->next_bo);
++    /* If rotation is needed, use RGA to rotate to intermediate buffer */
++    if (viddata->needs_rotation && viddata->rga_initialized) {
++        int src_fd = KMSDRM_gbm_bo_get_fd(windata->next_bo);
++        int dst_fd = viddata->rga_buffer_fds[viddata->rga_buffer_index];
++        
++        if (c_RkRgaBlit(&viddata->rga_src, &viddata->rga_dst, NULL) == 0) {
++            target_bo = viddata->rga_buffers[viddata->rga_buffer_index];
++            viddata->rga_buffer_index = (viddata->rga_buffer_index + 1) % RGA_BUFFERS_MAX;
++        } else {
++            SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "RGA blit failed, using non-rotated");
++            target_bo = windata->next_bo;
++        }
++        
++        if (src_fd >= 0) {
++            close(src_fd);
++        }
++        viddata->rga_src.fd = -1;
++    } else {
++        target_bo = windata->next_bo;
++    }
++
++    /* Get a framebuffer for the target BO */
++    fb_info = KMSDRM_FBFromBO(_this, target_bo);
+     if (!fb_info) {
+         SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Could not get a framebuffer");
+         return 0;
+diff --git a/src/video/kmsdrm/SDL_kmsdrmsym.h b/src/video/kmsdrm/SDL_kmsdrmsym.h
+index 8b9e7b257..4dd0a2a0f 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmsym.h
++++ b/src/video/kmsdrm/SDL_kmsdrmsym.h
+@@ -132,6 +132,7 @@ SDL_KMSDRM_SYM(struct gbm_surface *,gbm_surface_create,(struct gbm_device *gbm,
+ SDL_KMSDRM_SYM(void,gbm_surface_destroy,(struct gbm_surface *surf))
+ SDL_KMSDRM_SYM(struct gbm_bo *,gbm_surface_lock_front_buffer,(struct gbm_surface *surf))
+ SDL_KMSDRM_SYM(void,gbm_surface_release_buffer,(struct gbm_surface *surf, struct gbm_bo *bo))
++SDL_KMSDRM_SYM(int,gbm_bo_get_fd,(struct gbm_bo *bo))
+ 
+ SDL_KMSDRM_SYM_OPT(uint64_t,gbm_bo_get_modifier,(struct gbm_bo *bo))
+ SDL_KMSDRM_SYM_OPT(int,gbm_bo_get_plane_count,(struct gbm_bo *bo))
+diff --git a/src/video/kmsdrm/SDL_kmsdrmvideo.c b/src/video/kmsdrm/SDL_kmsdrmvideo.c
+index ebe15fe9c..e2f15a8f9 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmvideo.c
++++ b/src/video/kmsdrm/SDL_kmsdrmvideo.c
+@@ -44,6 +44,7 @@
+ #include "SDL_kmsdrmopengles.h"
+ #include "SDL_kmsdrmmouse.h"
+ #include "SDL_kmsdrmdyn.h"
++#include <rga/RgaApi.h>
+ #include "SDL_kmsdrmvulkan.h"
+ #include <sys/stat.h>
+ #include <sys/param.h>
+@@ -330,6 +331,63 @@ static void KMSDRM_FBDestroyCallback(struct gbm_bo *bo, void *data)
+     SDL_free(fb_info);
+ }
+ 
++static int KMSDRM_InitRotation(_THIS, int display_w, int display_h)
++{
++    SDL_VideoData *viddata = ((SDL_VideoData *)_this->driverdata);
++    int rotated_w, rotated_h, stride;
++    
++    /* Auto-detect portrait mode: if width < height, rotate 270° */
++    viddata->needs_rotation = (display_w < display_h) ? SDL_TRUE : SDL_FALSE;
++    
++    /* Allow environment variable override */
++    const char *rotate_env = SDL_getenv("SDL_KMSDRM_ROTATE");
++    if (rotate_env) {
++        viddata->needs_rotation = SDL_atoi(rotate_env) ? SDL_TRUE : SDL_FALSE;
++    }
++    
++    if (!viddata->needs_rotation) {
++        SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "No rotation needed (landscape mode)");
++        return 0;
++    }
++    
++    SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "Portrait display detected, enabling 270° rotation");
++    
++    /* Initialize RGA */
++    if (c_RkRgaInit() < 0) {
++        SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Failed to initialize RGA");
++        viddata->needs_rotation = SDL_FALSE;
++        return -1;
++    }
++    
++    /* Create rotation buffers with rotated dimensions */
++    rotated_w = display_h;
++    rotated_h = (display_w + 31) & ~31;  /* Align height to 32 for RGA */
++    
++    for (int i = 0; i < RGA_BUFFERS_MAX; i++) {
++        viddata->rga_buffers[i] = KMSDRM_gbm_bo_create(viddata->gbm_dev,
++            rotated_w, rotated_h,
++            GBM_FORMAT_XRGB8888, GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
++        
++        if (!viddata->rga_buffers[i]) {
++            SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Failed to create RGA buffer %d", i);
++            return -1;
++        }
++        
++        viddata->rga_buffer_fds[i] = KMSDRM_gbm_bo_get_fd(viddata->rga_buffers[i]);
++    }
++    
++    /* Setup RGA transformation */
++    memset(&viddata->rga_src, 0, sizeof(rga_info_t));
++    memset(&viddata->rga_dst, 0, sizeof(rga_info_t));
++    
++    viddata->rga_src.fd = -1;
++    viddata->rga_src.mmuFlag = 1;
++    viddata->rga_src.rotation = HAL_TRANSFORM_ROT_270;
++    rga_set_rect(&viddata->rga_src.rect, 0, 0, display_h, display_w, display_h, display_w, RK_FORMAT_BGRA_8888);
++    
++    viddata->rga_dst.fd = -1;
++    viddata->rga_dst.mmuFlag = 1;
++    rga_set_rect(&viddata->rga_dst.rect, 0, 0, rotated_w, display_w, rotated_w, display_w, RK_FORMAT_BGRA_8888);
++    
++    viddata->rga_buffer_index = 0;
++    viddata->rga_initialized = SDL_TRUE;
++    
++    return 0;
++}
++
+ KMSDRM_FBInfo *KMSDRM_FBFromBO(_THIS, struct gbm_bo *bo)
+ {
+     SDL_VideoData *viddata = ((SDL_VideoData *)_this->driverdata);
+@@ -804,7 +862,17 @@ static int KMSDRM_CreateSurfaces(_THIS, SDL_Window *window)
+         goto cleanup;
+     }
+ 
+-    /* Now we create a new EGL render surface with the size of the current back buffer. */
++    /* Initialize rotation if needed (portrait display) */
++    ret = KMSDRM_InitRotation(_this, windata->output_w, windata->output_h);
++    if (ret < 0) {
++        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "Rotation setup failed, continuing without rotation");
++        viddata->needs_rotation = SDL_FALSE;
++        viddata->rga_initialized = SDL_FALSE;
++    }
++    
++    /* Create EGL surface with original dimensions (rotation happens in post-processing) */
++    SDL_LogDebug(SDL_LOG_CATEGORY_VIDEO, "Creating EGL surface: %dx%d", 
++                 windata->output_w, windata->output_h);
+     if (KMSDRM_CreateSurface(_this, window)) {
+         ret = SDL_SetError("Could not create EGL window surface");
+         goto cleanup;
+diff --git a/src/video/kmsdrm/SDL_kmsdrmvideo.h b/src/video/kmsdrm/SDL_kmsdrmvideo.h
+index eb3a1ec34..8a5e90d21 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmvideo.h
++++ b/src/video/kmsdrm/SDL_kmsdrmvideo.h
+@@ -43,6 +43,7 @@
+ #include <errno.h>
+ 
+ #include <poll.h>
++#include <rga/RgaApi.h>
+ 
+ #define KMSDRM_DRI_PATH "/dev/dri"
+ 
+@@ -94,6 +95,13 @@ typedef struct SDL_VideoData
+     SDL_bool video_init; /* Has KMSDRM_VideoInit succeeded? */
+ 
+     SDL_bool vulkan_mode; /* Are we in Vulkan mode? One VK window is enough to be. */
++    
++    /* RGA rotation support */
++#define RGA_BUFFERS_MAX 3
++    SDL_bool needs_rotation;
++    SDL_bool rga_initialized;
++    struct gbm_bo *rga_buffers[RGA_BUFFERS_MAX];
++    int rga_buffer_fds[RGA_BUFFERS_MAX];
++    int rga_buffer_index;
++    rga_info_t rga_src, rga_dst;
+ } SDL_VideoData;
+ 
+ typedef struct SDL_DisplayModeData
+-- 
+2.43.0

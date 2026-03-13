@@ -12,37 +12,37 @@ do_initialize() {
   TIMER="$(/usr/bin/knulli-settings-get system.idlewatcher.timer)"
   if [[ -z "$TIMER" || ! "$TIMER" =~ ^[0-9]+$ || "$TIMER" -lt 60 ]]; then
       TIMER="300" # default in seconds
-      /usr/bin/knulli-settings-set system.idlewatcher.timer "$TIMER"
+      /usr/bin/knulli-settings-set-queue system.idlewatcher.timer "$TIMER"
   fi
 
   EXTENDED_TIMER="$(/usr/bin/knulli-settings-get system.idlewatcher.extendedtimer)"
   if [[ -z "$EXTENDED_TIMER" || ! "$EXTENDED_TIMER" =~ ^[0-9]+$ || "$EXTENDED_TIMER" -lt 60 ]]; then
       EXTENDED_TIMER="900" # default in seconds
-      /usr/bin/knulli-settings-set system.idlewatcher.extendedtimer "$EXTENDED_TIMER"
+      /usr/bin/knulli-settings-set-queue system.idlewatcher.extendedtimer "$EXTENDED_TIMER"
   fi
 
   MODE="$(/usr/bin/knulli-settings-get system.batterysaver.mode)"
   if [[ -z "$MODE" || ! "$MODE" =~ ^(dim|dispoff|suspend|shutdown|none)$ ]]; then
     MODE="dim" # default can be dim|suspend|shutdown|none
-    /usr/bin/knulli-settings-set system.batterysaver.mode "$MODE"
+    /usr/bin/knulli-settings-set-queue system.batterysaver.mode "$MODE"
   fi
 
   EXTENDED_MODE="$(/usr/bin/knulli-settings-get system.batterysaver.extendedmode)"
   if [[ -z "$EXTENDED_MODE" || ! "$EXTENDED_MODE" =~ ^(suspend|shutdown|none)$ ]]; then
     EXTENDED_MODE="suspend" # default can be suspend|shutdown|none
-    /usr/bin/knulli-settings-set system.batterysaver.extendedmode "$EXTENDED_MODE"
+    /usr/bin/knulli-settings-set-queue system.batterysaver.extendedmode "$EXTENDED_MODE"
   fi
 
   AGGRESSIVE="$(/usr/bin/knulli-settings-get system.batterysaver.aggressive)"
   if [[ -z "$AGGRESSIVE" || ! "$AGGRESSIVE" =~ ^(1|0)$ ]]; then
     AGGRESSIVE="0" # default
-    /usr/bin/knulli-settings-set system.batterysaver.aggressive "$AGGRESSIVE"
+    /usr/bin/knulli-settings-set-queue system.batterysaver.aggressive "$AGGRESSIVE"
   fi
 
   MUTE="$(/usr/bin/knulli-settings-get system.batterysaver.mute)"
   if [[ -z "$MUTE" || ! "$MUTE" =~ ^(1|0)$ ]]; then
     MUTE="1" # default
-    /usr/bin/knulli-settings-set system.batterysaver.mute "$MUTE"
+    /usr/bin/knulli-settings-set-queue system.batterysaver.mute "$MUTE"
   fi
 }
 

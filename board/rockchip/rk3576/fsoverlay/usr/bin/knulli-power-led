@@ -1,0 +1,155 @@
+#!/bin/sh
+
+if ! knulli-board-capability "pwrled"; then
+    exit 1
+fi
+
+LED_ROOT="/sys/class/leds"
+LED_PWR=""
+LED_LOW=""
+
+read -r BOARD < /boot/boot/knulli.board
+
+case "$BOARD" in
+    rg-arc-s)
+        LED_PWR="${LED_ROOT}/battery_full"
+        LED_LOW="${LED_ROOT}/low_power"
+    ;;
+    miyoo-flip)
+        LED_PWR="${LED_ROOT}/work"
+        LED_LOW="${LED_ROOT}/charger"
+    ;;
+    *)
+        echo "Unknown device: $BOARD"
+        exit 1
+    ;;
+esac
+
+is_discharging() {
+    [ "$(knulli-battery-check status 2>/dev/null)" = "Discharging" ]
+}
+
+set_on() {
+    echo 1 > "$1/brightness" 2>/dev/null
+}
+
+set_off() {
+    echo 0 > "$1/brightness" 2>/dev/null
+}
+
+set_critical() {
+    if ! is_discharging; then
+        exit 0
+    fi
+
+    trap "set_on \"$LED_LOW\"; exit" INT TERM # Just in case it exits will revert to on
+
+    i=0
+    low_state=0 # 0=off,1=on
+    while [ $i -lt 240 ]; do
+        # abort if device stops discharging
+        if ! is_discharging; then
+            break
+        fi
+
+        if [ $low_state -eq 0 ]; then
+            set_on "$LED_LOW"; low_state=1
+            else
+            set_off "$LED_LOW"; low_state=0
+        fi
+
+        sleep 0.5
+        i=$((i+1))
+    done
+
+    set_off "$LED_LOW"
+}
+
+get_pwrled_state() {
+    val="$(/usr/bin/knulli-settings-get system.power.led 2>/dev/null)"
+    case "$val" in
+        0|1) echo "$val" ;;
+        *)   echo 1 ;;  # default ON
+    esac
+}
+
+usage() {
+    echo "Usage: knulli-power-led {power|low} {on|off} | cycle | critical | notification"
+}
+
+case "$1" in
+    power)
+        state="$(get_pwrled_state)"
+
+        case "$2" in
+            on)
+                set_on "$LED_PWR"
+                [ "$state" != "1" ] && /usr/bin/knulli-settings-set system.power.led 1
+            ;;
+            off)
+                set_off "$LED_PWR"
+                [ "$state" != "0" ] && /usr/bin/knulli-settings-set system.power.led 0
+            ;;
+            *)
+                usage
+            ;;
+        esac
+    ;;
+    low)
+        case "$2" in
+            on)
+                set_on "$LED_LOW"
+            ;;
+            off)
+                set_off "$LED_LOW"
+            ;;
+            *)
+                usage
+            ;;
+        esac
+    ;;
+    cycle)
+        state="$(get_pwrled_state)"
+
+        if [ "$state" -eq 1 ]; then
+            set_off "$LED_PWR"
+            /usr/bin/knulli-settings-set system.power.led 0
+        else
+            set_on "$LED_PWR"
+            /usr/bin/knulli-settings-set system.power.led 1
+        fi
+    ;;
+    critical)
+        set_critical
+    ;;
+    notification)
+        state="$(get_pwrled_state)"
+
+        if [ "$state" -eq 1 ] 2>/dev/null; then
+            # LED currently ON
+            for _ in 1 2; do
+                set_off "$LED_PWR"
+                sleep 0.15
+                set_on "$LED_PWR"
+                sleep 0.15
+            done
+            # Restore ON
+            set_on "$LED_PWR"
+        else
+            # LED currently OFF
+            for _ in 1 2; do
+                set_on "$LED_PWR"
+                sleep 0.15
+                set_off "$LED_PWR"
+                sleep 0.15
+            done
+            # Restore OFF
+            set_off "$LED_PWR"
+        fi
+    ;;
+    *)
+        usage
+    ;;
+esac
+
+exit 0

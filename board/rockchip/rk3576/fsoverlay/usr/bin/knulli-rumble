@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# We only want to run the script if the board has rumble capability
+if ! knulli-board-capability "rumble"; then
+    exit 1
+fi
+
+# Ensure correct number of arguments
+if [ $# -lt 1 ] || [ $(echo "$1 <= 0" | bc) -ne 0 ]; then
+  echo "Usage: $0 <duration>"
+  echo "Duration must be a positive integer or floating point number larger than 0."
+  exit 1
+fi
+
+PWM_BASE=/sys/class/pwm/pwmchip1
+PWM=$PWM_BASE/pwm0
+
+# Export if needed
+[ -d "$PWM" ] || { echo 0 > "$PWM_BASE/export"; sleep 0.05; }
+
+read -r period < "$PWM/period"
+read -r duty < "$PWM/duty_cycle"
+read -r polarity < "$PWM/polarity"
+
+# Update only if needed
+[ "$period" != "100000" ] && echo 100000 > "$PWM/period"
+[ "$duty" != "80000" ] && echo 80000 > "$PWM/duty_cycle"
+[ "$polarity" != "normal" ] && echo normal > "$PWM/polarity"
+
+echo 1 > "$PWM/enable"
+
+sleep "$1"
+
+echo 0 > "$PWM/enable"
+
+exit 0

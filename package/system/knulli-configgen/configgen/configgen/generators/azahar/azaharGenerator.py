@@ -112,6 +112,8 @@ class AzaharGenerator(Generator):
 
         if system.isOptSet('azahar_large_screen_proportion'):
             azaharConfig.set("Layout", "large_screen_proportion", system.config["azahar_large_screen_proportion"])
+        else:
+            azaharConfig.set("Layout", "large_screen_proportion", 4)
         azaharConfig.set("Layout", r"large_screen_proportion\default", "false")
 
         ## [SYSTEM]
@@ -131,8 +133,15 @@ class AzaharGenerator(Generator):
         if not azaharConfig.has_section("UI"):
             azaharConfig.add_section("UI")
 
+        azaharConfig.set("UI", "saveStateWarning", "false")
+        azaharConfig.set("UI", r"saveStateWarning\default", "false")
+
         # Hotkeys
-        # TODO
+        azaharConfig.set("UI", r"Shortcuts\Main%20Window\Quick%20Save\KeySeq", "Ctrl+1")
+        azaharConfig.set("UI", r"Shortcuts\Main%20Window\Quick%20Save\KeySeq\default", "false")
+
+        azaharConfig.set("UI", r"Shortcuts\Main%20Window\Quick%20Load\KeySeq", "Ctrl+2")
+        azaharConfig.set("UI", r"Shortcuts\Main%20Window\Quick%20Load\KeySeq\default", "false")
 
         # Start Fullscreen
         azaharConfig.set("UI", "fullscreen", "true")

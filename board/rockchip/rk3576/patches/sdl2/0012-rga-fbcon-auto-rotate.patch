@@ -1,0 +1,79 @@
+--- a/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-03-12 03:01:48.233525710 +0000
++++ b/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-03-12 03:01:45.308526516 +0000
+@@ -698,24 +698,66 @@ static SDL_bool KMSDRM_VrrPropId(uint32_
+     return SDL_TRUE;
+ }
+ 
++/* Read fbcon=rotate:X from kernel command line (/proc/cmdline).
++   Returns -1 if not found, otherwise the rotation value (0-3). */
++static int KMSDRM_GetFbconRotation(void)
++{
++    FILE *fp;
++    char cmdline[4096];
++    char *p;
++    int rotation = -1;
++
++    fp = fopen("/proc/cmdline", "r");
++    if (!fp) {
++        return -1;
++    }
++
++    if (fgets(cmdline, sizeof(cmdline), fp)) {
++        /* Look for fbcon=rotate:X pattern */
++        p = SDL_strstr(cmdline, "fbcon=rotate:");
++        if (p) {
++            p += SDL_strlen("fbcon=rotate:");
++            rotation = SDL_atoi(p);
++            rotation = SDL_clamp(rotation, 0, 3);
++        }
++    }
++
++    fclose(fp);
++    return rotation;
++}
++
+ static int KMSDRM_ConnectorGetOrientation(uint32_t drm_fd,
+                                           uint32_t output_id)
+ {
+     uint32_t i;
+     SDL_bool found = SDL_FALSE;
+     uint64_t orientation = DRM_MODE_PANEL_ORIENTATION_NORMAL;
++    int fbcon_rotation;
+ 
+     drmModeObjectPropertiesPtr props = KMSDRM_drmModeObjectGetProperties(drm_fd,
+                                                                          output_id,
+                                                                          DRM_MODE_OBJECT_CONNECTOR);
+ 
+-    // Allow forcing specific orientations for debugging.
++    /* Allow forcing specific orientations for debugging via env var (legacy). */
+     const char *override = SDL_getenv("SDL_KMSDRM_ORIENTATION");
+     if (override && override[0] != '\0') {
+         int val = SDL_atoi(override);
++        if (props) {
++            KMSDRM_drmModeFreeObjectProperties(props);
++        }
+         return SDL_clamp(val, 0, 3);
+     }
+ 
++    /* Read rotation from kernel command line (fbcon=rotate:X). */
++    fbcon_rotation = KMSDRM_GetFbconRotation();
++    if (fbcon_rotation >= 0) {
++        if (props) {
++            KMSDRM_drmModeFreeObjectProperties(props);
++        }
++        return fbcon_rotation;
++    }
++
++    /* Fall back to DRM panel orientation property. */
+     if (!props) {
+         return 0;
+     }
+@@ -735,6 +777,8 @@ static int KMSDRM_ConnectorGetOrientatio
+         KMSDRM_drmModeFreeProperty(drm_prop);
+     }
+ 
++    KMSDRM_drmModeFreeObjectProperties(props);
++
+     /* librga expresses rotations clockwise. (e.g., dts = 90? rga = 270!) */
+     switch (orientation) {
+         default:                                   return 0;

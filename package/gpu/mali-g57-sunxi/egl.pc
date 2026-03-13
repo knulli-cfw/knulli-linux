@@ -1,12 +1,12 @@
-prefix=/usr/
+prefix=/usr
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 
 Name: egl
 Description: ARM Mali implementation of EGL
-Version: 1.4
-Requires:
-Libs: -L${libdir} -lEGL -lGLESv2 -lmali
+Version: 1.5
+Requires.private: libdrm
+Libs: -L${libdir} -lEGL
 Cflags: -I${includedir}
 
