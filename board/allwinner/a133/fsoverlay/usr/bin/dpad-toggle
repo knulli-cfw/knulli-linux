@@ -5,6 +5,20 @@ if knulli-board-capability "analogstick"; then
     exit 1
 fi
 
+LOCK_FILE="/var/run/dpad-toggle-script.lock"
+
+exec 200>"${LOCK_FILE}"
+if ! flock -n 200; then
+    exit 0
+fi
+
+trap 'flock -u 200;' EXIT
+
+DPAD_BUTTON_STATE="/var/run/dpad-toggle.held"
+
+# Threshold for long press to toggle d-pad (in seconds)
+LONG_PRESS_THRESHOLD=2
+
 BOARD_FILE="/boot/boot/knulli.board"
 read -r BOARD < "$BOARD_FILE" 2>/dev/null
 
@@ -24,7 +38,6 @@ announce_state() {
     case "$1" in
       on)
         knulli-rumble 0.1
-        echo 1 > "$DPAD_STATE_FILE"
 
         if ! check_ingame; then
             do_notification "Virtual Joystick ON"
@@ -34,7 +47,6 @@ announce_state() {
         knulli-rumble 0.1
         sleep 0.2
         knulli-rumble 0.1
-        echo 0 > "$DPAD_STATE_FILE"
 
         if ! check_ingame; then
             do_notification "Virtual Joystick OFF"
@@ -43,36 +55,52 @@ announce_state() {
     esac
 }
 
-case "$BOARD" in
-  trimui-smart-pro|trimui-brick)
-    DPAD_DIR="/tmp/trimui_inputd"
-    DPAD_DISABLED_FILE="$DPAD_DIR/input_no_dpad"
-    DPAD_AS_ANALOG_FILE="$DPAD_DIR/input_dpad_to_joystick"
-    mkdir -p "$DPAD_DIR"
+toggle_dpad() {
+    case "$BOARD" in
+      trimui-smart-pro|trimui-brick)
+        DPAD_DIR="/tmp/trimui_inputd"
+        DPAD_DISABLED_FILE="$DPAD_DIR/input_no_dpad"
+        DPAD_AS_ANALOG_FILE="$DPAD_DIR/input_dpad_to_joystick"
+        mkdir -p "$DPAD_DIR"
 
-    if [ ! -f "$DPAD_AS_ANALOG_FILE" ]; then
-        touch "$DPAD_DISABLED_FILE"
-        touch "$DPAD_AS_ANALOG_FILE"
-        announce_state "on"
-    else
-        rm "$DPAD_DISABLED_FILE"
-        rm "$DPAD_AS_ANALOG_FILE"
-        announce_state "off"
+        if [ ! -f "$DPAD_AS_ANALOG_FILE" ]; then
+            touch "$DPAD_DISABLED_FILE"
+            touch "$DPAD_AS_ANALOG_FILE"
+            announce_state "on"
+        else
+            rm "$DPAD_DISABLED_FILE"
+            rm "$DPAD_AS_ANALOG_FILE"
+            announce_state "off"
+        fi
+        ;;
+
+      powkiddy-v90s|powkiddy-v20)
+        STATE_FILE="/sys/devices/platform/adc_joystick/dpad_conv"
+        IFS= read -r STATE < "$STATE_FILE" 2>/dev/null
+
+        if [ "$STATE" -eq 0 ]; then
+            echo 1 > "$STATE_FILE"
+            announce_state "on"
+        else
+            echo 0 > "$STATE_FILE"
+            announce_state "off"
+        fi
+        ;;
+    esac
+}
+
+# Set starting state
+: > "$DPAD_BUTTON_STATE"
+
+# Wait for deletion of state file
+if inotifywait -qq -t "$LONG_PRESS_THRESHOLD" -e delete_self "$DPAD_BUTTON_STATE"; then
+    # Buttons released within timeout (short press) - do nothing
+    :
+else
+    # Toggle if timeout is reached (long press)
+    if [ -f "$DPAD_BUTTON_STATE" ]; then
+        toggle_dpad
     fi
-    ;;
-
-  powkiddy-v90s|powkiddy-v20)
-    STATE_FILE="/sys/devices/platform/adc_joystick/dpad_conv"
-    IFS= read -r STATE < "$STATE_FILE" 2>/dev/null
-
-    if [ "$STATE" -eq 0 ]; then
-        echo 1 > "$STATE_FILE"
-        announce_state "on"
-    else
-        echo 0 > "$STATE_FILE"
-        announce_state "off"
-    fi
-    ;;
-esac
+fi
 
 exit 0

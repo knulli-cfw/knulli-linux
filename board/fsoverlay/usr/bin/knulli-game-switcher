@@ -1,0 +1,21 @@
+#!/bin/sh
+
+GAMESWITCHER_FLAG="/var/run/gameswitcher.flag"
+
+check_ingame() {
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
+    test $? != 0                 && return 0
+    test "${HTTP_STATUS}" != 201 && return 0 # in game
+    return 1  # 201 when not in game
+}
+
+# Call the game-switcher endpoint to invoke the UI
+curl -s http://127.0.0.1:1234/gameswitcher > /dev/null
+
+if check_ingame; then
+    # In game - Create flag for Quick Resume mode, and kill emulator
+    touch "$GAMESWITCHER_FLAG"
+    knulli-es-swissknife --emukill >/dev/null 2>&1
+fi
+
+exit 0

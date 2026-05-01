@@ -5,8 +5,20 @@ if knulli-board-capability "analogstick"; then
     exit 1
 fi
 
+LOCK_FILE="/var/run/dpad-toggle-script.lock"
+
+exec 200>"${LOCK_FILE}"
+if ! flock -n 200; then
+    exit 0
+fi
+
+trap 'flock -u 200;' EXIT
+
+DPAD_BUTTON_STATE="/var/run/dpad-toggle.held"
+
+# Threshold for long press to toggle d-pad (in seconds)
+LONG_PRESS_THRESHOLD=2
 DPAD_STATE_FILE="/sys/class/power_supply/axp2202-battery/nds_pwrkey"
-STATE=$(cat "$DPAD_STATE_FILE")
 
 check_ingame() {
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:1234/runningGame")
@@ -20,22 +32,40 @@ do_notification() {
     curl -s http://localhost:1234/notify -d "$NOTIFICATION" >/dev/null
 }
 
-if [ "${STATE}" -eq 0 ]; then
-    if ! check_ingame; then
-        do_notification "Virtual Joystick ON"
-    fi
+toggle_dpad() {
+    STATE=$(cat "$DPAD_STATE_FILE")
 
-    knulli-rumble 0.1
-    echo 2 > "$DPAD_STATE_FILE"
+    if [ "${STATE}" -eq 0 ]; then
+        if ! check_ingame; then
+            do_notification "Virtual Joystick ON"
+        fi
+
+        knulli-rumble 0.1
+        echo 2 > "$DPAD_STATE_FILE"
+    else
+        if ! check_ingame; then
+            do_notification "Virtual Joystick OFF"
+        fi
+
+        knulli-rumble 0.1
+        sleep 0.2
+        knulli-rumble 0.1
+        echo 0 > "$DPAD_STATE_FILE"
+    fi
+}
+
+# Set starting state
+: > "$DPAD_BUTTON_STATE"
+
+# Wait for deletion of state file
+if inotifywait -qq -t "$LONG_PRESS_THRESHOLD" -e delete_self "$DPAD_BUTTON_STATE"; then
+    # Buttons released within timeout (short press) - do nothing
+    :
 else
-    if ! check_ingame; then
-        do_notification "Virtual Joystick OFF"
+    # Toggle if timeout is reached (long press)
+    if [ -f "$DPAD_BUTTON_STATE" ]; then
+        toggle_dpad
     fi
-
-    knulli-rumble 0.1
-    sleep 0.2
-    knulli-rumble 0.1
-    echo 0 > "$DPAD_STATE_FILE"
 fi
 
 exit 0
