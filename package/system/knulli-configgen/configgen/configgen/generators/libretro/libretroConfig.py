@@ -912,7 +912,7 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
                 retroarchConfig['cheevos_richpresence_enable'] = 'true'
             else:
                 retroarchConfig['cheevos_richpresence_enable'] = 'false'
-            if not connected_to_internet():
+            if not connected_to_internet() and not (system.isOptSet('retroachievements.offline') and system.getOptBoolean('retroachievements.offline') == True):
                 retroarchConfig['cheevos_enable'] = 'false'
     else:
         retroarchConfig['cheevos_enable'] = 'false'
