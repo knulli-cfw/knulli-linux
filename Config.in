@@ -695,6 +695,7 @@ menu "Knulli Packages"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/boot/knulli-initramfs/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/boot/uboot-rk3566/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/boot/uboot-h700/Config.in"
+    source "$BR2_EXTERNAL_KNULLI_PATH/package/boot/uboot-a133/Config.in"
   endmenu
 
   menu "GPU"
