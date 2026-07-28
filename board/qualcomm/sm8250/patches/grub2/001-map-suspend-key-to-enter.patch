@@ -1,0 +1,28 @@
+--- a/grub-core/term/efi/console.c
++++ b/grub-core/term/efi/console.c
+@@ -207,20 +207,25 @@ const unsigned efi_codes[] =
++#define GRUB_EFI_SCAN_SUSPEND 0x0102
++
+ static int
+ grub_efi_translate_key (grub_efi_input_key_t key)
+ {
+   if (key.scan_code == 0)
+     {
+       /* Some firmware implementations use VT100-style codes against the spec.
+	 This is especially likely if driven by serial.
+        */
+       if (key.unicode_char < 0x20 && key.unicode_char != 0
+	  && key.unicode_char != '\t' && key.unicode_char != '\b'
+	  && key.unicode_char != '\n' && key.unicode_char != '\r')
+	return GRUB_TERM_CTRL | (key.unicode_char - 1 + 'a');
+       else
+	return key.unicode_char;
+     }
+   /* Some devices send enter with scan_code 0x0d (F3) and unicode_char 0x0d. */
+   else if (key.scan_code == '\r' && key.unicode_char == '\r')
+     return key.unicode_char;
++  /* Qualcomm firmware reports the power button as EFI_SCAN_SUSPEND. */
++  else if (key.scan_code == GRUB_EFI_SCAN_SUSPEND)
++    return '\r';
+   else if (key.scan_code < ARRAY_SIZE (efi_codes))
+     return efi_codes[key.scan_code];
