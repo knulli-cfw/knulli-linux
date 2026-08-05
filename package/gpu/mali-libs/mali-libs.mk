@@ -73,16 +73,16 @@ define MALI_LIBS_INSTALL_STAGING_CMDS
     # Install headers - copy all subdirectories from include/
     cp -r $(@D)/include/* $(STAGING_DIR)/usr/include/
     
-    # GBM header needs to be at the top level (gbm.h expects to be included as <gbm.h>)
-    if [ -f $(STAGING_DIR)/usr/include/GBM/gbm.h ]; then \
-        cp $(STAGING_DIR)/usr/include/GBM/gbm.h $(STAGING_DIR)/usr/include/; \
-    fi
-    
-    # Create pkg-config files
-    mkdir -p $(STAGING_DIR)/usr/lib/pkgconfig
-    
-    # gbm.pc
-    ( \
+    # GBM header needs to be at the top level (gbm.h expects to be included as <gbm.h>).
+    # The upstream layout puts it under versioned subdirs (GBM/<mesa-version>/gbm.h);
+    # pick the newest version available, and use the same version in gbm.pc.
+    gbm_h=$$(ls $(STAGING_DIR)/usr/include/GBM/*/gbm.h 2>/dev/null | sort -V | tail -n1); \
+    gbm_ver=$$(basename $$(dirname "$$gbm_h")); \
+    if [ -n "$$gbm_h" ]; then \
+        cp "$$gbm_h" $(STAGING_DIR)/usr/include/gbm.h; \
+    fi; \
+    mkdir -p $(STAGING_DIR)/usr/lib/pkgconfig; \
+    { \
         echo 'prefix=/usr'; \
         echo 'exec_prefix=$${prefix}'; \
         echo 'libdir=$${exec_prefix}/lib'; \
@@ -90,11 +90,11 @@ define MALI_LIBS_INSTALL_STAGING_CMDS
         echo ''; \
         echo 'Name: gbm'; \
         echo 'Description: Generic Buffer Management'; \
-        echo 'Version: 21.0.0'; \
+        echo "Version: $$gbm_ver"; \
         echo 'Requires.private: libdrm'; \
         echo 'Libs: -L$${libdir} -lgbm'; \
         echo 'Cflags: -I$${includedir}'; \
-    ) > $(STAGING_DIR)/usr/lib/pkgconfig/gbm.pc
+    } > $(STAGING_DIR)/usr/lib/pkgconfig/gbm.pc
     
     # egl.pc
     ( \
