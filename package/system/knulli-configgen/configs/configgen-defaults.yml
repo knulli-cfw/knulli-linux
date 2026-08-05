@@ -524,6 +524,9 @@ pygame:
 pyxel:
   emulator: pyxel
   core:     pyxel
+quake:
+  emulator: libretro
+  core:     tyrquake
 quake3:
   emulator: ioquake3
   core:     ioquake3
