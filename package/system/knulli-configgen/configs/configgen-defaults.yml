@@ -670,8 +670,8 @@ uzebox:
   emulator: libretro
   core:     uzem
 vaixterm:
-  emulator: vaixterm
-  core:     vaixterm
+  emulator: odcommander
+  core:     odcommander
   options:
     hud_support: false
 vc4000:
