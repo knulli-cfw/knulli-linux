@@ -1,0 +1,114 @@
+RGB30: move volume keys onto the singleadc-joypad
+
+Move vol-up-key and vol-down-key from the gpio-keys block into
+singleadc-joypad's sub_keys list as sw18 / sw19. Same GPIOs
+(gpio3 PA7, gpio3 PB0), same key codes (KEY_VOLUMEUP,
+KEY_VOLUMEDOWN); the difference is which evdev device surfaces the
+events - the joypad device rather than a separate gpio-keys device.
+This lets userspace treat volume as regular controller buttons
+(remappable in RetroArch etc.) rather than as system-only keys.
+
+Applied to both v1 and v2 top-level DTS files.
+
+Signed-off-by: James Pharaoh <james@pharaoh.uk>
+---
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
+@@ -52,17 +52,6 @@
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&pwr_key>;
+ 		autorepeat;
+-		vol-up-key {
+-			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
+-			linux,code = <115>;
+-			label = "volume up";
+-		};
+-
+-		vol-down-key {
+-			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+-			linux,code = <114>;
+-			label = "volume down";
+-		};
+ 
+ 		power-key {
+ 			wakeup-source;
+@@ -72,7 +61,6 @@
+ 			enable-method = "psci";
+ 		};
+ 							
+-			
+ 	};	
+         leds: gpio-leds {
+                 compatible = "gpio-leds";
+@@ -274,8 +262,19 @@
+ 		        label = "GPIO BTN_THUMBR";
+ 		        linux,code = <BTN_THUMBR>;
+ 		};
+-	
+-    	};
++
++		sw18 {
++			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
++			label = "GPIO VOL-UP";
++			linux,code = <KEY_VOLUMEUP>;  // or <115>
++		};
++		
++		sw19 {
++			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
++			label = "GPIO VOL-DOWN";
++			linux,code = <KEY_VOLUMEDOWN>;  // or <114>
++		};
++   	};
+ 
+ 	es8316-sound {
+ 		status = "disabled";
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
+@@ -52,17 +52,6 @@
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&pwr_key>;
+ 		autorepeat;
+-		vol-up-key {
+-			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
+-			linux,code = <115>;
+-			label = "volume up";
+-		};
+-
+-		vol-down-key {
+-			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+-			linux,code = <114>;
+-			label = "volume down";
+-		};
+ 
+ 		power-key {
+ 			wakeup-source;
+@@ -72,7 +61,6 @@
+ 			enable-method = "psci";
+ 		};
+ 							
+-			
+ 	};	
+         leds: gpio-leds {
+                 compatible = "gpio-leds";
+@@ -274,8 +262,19 @@
+ 		        label = "GPIO BTN_THUMBR";
+ 		        linux,code = <BTN_THUMBR>;
+ 		};
+-	
+-    	};
++
++		sw18 {
++			gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>;
++			label = "GPIO VOL-UP";
++			linux,code = <KEY_VOLUMEUP>;  // or <115>
++		};
++		
++		sw19 {
++			gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
++			label = "GPIO VOL-DOWN";
++			linux,code = <KEY_VOLUMEDOWN>;  // or <114>
++		};
++   	};
+ 
+ 	es8316-sound {
+ 		status = "disabled";

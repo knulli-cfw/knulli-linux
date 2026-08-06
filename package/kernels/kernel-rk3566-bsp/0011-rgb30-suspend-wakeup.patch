@@ -1,0 +1,129 @@
+RGB30: enable suspend/resume via power-key wakeup
+
+The upstream v1 and v2 DTSes comment out the power-key gpio-keys
+entry and lack wakeup-source markers on adc-keys and gpio-keys, so
+long-pressing power cannot wake the device from suspend. Also add
+rockchip_suspend config selecting a suspend mode compatible with
+the RGB30, and keep the panel-LCD regulator powered in suspend to
+avoid corrupted state on resume.
+
+Applied to both v1 and v2 top-level DTS files.
+
+Signed-off-by: James Pharaoh <james@pharaoh.uk>
+---
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
+@@ -19,6 +19,7 @@
+ 
+ 	adc_keys: adc-keys {
+ 		compatible = "adc-keys";
++		wakeup-source;
+ 		io-channels = <&saradc 0>;
+ 		io-channel-names = "buttons";
+ 		keyup-threshold-microvolt = <1800000>;
+@@ -47,6 +48,7 @@
+ 
+ 	keys: gpio-keys {
+ 		compatible = "gpio-keys";
++		wakeup-source;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&pwr_key>;
+ 		autorepeat;
+@@ -62,13 +64,14 @@
+ 			label = "volume down";
+ 		};
+ 
+-/*		power-key {
++		power-key {
+ 			wakeup-source;
+ 			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
+ 			linux,code = <116>;
+ 			label = "power";
++			enable-method = "psci";
+ 		};
+-*/							
++							
+ 			
+ 	};	
+         leds: gpio-leds {
+@@ -299,6 +302,13 @@
+ 	};
+ };
+ 
++&rockchip_suspend {
++    rockchip,sleep-debug-en = <0x01>;
++    rockchip,sleep-mode-config = <0x5ec>;
++    rockchip,wakeup-config = <0x10>;
++    status = "okay";
++};
++
+ &combphy1_usq {
+ 	status = "okay";
+ };
+@@ -602,4 +612,8 @@
+ &vcc3v3_lcd0_n {
+ 	gpio = <&gpio0 RK_PC2 GPIO_ACTIVE_HIGH>;
+ 	enable-active-high;
++	regulator-state-mem {
++        regulator-on-in-suspend;  // Change to keep powered
++        regulator-suspend-microvolt = <0x325aa0>;
++    };
+ };
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
+@@ -19,6 +19,7 @@
+ 
+ 	adc_keys: adc-keys {
+ 		compatible = "adc-keys";
++		wakeup-source;
+ 		io-channels = <&saradc 0>;
+ 		io-channel-names = "buttons";
+ 		keyup-threshold-microvolt = <1800000>;
+@@ -47,6 +48,7 @@
+ 
+ 	keys: gpio-keys {
+ 		compatible = "gpio-keys";
++		wakeup-source;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&pwr_key>;
+ 		autorepeat;
+@@ -62,13 +64,14 @@
+ 			label = "volume down";
+ 		};
+ 
+-/*		power-key {
++		power-key {
+ 			wakeup-source;
+ 			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
+ 			linux,code = <116>;
+ 			label = "power";
++			enable-method = "psci";
+ 		};
+-*/							
++							
+ 			
+ 	};	
+         leds: gpio-leds {
+@@ -299,6 +302,13 @@
+ 	};
+ };
+ 
++&rockchip_suspend {
++    rockchip,sleep-debug-en = <0x01>;
++    rockchip,sleep-mode-config = <0x5ec>;
++    rockchip,wakeup-config = <0x10>;
++    status = "okay";
++};
++
+ &combphy1_usq {
+ 	status = "okay";
+ };
+@@ -602,4 +612,8 @@
+ &vcc3v3_lcd0_n {
+ 	gpio = <&gpio0 RK_PC2 GPIO_ACTIVE_HIGH>;
+ 	enable-active-high;
++	regulator-state-mem {
++        regulator-on-in-suspend;  // Change to keep powered
++        regulator-suspend-microvolt = <0x325aa0>;
++    };
+ };

@@ -1,0 +1,34 @@
+Rename RGB30 singleadc-joypad from retrogame_joypad
+
+The upstream BSP labels the RGB30 singleadc-joypad node
+"retrogame_joypad", a generic ODM string. Give it a device-specific
+name so it appears distinct to userspace and does not collide with
+unrelated retrogame_joypad devices.
+
+Applied to both v1 (rk3566-rgb30-linux.dts) and v2
+(rk3566-rgb30-v2-linux.dts) top-level DTS files.
+
+Signed-off-by: James Pharaoh <james@pharaoh.uk>
+---
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-linux.dts
+@@ -126,7 +126,7 @@
+ 		compatible = "singleadc-joypad";
+ 		hw_info = <0x01>;
+ 
+-		joypad-name = "retrogame_joypad";
++		joypad-name = "Powkiddy_RGB30_Controller";
+ 		joypad-product = <0x1101>;
+ 		joypad-revision = <0x0100>;
+ 
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
+@@ -126,7 +126,7 @@
+ 		compatible = "singleadc-joypad";
+ 		hw_info = <0x01>;
+ 
+-		joypad-name = "retrogame_joypad";
++		joypad-name = "Powkiddy_RGB30_Controller";
+ 		joypad-product = <0x1101>;
+ 		joypad-revision = <0x0100>;
+ 
