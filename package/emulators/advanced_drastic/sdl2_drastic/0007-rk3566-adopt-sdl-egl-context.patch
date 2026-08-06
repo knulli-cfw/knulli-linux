@@ -1,59 +1,11 @@
 sdl2_drastic: adopt SDL KMSDRM EGL context on rk3566 + threaded video
 
-Two-part patch for rk3568/rk3566 (guarded by ADVDRASTIC_SDL_GL, other
-targets unchanged):
+Path B (adopt SDL KMSDRM context on video_handler) + threaded-video
+decoupling (main snapshots, video_handler renders latest) + guards to
+prevent SEGV when GFX_Copy/GFX_Flip are called inline on main thread
+(e.g. display_custom_setting for the menu).
 
-1. Adopt SDL's KMSDRM GL context on video_handler thread.
-
-trngaje's video_handler thread ran its own DRM + GBM + EGL in parallel
-with SDL's KMSDRM backend. On the rockchip mali-blob-gbm variant this
-didn't work (gbm_bo_get_handle isn't a valid DRM GEM handle so
-drmModeAddFB fails EINVAL) and even if it did, we'd fight SDL for DRM
-master.
-
-Now: main releases its GL context via SDL_GL_MakeCurrent(win, NULL) on
-first render (release_main_gl_context_once, called from all three main-
-thread signaller sites - sdl_update_screens, sdl_update_screen_menu,
-display_custom_setting). We save (win, ctx) first because SDL nulls
-current_glctx on release. Video_handler lazy-inits egl_init on first
-GFX_Flip/GFX_Copy - by then the release has happened, so
-SDL_GL_MakeCurrent(saved_win, saved_ctx) migrates the context to this
-thread cleanly. GFX_Flip uses SDL_GL_SwapWindow (not raw eglSwapBuffers)
-so the full KMSDRM lock_front / AddFB / PageFlip pipeline runs, which
-is what actually promotes the GBM front buffer to the scanout plane.
-
-egl_swapinterval is poked to 0 directly through _this->egl_data
-(bypassing knulli's SetSwapInterval clamp) so async pageflip is at
-least requested - kernel 4.19 doesn't support it, so no observed win,
-but harmless.
-
-egl_terminate releases the context from this thread; doesn't destroy
-the SDL-owned handles.
-
-2. Threaded-video decoupling.
-
-Even with the context migration working, SDL_GL_SwapWindow on this
-stack takes ~30ms per frame (one full vsync interval spent in
-WaitPageflip because the legacy drmModePageFlip API only allows one
-pending flip). Old sdl_update_screens did cond_signal + cond_wait for
-response, blocking main for that entire ~30ms every frame. NDS
-emulator capped at ~18fps and audio stuttered.
-
-Now: main snapshots drastic's NDS screen pixels into one of 2 ring
-slots (snap_slot[]), atomically publishes it as snap_consumer_idx
-under snap_mutex, signals video_handler, and returns without waiting.
-Video_handler grabs the latest slot into snap_current_idx and calls
-process_screen (which reads pixels from snap_slot[current_idx]
-instead of the raw VAR_SDL_SCREEN* pointers, avoiding races with
-drastic's ongoing emulation). Video_handler releases the outer lock
-during render+flip so main isn't blocked on mutex acquisition.
-
-Standard emulator threaded-video pattern (as in RetroArch, PCSX2,
-PPSSPP): emulation rate and render rate are independent, intermediate
-frames get dropped.
-
-Measured: 2D scenes now hit 60fps (up from 18). 3D scenes limited by
-NDS 3D emulation CPU cost, not by us.
+Guarded by ADVDRASTIC_SDL_GL; h700/a133 code paths unchanged.
 
 Signed-off-by: James Pharaoh <james@pharaoh.uk>
 ---
@@ -151,7 +103,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  }
  
  
-@@ -1569,10 +1615,14 @@
+@@ -1569,17 +1615,28 @@
      
      nds_clear_gui_actions clear_gui_actions;
      clear_gui_actions = (nds_clear_gui_actions)FUN_CLEAR_GUI_ACTIONS;
@@ -168,7 +120,22 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      get_gui_input = (nds_get_gui_input)FUN_GET_GUI_INPUT;
      nds.menu.enable = 1;
      do {
-@@ -2979,18 +3029,87 @@
+         handle_menu(guikey);
++#ifdef ADVDRASTIC_SDL_GL
++        /* Skip inline main-thread GFX_Copy/GFX_Flip - they'd SEGV
++         * (see GFX_Flip's thread-guard). Set update_menu so
++         * video_handler picks up the menu render on the signal below. */
++        nds.update_menu = 1;
++#else
+         GFX_Copy(-1, cvt->pixels, cvt->clip_rect, cvt->clip_rect, cvt->pitch, 0, E_MI_GFX_ROTATE_180);
+         GFX_Flip();
+-        
++#endif
++
+         pthread_cond_signal(&request_update_screen_cond);
+         pthread_cond_wait(&response_update_screen_cond, &lock);
+         
+@@ -2979,18 +3036,87 @@
  }
  
  // 여긴 계속 호출되고 있음
@@ -261,7 +228,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  }
  
  void sdl_update_screen(void)
-@@ -5766,12 +5885,19 @@
+@@ -5766,12 +5892,19 @@
  
  static void *video_handler(void *threadid)
  {
@@ -285,7 +252,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  
      // acquire a lock
      pthread_mutex_lock(&lock);
-@@ -5798,11 +5924,30 @@
+@@ -5798,11 +5931,30 @@
                      GFX_Flip();
                  }
             }
@@ -319,7 +286,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
             else {
                 usleep(0);
             }
-@@ -6513,7 +6658,61 @@
+@@ -6513,7 +6665,61 @@
          EGL_NONE,
      };
  
@@ -382,7 +349,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      vid.eglDisplay = eglGetDisplay((EGLNativeDisplayType)drm_buf.gbm);
      if (vid.eglDisplay == EGL_NO_DISPLAY) {
          printf("Failed to get EGL display\n");
-@@ -6524,11 +6723,12 @@
+@@ -6524,11 +6730,12 @@
          printf("Failed to initialize EGL display\n");
          return;
      }
@@ -396,7 +363,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      eglChooseConfig(vid.eglDisplay, config_attribs, &vid.eglConfig, 1, &num_configs);
  
  #ifdef ADVDRASTIC_DRM
-@@ -6544,6 +6744,7 @@
+@@ -6544,6 +6751,7 @@
  #endif
      vid.eglContext = eglCreateContext(vid.eglDisplay, vid.eglConfig, EGL_NO_CONTEXT, context_attributes);
      eglMakeCurrent(vid.eglDisplay, vid.eglSurface, vid.eglSurface, vid.eglContext);
@@ -404,7 +371,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
    
      vid.vShader = glCreateShader(GL_VERTEX_SHADER);
  
-@@ -6593,11 +6794,20 @@
+@@ -6593,11 +6801,20 @@
  
  void egl_terminate(void)
  {
@@ -425,12 +392,13 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  
  #ifdef ADVDRASTIC_DRM
  //GBM
-@@ -6917,6 +7127,14 @@
+@@ -6917,6 +7134,15 @@
      unsigned char  ucLayoutType;
      unsigned short usLayoutRotate;
  
 +#ifdef ADVDRASTIC_SDL_GL
-+    /* Lazy init - see GFX_Flip. */
++    /* Only render on video_handler thread - see GFX_Flip for why. */
++    if (!pthread_equal(pthread_self(), video_handler_tid)) return -1;
 +    if (!vid.eglDisplay) {
 +        egl_init();
 +        if (!vid.eglDisplay) return -1;
@@ -440,15 +408,17 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      usLayoutRotate = getlayout_rotate(nds.hres_mode, g_advdrastic.ucLayoutIndex[nds.hres_mode]);
      ucLayoutType = getlayout_type(nds.hres_mode, g_advdrastic.ucLayoutIndex[nds.hres_mode]);
  
-@@ -7014,6 +7232,22 @@
+@@ -7014,6 +7240,24 @@
  
  void GFX_Flip(void)
  {
 +#ifdef ADVDRASTIC_SDL_GL
-+    /* Lazy init: egl_init needs main to have released the GL context
-+     * first (done in sdl_update_screens on first call). By the time
-+     * we're here, GFX_Copy or GFX_Flip has been triggered by main
-+     * signalling us, so the release has happened. */
++    /* Only render on video_handler thread. GL context is bound there;
++     * calling from any other thread (e.g. display_custom_setting's
++     * inline flip on main) would call glDrawElements with no context
++     * current and SEGV. Video_handler will do its own flip via the
++     * cond signal from the caller. */
++    if (!pthread_equal(pthread_self(), video_handler_tid)) return;
 +    if (!vid.eglDisplay) {
 +        egl_init();
 +        if (!vid.eglDisplay) return;
@@ -463,7 +433,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  #ifdef ADVDRASTIC_DRM
      struct gbm_bo *bo = gbm_surface_lock_front_buffer(drm_buf.gbm_surface);
      uint32_t handle = gbm_bo_get_handle(bo).u32;
-@@ -7022,6 +7256,7 @@
+@@ -7022,6 +7266,7 @@
  #endif
  
      eglSwapBuffers(vid.eglDisplay, vid.eglSurface);
