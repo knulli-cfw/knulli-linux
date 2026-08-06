@@ -360,8 +360,8 @@ moonlight:
     bezel: none
     hud_support: false
 mpv:
-  emulator: mpv
-  core:     mpv
+  emulator: sh
+  core:     sh
   options:
     bezel: none
     hud_support: false
