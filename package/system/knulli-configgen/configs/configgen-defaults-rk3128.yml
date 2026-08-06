@@ -29,6 +29,9 @@ megadrive:
 nds:
   emulator: drastic
   core:     drastic
+psp:
+  emulator: libretro
+  core:     ppsspp
 snes:
   emulator: libretro
   core:     snes9x
