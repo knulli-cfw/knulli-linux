@@ -1,36 +1,129 @@
-Adopt SDL's KMSDRM EGL context on rk3566 (Path B) - v6, SDL_GL_SwapWindow
+sdl2_drastic: adopt SDL KMSDRM EGL context on rk3566 + threaded video
 
-Fifth iteration got the context migrated and rendered 4 frames, then
-nothing - because GFX_Flip's raw eglSwapBuffers doesn't drive KMSDRM
-scanout. SDL's KMSDRM_GLES_SwapWindow wraps the flip in the full
-lock_front_buffer / drmModeAddFB / drmModePageFlip pipeline (that's
-what actually promotes the GBM front buffer to the scanout plane).
-Bare eglSwapBuffers just cycles the EGL back buffer.
+Two-part patch for rk3568/rk3566 (guarded by ADVDRASTIC_SDL_GL, other
+targets unchanged):
 
-Fix: on rk3568 (ADVDRASTIC_SDL_GL), GFX_Flip calls SDL_GL_SwapWindow
-instead of eglSwapBuffers. Everything else same as v5.
+1. Adopt SDL's KMSDRM GL context on video_handler thread.
 
-Guarded by ADVDRASTIC_SDL_GL, defined only on rk3568. h700/a133 code
-paths unchanged.
+trngaje's video_handler thread ran its own DRM + GBM + EGL in parallel
+with SDL's KMSDRM backend. On the rockchip mali-blob-gbm variant this
+didn't work (gbm_bo_get_handle isn't a valid DRM GEM handle so
+drmModeAddFB fails EINVAL) and even if it did, we'd fight SDL for DRM
+master.
+
+Now: main releases its GL context via SDL_GL_MakeCurrent(win, NULL) on
+first render (release_main_gl_context_once, called from all three main-
+thread signaller sites - sdl_update_screens, sdl_update_screen_menu,
+display_custom_setting). We save (win, ctx) first because SDL nulls
+current_glctx on release. Video_handler lazy-inits egl_init on first
+GFX_Flip/GFX_Copy - by then the release has happened, so
+SDL_GL_MakeCurrent(saved_win, saved_ctx) migrates the context to this
+thread cleanly. GFX_Flip uses SDL_GL_SwapWindow (not raw eglSwapBuffers)
+so the full KMSDRM lock_front / AddFB / PageFlip pipeline runs, which
+is what actually promotes the GBM front buffer to the scanout plane.
+
+egl_swapinterval is poked to 0 directly through _this->egl_data
+(bypassing knulli's SetSwapInterval clamp) so async pageflip is at
+least requested - kernel 4.19 doesn't support it, so no observed win,
+but harmless.
+
+egl_terminate releases the context from this thread; doesn't destroy
+the SDL-owned handles.
+
+2. Threaded-video decoupling.
+
+Even with the context migration working, SDL_GL_SwapWindow on this
+stack takes ~30ms per frame (one full vsync interval spent in
+WaitPageflip because the legacy drmModePageFlip API only allows one
+pending flip). Old sdl_update_screens did cond_signal + cond_wait for
+response, blocking main for that entire ~30ms every frame. NDS
+emulator capped at ~18fps and audio stuttered.
+
+Now: main snapshots drastic's NDS screen pixels into one of 2 ring
+slots (snap_slot[]), atomically publishes it as snap_consumer_idx
+under snap_mutex, signals video_handler, and returns without waiting.
+Video_handler grabs the latest slot into snap_current_idx and calls
+process_screen (which reads pixels from snap_slot[current_idx]
+instead of the raw VAR_SDL_SCREEN* pointers, avoiding races with
+drastic's ongoing emulation). Video_handler releases the outer lock
+during render+flip so main isn't blocked on mutex acquisition.
+
+Standard emulator threaded-video pattern (as in RetroArch, PCSX2,
+PPSSPP): emulation rate and render rate are independent, intermediate
+frames get dropped.
+
+Measured: 2D scenes now hit 60fps (up from 18). 3D scenes limited by
+NDS 3D emulation CPU cost, not by us.
 
 Signed-off-by: James Pharaoh <james@pharaoh.uk>
 ---
 
 --- a/src/video/drastic_video.c
 +++ b/src/video/drastic_video.c
-@@ -61,6 +61,11 @@
+@@ -61,6 +61,34 @@
  #include "../SDL_pixels_c.h"
  #include "../../events/SDL_events_c.h"
  
 +#ifdef ADVDRASTIC_SDL_GL
++#include "../SDL_egl_c.h"  /* for _this->egl_data->egl_swapinterval */
 +static void release_main_gl_context_once(void);
 +static pthread_t video_handler_tid;
++
++/* Threaded video decoupling: main snapshots drastic's NDS pixel buffers
++ * into a ring slot before signalling video_handler, so main never has to
++ * wait for the slow (~30ms) SDL_GL_SwapWindow. Standard emulator-side
++ * threaded-video pattern - main runs at native emulation rate, render
++ * thread consumes latest available snapshot, in-between frames get
++ * dropped. Sized to hold NDS hi-res (512x384 @ 32bpp). */
++/* NDS hi-res is 512x384 (NDS_Wx2 * NDS_Hx2 defined in drastic_video.h,
++ * included later, so use the literal). */
++#define SNAP_MAX_SCREEN_BYTES (512 * 384 * 4)
++typedef struct FrameSnap {
++    uint8_t pixels0[SNAP_MAX_SCREEN_BYTES];
++    uint8_t pixels1[SNAP_MAX_SCREEN_BYTES];
++    uint8_t hres_mode0;
++    uint8_t hres_mode1;
++} FrameSnap;
++static FrameSnap        snap_slot[2];
++static int              snap_producer_idx = 0;  /* main writes here */
++static int              snap_consumer_idx = -1; /* -1 = nothing pending */
++static int              snap_current_idx  = -1; /* video_handler reading this */
++static pthread_mutex_t  snap_mutex        = PTHREAD_MUTEX_INITIALIZER;
++static void             snap_current_frame(void);
 +#endif
 +
  #include <SDL_image.h>
  #include "SDL_version.h"
  #include "SDL_syswm.h"
-@@ -1535,18 +1540,22 @@
+@@ -1337,6 +1365,19 @@
+         SDL_Rect srt = {0, 0, NDS_W, NDS_H};
+         SDL_Rect drt = {0, 0, 160, 120};
+ 
++#ifdef ADVDRASTIC_SDL_GL
++        /* Threaded video: read from main's snapshot (see snap_current_frame)
++         * so we're not racing drastic's ongoing emulation on the raw
++         * VAR_SDL_SCREEN* pointers. snap_current_idx is set by
++         * video_handler before calling process_screen. */
++        nds.screen.hres_mode[idx] = idx ?
++            snap_slot[snap_current_idx].hres_mode1 :
++            snap_slot[snap_current_idx].hres_mode0;
++
++        nds.screen.pixels[idx] = (uint64_t *)(idx ?
++            snap_slot[snap_current_idx].pixels1 :
++            snap_slot[snap_current_idx].pixels0);
++#else
+         nds.screen.hres_mode[idx] = idx ?
+             *((uint8_t *)VAR_SDL_SCREEN1_HRES_MODE):
+             *((uint8_t *)VAR_SDL_SCREEN0_HRES_MODE);
+@@ -1344,6 +1385,7 @@
+         nds.screen.pixels[idx] = (idx == 0) ?
+             (uint64_t *)(*((uint64_t *)VAR_SDL_SCREEN0_PIXELS)):
+             (uint64_t *)(*((uint64_t *)VAR_SDL_SCREEN1_PIXELS));
++#endif
+ 
+         screen0 = (idx == 0);
+         screen1 = (idx != 0);
+@@ -1535,18 +1577,22 @@
  //    SDL_RenderCopy(base_addr_rx + 0x03f2a580, base_addr_rx + 0x03f2a588, 0, 0);
  //    SDL_RenderPresent(base_addr_rx + 0x03f2a580);
  
@@ -58,7 +151,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  }
  
  
-@@ -1569,10 +1578,14 @@
+@@ -1569,10 +1615,14 @@
      
      nds_clear_gui_actions clear_gui_actions;
      clear_gui_actions = (nds_clear_gui_actions)FUN_CLEAR_GUI_ACTIONS;
@@ -75,7 +168,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      get_gui_input = (nds_get_gui_input)FUN_GET_GUI_INPUT;
      nds.menu.enable = 1;
      do {
-@@ -2979,18 +2992,51 @@
+@@ -2979,18 +3029,87 @@
  }
  
  // 여긴 계속 호출되고 있음
@@ -106,14 +199,49 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
 +    }
 +    done = 1;
 +}
++
++/* Copy drastic's current NDS screen pixel buffers into a snapshot slot,
++ * then atomically publish that slot as consumer_idx. Called from main
++ * (drastic emulation thread) right before signalling video_handler. */
++static void snap_current_frame(void)
++{
++    int slot;
++    FrameSnap *s;
++    uint8_t hres0 = *(uint8_t *)VAR_SDL_SCREEN0_HRES_MODE;
++    uint8_t hres1 = *(uint8_t *)VAR_SDL_SCREEN1_HRES_MODE;
++    uint64_t *p0 = (uint64_t *)(*((uint64_t *)VAR_SDL_SCREEN0_PIXELS));
++    uint64_t *p1 = (uint64_t *)(*((uint64_t *)VAR_SDL_SCREEN1_PIXELS));
++    size_t sz0 = hres0 ? (NDS_Wx2 * NDS_Hx2 * 4) : (NDS_W * NDS_H * 4);
++    size_t sz1 = hres1 ? (NDS_Wx2 * NDS_Hx2 * 4) : (NDS_W * NDS_H * 4);
++
++    slot = snap_producer_idx;
++    s = &snap_slot[slot];
++    s->hres_mode0 = hres0;
++    s->hres_mode1 = hres1;
++    if (p0) memcpy(s->pixels0, p0, sz0);
++    if (p1) memcpy(s->pixels1, p1, sz1);
++
++    pthread_mutex_lock(&snap_mutex);
++    snap_consumer_idx = slot;
++    snap_producer_idx = 1 - slot;
++    pthread_mutex_unlock(&snap_mutex);
++}
 +#endif
 +
  void sdl_update_screens(void)
  {
 +#ifdef ADVDRASTIC_SDL_GL
++    /* Threaded video: snapshot drastic's screen buffers into a ring slot,
++     * signal video_handler, return WITHOUT waiting. Main is free to
++     * emulate the next NDS frame immediately - render at native 60Hz
++     * regardless of how slow SDL_GL_SwapWindow is. */
 +    release_main_gl_context_once();
-+#endif
-+
++    snap_current_frame();
++    pthread_mutex_lock(&lock);
++    nds.update_screen = 1;
++    pthread_cond_signal(&request_update_screen_cond);
++    pthread_mutex_unlock(&lock);
++#else
      // acquire a lock
      pthread_mutex_lock(&lock);
 -    
@@ -129,10 +257,11 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
 +
 +    // release lock
 +    pthread_mutex_unlock(&lock);
++#endif
  }
  
  void sdl_update_screen(void)
-@@ -5766,12 +5812,19 @@
+@@ -5766,12 +5885,19 @@
  
  static void *video_handler(void *threadid)
  {
@@ -156,7 +285,41 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  
      // acquire a lock
      pthread_mutex_lock(&lock);
-@@ -6513,7 +6566,46 @@
+@@ -5798,11 +5924,30 @@
+                     GFX_Flip();
+                 }
+            }
+-           else if (nds.update_screen) {      
++           else if (nds.update_screen) {
++#ifdef ADVDRASTIC_SDL_GL
++               int idx;
++               nds.update_screen = 0;
++               pthread_mutex_lock(&snap_mutex);
++               idx = snap_consumer_idx;
++               snap_consumer_idx = -1;
++               snap_current_idx  = idx;
++               pthread_mutex_unlock(&snap_mutex);
++               /* Release the outer lock during the slow render+flip so
++                * main isn't blocked in sdl_update_screens' mutex_lock
++                * while we work. Re-acquire before looping. */
++               pthread_mutex_unlock(&lock);
++               if (idx >= 0) {
++                   process_screen();
++                   GFX_Flip();
++               }
++               pthread_mutex_lock(&lock);
++#else
+                process_screen();
+-               GFX_Flip(); 
++               GFX_Flip();
+                nds.update_screen = 0;
+-           } 
++#endif
++           }
+            else {
+                usleep(0);
+            }
+@@ -6513,7 +6658,61 @@
          EGL_NONE,
      };
  
@@ -196,6 +359,21 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
 +        vid.eglDisplay = eglGetCurrentDisplay();
 +        vid.eglSurface = eglGetCurrentSurface(EGL_DRAW);
 +        vid.eglContext = eglGetCurrentContext();
++        /* Disable vsync wait. Can't use SDL_GL_SetSwapInterval - knulli's
++         * 0002-Force-VSync-when-using-KMSDRM.patch clamps it to 1
++         * unconditionally. Poke egl_swapinterval directly to bypass;
++         * SDL_KMSDRM checks it in SwapWindow to decide whether to set
++         * DRM_MODE_PAGE_FLIP_ASYNC. Measurements: flip was ~30ms per
++         * frame (2 vsync intervals @ 60Hz), capping NDS emulator at
++         * ~18fps and starving audio. */
++        {
++            SDL_VideoDevice *dev2 = SDL_GetVideoDevice();
++            if (dev2 && dev2->egl_data) {
++                dev2->egl_data->egl_swapinterval = 0;
++                printf("egl_init: forced egl_swapinterval=0 "
++                       "(bypassing SDL_GL_SetSwapInterval clamp)\n");
++            }
++        }
 +        printf("egl_init: migrated SDL context to video_handler "
 +               "(display=%p surface=%p ctx=%p)\n",
 +               vid.eglDisplay, vid.eglSurface, vid.eglContext);
@@ -204,7 +382,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      vid.eglDisplay = eglGetDisplay((EGLNativeDisplayType)drm_buf.gbm);
      if (vid.eglDisplay == EGL_NO_DISPLAY) {
          printf("Failed to get EGL display\n");
-@@ -6524,11 +6616,12 @@
+@@ -6524,11 +6723,12 @@
          printf("Failed to initialize EGL display\n");
          return;
      }
@@ -218,7 +396,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      eglChooseConfig(vid.eglDisplay, config_attribs, &vid.eglConfig, 1, &num_configs);
  
  #ifdef ADVDRASTIC_DRM
-@@ -6544,6 +6637,7 @@
+@@ -6544,6 +6744,7 @@
  #endif
      vid.eglContext = eglCreateContext(vid.eglDisplay, vid.eglConfig, EGL_NO_CONTEXT, context_attributes);
      eglMakeCurrent(vid.eglDisplay, vid.eglSurface, vid.eglSurface, vid.eglContext);
@@ -226,7 +404,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
    
      vid.vShader = glCreateShader(GL_VERTEX_SHADER);
  
-@@ -6593,11 +6687,20 @@
+@@ -6593,11 +6794,20 @@
  
  void egl_terminate(void)
  {
@@ -247,7 +425,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  
  #ifdef ADVDRASTIC_DRM
  //GBM
-@@ -6917,6 +7020,14 @@
+@@ -6917,6 +7127,14 @@
      unsigned char  ucLayoutType;
      unsigned short usLayoutRotate;
  
@@ -262,7 +440,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
      usLayoutRotate = getlayout_rotate(nds.hres_mode, g_advdrastic.ucLayoutIndex[nds.hres_mode]);
      ucLayoutType = getlayout_type(nds.hres_mode, g_advdrastic.ucLayoutIndex[nds.hres_mode]);
  
-@@ -7014,6 +7125,22 @@
+@@ -7014,6 +7232,22 @@
  
  void GFX_Flip(void)
  {
@@ -285,7 +463,7 @@ Signed-off-by: James Pharaoh <james@pharaoh.uk>
  #ifdef ADVDRASTIC_DRM
      struct gbm_bo *bo = gbm_surface_lock_front_buffer(drm_buf.gbm_surface);
      uint32_t handle = gbm_bo_get_handle(bo).u32;
-@@ -7022,6 +7149,7 @@
+@@ -7022,6 +7256,7 @@
  #endif
  
      eglSwapBuffers(vid.eglDisplay, vid.eglSurface);
