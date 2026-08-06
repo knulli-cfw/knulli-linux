@@ -527,6 +527,9 @@ pyxel:
 quake:
   emulator: libretro
   core:     tyrquake
+quake2:
+  emulator: libretro
+  core:     vitaquake2
 quake3:
   emulator: ioquake3
   core:     ioquake3
