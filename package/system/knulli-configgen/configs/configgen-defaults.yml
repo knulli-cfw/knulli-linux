@@ -407,6 +407,9 @@ naomi:
 naomi2:
   emulator: libretro
   core:     flycast
+namco22:
+  emulator: libretro
+  core:     mame
 nds:
   emulator: libretro
   core:     desmume
