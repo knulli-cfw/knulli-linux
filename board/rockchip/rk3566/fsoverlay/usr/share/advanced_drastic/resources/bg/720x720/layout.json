@@ -1,0 +1,115 @@
+{
+"name":"knulli-rgb30",
+"number":7,
+"layout":[
+{
+    "index":0,
+    "name":"stack_tight",
+    "bg":"",
+
+    "screen0_x":120,
+    "screen0_y":0,
+    "screen0_w":480,
+    "screen0_h":360,
+
+    "screen1_x":120,
+    "screen1_y":360,
+    "screen1_w":480,
+    "screen1_h":360
+},
+{
+    "index":1,
+    "name":"hero_top",
+    "bg":"",
+
+    "screen0_x":0,
+    "screen0_y":0,
+    "screen0_w":720,
+    "screen0_h":540,
+
+    "screen1_x":240,
+    "screen1_y":540,
+    "screen1_w":240,
+    "screen1_h":180
+},
+{
+    "index":2,
+    "name":"single_small",
+    "bg":"",
+    "type":4,
+
+    "screen0_x":0,
+    "screen0_y":0,
+    "screen0_w":0,
+    "screen0_h":0,
+
+    "screen1_x":104,
+    "screen1_y":168,
+    "screen1_w":512,
+    "screen1_h":384
+},
+{
+    "index":3,
+    "name":"stack_gap",
+    "bg":"",
+
+    "screen0_x":136,
+    "screen0_y":0,
+    "screen0_w":448,
+    "screen0_h":336,
+
+    "screen1_x":136,
+    "screen1_y":384,
+    "screen1_w":448,
+    "screen1_h":336
+},
+{
+    "index":4,
+    "name":"fullscreen",
+    "bg":"",
+    "type":4,
+
+    "screen0_x":0,
+    "screen0_y":0,
+    "screen0_w":0,
+    "screen0_h":0,
+
+    "screen1_x":0,
+    "screen1_y":90,
+    "screen1_w":720,
+    "screen1_h":540
+},
+{
+    "index":5,
+    "name":"hires_small",
+    "bg":"",
+    "type":3,
+
+    "screen0_x":104,
+    "screen0_y":168,
+    "screen0_w":512,
+    "screen0_h":384,
+
+    "screen1_x":104,
+    "screen1_y":168,
+    "screen1_w":512,
+    "screen1_h":384
+},
+{
+    "index":6,
+    "name":"hires_fullscreen",
+    "bg":"",
+    "type":3,
+
+    "screen0_x":0,
+    "screen0_y":90,
+    "screen0_w":720,
+    "screen0_h":540,
+
+    "screen1_x":0,
+    "screen1_y":90,
+    "screen1_w":720,
+    "screen1_h":540
+}
+]
+}

@@ -1,0 +1,53 @@
+Detect RGB30 HW revision via i2c probe, steer extlinux via pxe_label_override
+
+The Powkiddy RGB30 ships in two HW revisions with different i2c
+addresses for the tcs4525 buck regulator that powers the CPU:
+
+  v1: tcs4525 at i2c0 0x1c   (matches upstream rk3568-evb-rgb30.dtsi)
+  v2: tcs4525 at i2c0 0x40   (matches upstream rk3568-evb-rgb30-v2.dtsi)
+
+Both DTBs are otherwise identical. If the wrong DTB is loaded, the
+tcs452x driver never binds, no vdd_cpu regulator exists, cpufreq
+refuses to register policies and the CPU stays stuck at boot default
+408 MHz (max is 1.8 GHz).
+
+The knulli-linux tree ships both DTBs and an extlinux.conf with two
+LABEL blocks (rgb30-v1 default, rgb30-v2 override). Set the
+pxe_label_override env var after successful i2c probe at 0x40 so
+u-boot's extlinux/sysboot parser picks the v2 label. No effect on
+other rgxx3 boards.
+
+Signed-off-by: James Pharaoh <james@pharaoh.uk>
+---
+diff --git a/board/anbernic/rgxx3_rk3566/rgxx3-rk3566.c b/board/anbernic/rgxx3_rk3566/rgxx3-rk3566.c
+--- a/board/anbernic/rgxx3_rk3566/rgxx3-rk3566.c
++++ b/board/anbernic/rgxx3_rk3566/rgxx3-rk3566.c
+@@ -13,6 +13,7 @@
+ #include <env.h>
+ #include <fdt_support.h>
+ #include <linux/delay.h>
++#include <i2c.h>
+ #include <mipi_dsi.h>
+ #include <mmc.h>
+ #include <panel.h>
+@@ -395,6 +396,20 @@ int rgxx3_detect_device(void)
+ 	env_set("board_name",
+ 		rg3xx_model_details[board_id].board_name);
+ 	env_set("fdtfile", rg3xx_model_details[board_id].fdtfile);
++
++	/*
++	 * RGB30 has two HW revisions with different i2c layouts for the
++	 * tcs4525 CPU regulator (v1 at 0x1c, v2 at 0x40). Probe v2's
++	 * address on i2c0 and set pxe_label_override so extlinux picks
++	 * the matching DTB (knulli-linux's extlinux.conf ships a
++	 * rgb30-v2 label pointing at the v2 dtb).
++	 */
++	if (board_id == RGB30) {
++		struct udevice *bus, *dev;
++		if (uclass_get_device_by_seq(UCLASS_I2C, 0, &bus) == 0 &&
++		    dm_i2c_probe(bus, 0x40, 0, &dev) == 0)
++			env_set("pxe_label_override", "rgb30-v2");
++	}
+ 
+ 	/* Skip panel detection for when it is not needed. */
+ 	if (!rg3xx_model_details[board_id].detect_panel)

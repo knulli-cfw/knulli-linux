@@ -34,6 +34,6 @@ cdi:
   emulator: libretro
   core:     same_cdi
 mpv:
-  emulator: mpv
-  core:     mpv
+  emulator: sh
+  core:     sh
 

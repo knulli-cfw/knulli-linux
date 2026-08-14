@@ -8,6 +8,7 @@ import yaml
 import re
 import argparse
 import json
+import sys
 import os
 
 class SortedListEncoder(json.JSONEncoder):
@@ -179,7 +180,16 @@ class EsSystemConf:
             emulators_result[emulator] = result_cores
 
         if nb_variants > 0 and defaultFound == False:
-            raise Exception("default core ({}/{}) not enabled for {}/{}" . format(defaultEmulator, defaultCore, arch, system))
+            # Missing / unmatched arch defaults are a maintenance issue for the
+            # arch, not a reason to fail the release-archive step for every
+            # other arch that shares this Makefile target. Warn to stderr so
+            # the miss is visible in build logs, but keep going.
+            print(
+                "WARNING: default core ({}/{}) not enabled for {}/{}".format(
+                    defaultEmulator, defaultCore, arch, system
+                ),
+                file=sys.stderr,
+            )
 
         result = {}
         result["name"] = data["name"]

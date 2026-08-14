@@ -511,7 +511,8 @@ config BR2_TARGET_KNULLI_IMAGES_DEFINITIONS
 	default "actions/atm7039/rg35xx"				if BR2_PACKAGE_BATOCERA_TARGET_ATM7039
 	default "qualcomm/sd845/odin"					if BR2_PACKAGE_BATOCERA_TARGET_ODIN
 	default "qualcomm/sm8250"						if BR2_PACKAGE_BATOCERA_TARGET_SM8250
-	default "rockchip/rk3566"						if BR2_PACKAGE_BATOCERA_TARGET_RK3568
+	default "rockchip/rk3566/miyoo-flip rockchip/rk3566/powkiddy-rgb30 rockchip/rk3566/rg-arc-s rockchip/rk3566/powkiddy-x55 rockchip/rk3566/rg-ds" \
+													if BR2_PACKAGE_BATOCERA_TARGET_RK3568
 	default "rockchip/rk3576/rg-vita-pro"			if BR2_PACKAGE_BATOCERA_TARGET_RK3576
 
 	choice

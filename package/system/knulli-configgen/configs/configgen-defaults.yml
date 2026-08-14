@@ -360,8 +360,8 @@ moonlight:
     bezel: none
     hud_support: false
 mpv:
-  emulator: mpv
-  core:     mpv
+  emulator: sh
+  core:     sh
   options:
     bezel: none
     hud_support: false
@@ -407,6 +407,9 @@ naomi:
 naomi2:
   emulator: libretro
   core:     flycast
+namco22:
+  emulator: libretro
+  core:     mame
 nds:
   emulator: libretro
   core:     desmume
@@ -507,8 +510,8 @@ ps4:
   emulator: shadps4
   core:     shadps4
 psp:
-  emulator: ppsspp
-  core: ppsspp
+  emulator: libretro
+  core:     ppsspp
 psvita:
   emulator: vita3k
   core:     vita3k
@@ -524,6 +527,12 @@ pygame:
 pyxel:
   emulator: pyxel
   core:     pyxel
+quake:
+  emulator: libretro
+  core:     tyrquake
+quake2:
+  emulator: libretro
+  core:     vitaquake2
 quake3:
   emulator: ioquake3
   core:     ioquake3
@@ -568,6 +577,9 @@ sg1000:
 sgb:
   emulator: libretro
   core:     mgba
+sgb-msu1:
+  emulator: libretro
+  core:     bsnes
 singe:
   emulator: hypseus-singe
   core:     hypseus-singe
@@ -667,8 +679,8 @@ uzebox:
   emulator: libretro
   core:     uzem
 vaixterm:
-  emulator: vaixterm
-  core:     vaixterm
+  emulator: odcommander
+  core:     odcommander
   options:
     hud_support: false
 vc4000:

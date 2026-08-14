@@ -254,6 +254,14 @@ else
 SDL2_DRASTIC_TARGET_LDFLAGS += -lmali
 endif
 
+# rk3568/rk3566: rockchip mali blob rejects trngaje's standalone
+# DRM+GBM+EGL setup. Have egl_init adopt SDL's KMSDRM context instead
+# so we present through SDL's already-patched rockchip render path
+# (see 0007-rk3566-adopt-sdl-egl-context.patch).
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3568),y)
+SDL2_DRASTIC_TARGET_CFLAGS += -DADVDRASTIC_SDL_GL
+endif
+
 define SDL2_DRASTIC_CONFIGURE_CMDS
         (cd $(@D); rm -rf config.cache; \
                 $(TARGET_CONFIGURE_ARGS) \

@@ -1,0 +1,22 @@
+RGB30: mark v2 DTB model string so ES/Info identifies HW rev
+
+Rename the v2 DTB's model property from "Powkiddy RGB30" to
+"Powkiddy RGB30 v2" so it appears distinct in
+/sys/firmware/devicetree/base/model and in knulli-info's
+ES "Model:" line. Once u-boot picks the right DTB per HW rev,
+this is a free visual indicator of which board a user is on -
+useful for tester bug reports.
+
+Signed-off-by: James Pharaoh <james@pharaoh.uk>
+---
+--- a/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-rgb30-v2-linux.dts
+@@ -14,7 +14,7 @@
+ #include "rk3568-linux.dtsi"
+ 
+ / {
+-	model = "Powkiddy RGB30";
++	model = "Powkiddy RGB30 v2";
+ 	compatible = "rockchip,rk3566-evb2-lp4x-v11", "rockchip,rk3566";
+ 
+ 	adc_keys: adc-keys {

@@ -653,7 +653,10 @@ menu "Knulli Packages"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/advanced_drastic/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/advanced_drastic/drastic_layout/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/advanced_drastic/sdl2_drastic/Config.in"
-    source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/ppsspp/Config.in"
+    # knulli-build local: package/emulators/ppsspp/ has never been
+    # committed to knulli-main - only Config.in source lines exist.
+    # Comment out until the package is added upstream.
+    #source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/ppsspp/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/vita3k/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/zesarux/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/emulators/ports/gzdoom/Config.in"
@@ -687,7 +690,9 @@ menu "Knulli Packages"
   menu "Misc"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/controllers/rocknix-joypad/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/modules/rtkbtusb/Config.in"
-    source "$BR2_EXTERNAL_KNULLI_PATH/package/modules/rtl8733bu/Config.in"
+    # knulli-build local: package/modules/rtl8733bu/ has never been
+    # committed to knulli-main - only the Config.in source line exists.
+    #source "$BR2_EXTERNAL_KNULLI_PATH/package/modules/rtl8733bu/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/modules/vita-pro-modules/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/firmwares/extra-firmwares/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/audio/m8c/Config.in"

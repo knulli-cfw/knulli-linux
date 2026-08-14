@@ -12,6 +12,12 @@ default:
 nds:
   emulator: advanced_drastic
   core:     advanced_drastic
+psp:
+  emulator: libretro
+  core:     ppsspp
+3ds:
+  emulator: azahar
+  core:     azahar
 fmtowns:
   emulator: libretro
   core:     mame

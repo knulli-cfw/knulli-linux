@@ -80,6 +80,10 @@ get_warn_freq() {
         h700)
             echo 1704000
             ;;
+        rk3568)
+            # 1992 is an overclock beyond Rockchip's 1800 spec for RK3566.
+            echo 1992000
+            ;;
         *)
             ;;
     esac
