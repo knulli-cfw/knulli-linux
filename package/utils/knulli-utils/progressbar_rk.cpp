@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <ctype.h>
 #include <linux/fb.h>
 #include <sys/mman.h>
@@ -264,24 +265,43 @@ static bool wait_for_framebuffer(struct fb_var_screeninfo *vinfo) {
     }
 }
 
-// Load the boot logo: try /boot/bootlogo.bmp first (back-compat), then fall back
-// to the dynamic /boot/logo_<W>x<H>.bmp built from the PHYSICAL framebuffer
-// resolution (e.g. logo_640x480.bmp).
+/*
+ * Boot logo lookup, in preference order:
+ *
+ *   /boot/bootlogo.bmp        - what every other board ships
+ *   /boot/logos/bootlogo.bmp
+ *   <dir>/logo_<W>x<H>.bmp    - rk3326 keeps a per-panel set under logos/,
+ *                               named by the panel's native resolution, which
+ *                               is also the framebuffer geometry here
+ *   <dir>/logo.bmp            - last resort; GO2 (320x480) and GO3 (480x854)
+ *                               have no sized file, so they land on this one
+ *                               and get scaled
+ */
 static SDL_Surface* load_boot_logo(int fbWidth, int fbHeight) {
-    SDL_Surface* s = SDL_LoadBMP("/boot/bootlogo.bmp");
-    if (s)
-        return s;
-
+    static const char *dirs[] = { "/boot", "/boot/logos" };
+    const char *names[3];
+    char sized[64];
     char path[PATH_MAX];
-    snprintf(path, sizeof(path), "/boot/logo_%dx%d.bmp", fbWidth, fbHeight);
-    s = SDL_LoadBMP(path);
-    if (s) {
-        fprintf(stderr, "bootlogo.bmp not found; using %s\n", path);
-        return s;
+
+    snprintf(sized, sizeof(sized), "logo_%dx%d.bmp", fbWidth, fbHeight);
+    names[0] = "bootlogo.bmp";
+    names[1] = sized;
+    names[2] = "logo.bmp";
+
+    for (size_t n = 0; n < sizeof(names) / sizeof(names[0]); n++) {
+        for (size_t d = 0; d < sizeof(dirs) / sizeof(dirs[0]); d++) {
+            snprintf(path, sizeof(path), "%s/%s", dirs[d], names[n]);
+            SDL_Surface* s = SDL_LoadBMP(path);
+            if (s) {
+                if (n != 0)
+                    fprintf(stderr, "bootlogo.bmp not found; using %s\n", path);
+                return s;
+            }
+        }
     }
 
-    fprintf(stderr, "Could not load /boot/bootlogo.bmp or %s: %s\n",
-            path, SDL_GetError());
+    fprintf(stderr, "Could not load bootlogo.bmp, %s or logo.bmp "
+            "from /boot or /boot/logos: %s\n", sized, SDL_GetError());
     return NULL;
 }
 
@@ -429,6 +449,15 @@ int main(int argc, char *argv[]) {
     FILE *file;
     int running = 1;
 
+    // When U-Boot hands its splash over to the kernel (drm-logo route
+    // properties), the kernel keeps scanning out U-Boot's framebuffer and the
+    // fbdev buffer we draw into is not on the plane until some DRM commit puts
+    // it there -- which used to be ES, minutes later.  One FBIOPAN_DISPLAY at
+    // offset 0 is that commit: a plane flip from the logo buffer to ours, on a
+    // CRTC and panel that stay exactly as they are.  Our first frame is the same
+    // logo, so the flip is invisible.  Harmless when there was no handover.
+    bool fb_claimed = false;
+
     // Copy a physical-oriented surface straight into the mmap'd framebuffer,
     // honouring the line stride and x/y pan offsets.
     auto blit_to_fb = [&](SDL_Surface *phys) {
@@ -452,6 +481,13 @@ int main(int argc, char *argv[]) {
         // disturbing the mmap (FBIOPAN_DISPLAY is a no-op on this single-buffer
         // fb, and FBIOPUT_VSCREENINFO reallocates the buffer and breaks mmap).
         fsync(fbfd);
+
+        if (!fb_claimed) {
+            fb_claimed = true;
+            if (ioctl(fbfd, FBIOPAN_DISPLAY, &vinfo) != 0)
+                std::cerr << "Warning: FBIOPAN_DISPLAY failed: "
+                          << strerror(errno) << std::endl;
+        }
     };
 
     // Compose the logical frame (logo [+ text + bar]) and present it to /dev/fb0,
