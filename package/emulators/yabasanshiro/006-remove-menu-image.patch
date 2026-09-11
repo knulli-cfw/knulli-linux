@@ -1,0 +1,10 @@
+diff --git a/yabause/src/retro_arena/MenuScreen.cpp b/yabause/src/retro_arena/MenuScreen.cpp
+--- a/yabause/src/retro_arena/MenuScreen.cpp
++++ b/yabause/src/retro_arena/MenuScreen.cpp
+@@ -79,2 +79,3 @@
+
++#if 0
+   int image_pix_size_w = this->width() / 2;
+@@ -95,2 +96,3 @@
+   //imageWindow->setModal(true);
++#endif

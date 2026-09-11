@@ -17,9 +17,19 @@ YABASANSHIRO_DEPENDENCIES = sdl2 libcurl boost libglfw zlib libpng
 # gcc-14 / custom compile flags (keep original - append other flags via CONF_ENV for cross builds)
 YABASANSHIRO_TARGET_CFLAGS = -Wno-implicit-function-declaration -Wno-incompatible-pointer-types -Wno-int-conversion
 
+# Remove any global LTO flags before applying a consistent package-local
+# configuration to compilation and linking.
+YABASANSHIRO_NO_LTO_FLAGS = -flto -flto=% -fuse-linker-plugin -ffat-lto-objects -fno-fat-lto-objects
+
+YABASANSHIRO_CFLAGS = $(filter-out $(YABASANSHIRO_NO_LTO_FLAGS),$(TARGET_CFLAGS))
+YABASANSHIRO_CXXFLAGS = $(filter-out $(YABASANSHIRO_NO_LTO_FLAGS),$(TARGET_CXXFLAGS))
+YABASANSHIRO_LDFLAGS = $(filter-out $(YABASANSHIRO_NO_LTO_FLAGS),$(TARGET_LDFLAGS))
+
+YABASANSHIRO_LTO_FLAGS = -flto=auto -fuse-linker-plugin -ffat-lto-objects
+
 # Extra linker flags from the custom script
 # include -lstdc++fs as the script used
-YABASANSHIRO_CONF_ENV += LDFLAGS="$(TARGET_LDFLAGS) -L$(STAGING_DIR)/usr/lib -lpthread -ludev -lstdc++fs"
+YABASANSHIRO_CONF_ENV += LDFLAGS="$(YABASANSHIRO_LDFLAGS) $(YABASANSHIRO_LTO_FLAGS) -L$(STAGING_DIR)/usr/lib -lpthread -ludev -lstdc++fs"
 
 # Provide CMake install prefix (use /usr for library/binary layout)
 YABASANSHIRO_CONF_OPTS += -DCMAKE_INSTALL_PREFIX="/usr"
@@ -32,6 +42,8 @@ YABASANSHIRO_CONF_OPTS += -DYAB_WANT_ARM7=ON
 YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=ON
 YABASANSHIRO_CONF_OPTS += -DSH2_TRACE=OFF
 YABASANSHIRO_CONF_OPTS += -DCMAKE_BUILD_TYPE=Release
+# Match the working precompiled binary's monolithic linkage.
+YABASANSHIRO_CONF_OPTS += -DBUILD_SHARED_LIBS=OFF
 
 # Ensure CMake picks up SDL2 headers from the target sysroot
 YABASANSHIRO_CONF_OPTS += -DSDL2_INCLUDE_DIR=$(STAGING_DIR)/usr/include/SDL2
@@ -45,6 +57,15 @@ YABASANSHIRO_CONF_OPTS += -DZLIB_INSTALL=$(STAGING_DIR)/usr
 YABASANSHIRO_CONF_OPTS += -DCMAKE_C_COMPILER=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc
 YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_COMPILER=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-g++
 
+# Use GCC's linker-plugin-aware archive tools for LTO objects.
+YABASANSHIRO_CONF_OPTS += -DCMAKE_AR=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ar
+YABASANSHIRO_CONF_OPTS += -DCMAKE_RANLIB=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ranlib
+YABASANSHIRO_CONF_OPTS += -DCMAKE_NM=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-nm
+YABASANSHIRO_CONF_OPTS += -DCMAKE_C_COMPILER_AR=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ar
+YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_COMPILER_AR=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ar
+YABASANSHIRO_CONF_OPTS += -DCMAKE_C_COMPILER_RANLIB=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ranlib
+YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_COMPILER_RANLIB=$(HOST_DIR)/bin/$(GNU_TARGET_NAME)-gcc-ranlib
+
 # Point png static library if needed (kept from your original)
 YABASANSHIRO_CONF_OPTS += -Dpng_STATIC_LIBRARIES=$(STAGING_DIR)/usr/lib/libpng16.so
 
@@ -56,8 +77,8 @@ YABASANSHIRO_CONF_OPTS += -DYAB_DISABLE_EXTERNAL_DEPS=ON
 
 # Standard buildroot cross-compilation flags
 ifeq ($(BR2_aarch64),y)
-    YABASANSHIRO_CONF_ENV += CFLAGS="$(TARGET_CFLAGS) -O3 -std=c99"
-    YABASANSHIRO_CONF_ENV += CXXFLAGS="$(TARGET_CXXFLAGS) -O3 -std=c++17"
+    YABASANSHIRO_CONF_ENV += CFLAGS="$(YABASANSHIRO_CFLAGS) $(YABASANSHIRO_LTO_FLAGS) -O3 -std=c99"
+    YABASANSHIRO_CONF_ENV += CXXFLAGS="$(YABASANSHIRO_CXXFLAGS) $(YABASANSHIRO_LTO_FLAGS) -O3 -std=c++17"
 endif
 
 # Use buildroot PKG_CONFIG_PATH
@@ -69,8 +90,8 @@ ifeq ($(BR2_arm)$(BR2_aarch64),y)
     YABASANSHIRO_CONF_OPTS += -DYAB_ASYNC_RENDERING=ON
     YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=ON
     # add build-time target flags (note: CMake/Cross toolchain will also apply TARGET_CFLAGS)
-    YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS)"
-    YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_FLAGS="$(TARGET_CFLAGS)"
+    YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(YABASANSHIRO_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS) $(YABASANSHIRO_LTO_FLAGS) -O3"
+    YABASANSHIRO_CONF_OPTS += -DCMAKE_CXX_FLAGS="$(YABASANSHIRO_CXXFLAGS) $(YABASANSHIRO_LTO_FLAGS) -O3"
 else ifeq ($(BR2_x86_64),y)
     YABASANSHIRO_CONF_OPTS += -DYAB_WANT_DYNAREC_DEVMIYAX=OFF
     YABASANSHIRO_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) $(YABASANSHIRO_TARGET_CFLAGS) -D__PC__"
@@ -123,7 +144,7 @@ define YABASANSHIRO_BUILD_HOST_TOOLS
 	$(HOSTCC) $(HOST_CFLAGS) $(@D)/yabause/src/retro_arena/nanogui-sdl/resources/bin2c.c \
 		-o $(@D)/yabause/bin2c_host
 
-	# Build m68kmake host tool  
+	# Build m68kmake host tool
 	$(HOSTCC) $(HOST_CFLAGS) $(@D)/yabause/src/musashi/m68kmake.c \
 		-o $(@D)/m68kmake_host
 
@@ -137,7 +158,9 @@ endef
 # Post-install: install library and extra files; attempt to strip the main binary if present
 define YABASANSHIRO_POST_PROCESS
 	# install libyabause into target lib dir
-	$(INSTALL) -m 0755 $(@D)/yabause/src/libyabause.so -D $(TARGET_DIR)/usr/lib/libyabause.so
+	if [ -f $(@D)/yabause/src/libyabause.so ]; then \
+		$(INSTALL) -m 0755 $(@D)/yabause/src/libyabause.so -D $(TARGET_DIR)/usr/lib/libyabause.so; \
+	fi
 
 	# evmapy config
 	mkdir -p $(TARGET_DIR)/usr/share/evmapy
@@ -157,4 +180,3 @@ YABASANSHIRO_POST_INSTALL_TARGET_HOOKS += YABASANSHIRO_POST_PROCESS
 
 # Use cmake package infrastructure
 $(eval $(cmake-package))
-

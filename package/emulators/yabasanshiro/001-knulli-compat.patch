@@ -145,15 +145,9 @@ index 3b3b581c..901710ef 100644
    SDL_GL_MakeCurrent(wnd,glc);
    return 0;
  }
-@@ -444,7 +446,7 @@ int main(int argc, char** argv)
-   VIDCore->Resize(0,0,width,height,1,p->getInt("Aspect rate",0));
-   delete p;
-   
+@@ -447 +449 @@ int main(int argc, char** argv)
 -  SDL_GL_MakeCurrent(wnd,nullptr);
 +  SDL_GL_MakeCurrent(wnd,glc);
- #if defined(__RP64__) || defined(__N2__)
-   YabThreadSetCurrentThreadAffinityMask(0x4);
- #else
 diff --git a/yabause/src/retro_arena/n2.cmake b/yabause/src/retro_arena/n2.cmake
 index 74d541b3..b0253fb3 100644
 --- a/yabause/src/retro_arena/n2.cmake
@@ -217,20 +211,7 @@ index 33b8e251..82944ffb 100644
 +
  # Needed to generated files
  include_directories(${CMAKE_CURRENT_BINARY_DIR})
- 
-diff --git a/yabause/src/vidogl.c b/yabause/src/vidogl.c
-index be699718..fe21ae4e 100644
---- a/yabause/src/vidogl.c
-+++ b/yabause/src/vidogl.c
-@@ -41,7 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
- /*! \file vidogl.c
-     \brief OpenGL video renderer
- */
--#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX)
-+#if defined(HAVE_LIBGL) || defined(__ANDROID__) || defined(IOS) || defined(NX) || defined(_OGLES3_)
- 
- #include <math.h>
- #define EPSILON (1e-10 )
+
 diff --git a/yabause/src/vidogl.h b/yabause/src/vidogl.h
 index c8baf433..8ada3ee3 100644
 --- a/yabause/src/vidogl.h
