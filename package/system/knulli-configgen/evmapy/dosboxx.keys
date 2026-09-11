@@ -1,0 +1,40 @@
+{
+    "actions_player1": [
+        {
+            "description": "quit dosbox so it can flush anything it is holding",
+            "trigger": [ "hotkey", "start" ],
+            "type": "key",
+            "target": [ "KEY_LEFTCTRL", "KEY_F9" ]
+        },
+        {
+            "description": "capture / release the mouse",
+            "trigger": [ "hotkey", "a" ],
+            "type": "key",
+            "target": [ "KEY_LEFTCTRL", "KEY_F10" ]
+        },
+        {
+            "description": "pause / unpause",
+            "trigger": [ "hotkey", "b" ],
+            "type": "key",
+            "target": [ "KEY_LEFTALT", "KEY_PAUSE" ]
+        },
+        {
+            "description": "swap the mounted disk image",
+            "trigger": [ "hotkey", "y" ],
+            "type": "key",
+            "target": [ "KEY_LEFTCTRL", "KEY_F4" ]
+        },
+        {
+            "description": "slow the emulated cpu down",
+            "trigger": [ "hotkey", "pageup" ],
+            "type": "key",
+            "target": [ "KEY_LEFTCTRL", "KEY_F11" ]
+        },
+        {
+            "description": "speed the emulated cpu up",
+            "trigger": [ "hotkey", "pagedown" ],
+            "type": "key",
+            "target": [ "KEY_LEFTCTRL", "KEY_F12" ]
+        }
+    ]
+}

@@ -1,0 +1,40 @@
+From: knulli <knulli@knulli>
+Date: Sat, 30 Aug 2026 00:00:00 +0000
+Subject: [PATCH] compile the dmabuf path out when SDL has no wayland driver
+
+SDL_SysWMinfo's union only carries its wayland member when SDL was built
+with SDL_VIDEO_DRIVER_WAYLAND, so DmabufOut::open() does not compile
+against an SDL2 configured for fbdev or KMSDRM alone -- which is what the
+mali handhelds (allwinner a133 and friends) ship.  Nothing is lost: no
+window such an SDL creates could be a wl_surface, and display.cpp already
+gates the whole scanline/dmabuf tier on the video driver being "wayland".
+
+Signed-off-by: knulli <knulli@knulli>
+---
+diff --git a/src/frontend/sdl/display_wl.cpp b/src/frontend/sdl/display_wl.cpp
+index 2ea5b99..1f7f20e 100644
+--- a/src/frontend/sdl/display_wl.cpp
++++ b/src/frontend/sdl/display_wl.cpp
+@@ -128,6 +128,14 @@ void DmabufOut::drop_buf(Buf& b) {
+ }
+ 
+ bool DmabufOut::open(SDL_Window* win, int w, int h, int output_index) {
++#ifndef SDL_VIDEO_DRIVER_WAYLAND
++  // SDL was built without its wayland video driver -- an fbdev or a
++  // KMSDRM-only handheld build.  SDL_SysWMinfo then carries no wayland
++  // member at all, so the body below does not compile, and no window this
++  // SDL creates could ever be a wl_surface anyway.
++  (void)win; (void)w; (void)h; (void)output_index;
++  return false;
++#else
+   if (!wldyn::load()) { std::fprintf(stderr, "dmabuf: no libwayland (%s)\n", wldyn::error()); return false; }
+ 
+   SDL_SysWMinfo wm;
+@@ -175,6 +183,7 @@ bool DmabufOut::open(SDL_Window* win, int w, int h, int output_index) {
+     wl_region_destroy(r);
+   }
+   return true;
++#endif
+ }
+ 
+ void DmabufOut::close() {

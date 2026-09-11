@@ -1,0 +1,39 @@
+From: knulli <knulli@knulli>
+Subject: [PATCH] use an alpha-less texture format for the amiga screen
+
+The emulator draws into amiga_surface without ever setting the alpha
+byte, so every pixel it hands to SDL has alpha 0.  Declaring the texture
+RGBA32 makes SDL's GLES2 renderer pick the ABGR shader, which writes
+that alpha straight through to the framebuffer.  The display engine
+composites fb0 per-pixel, so an alpha-0 frame is invisible: correct RGB
+in /dev/fb0, black panel.
+
+RGBX32 has the identical byte layout minus the alpha channel, so the
+upload is unchanged, but it selects the BGR shader instead, which forces
+gl_FragColor.a = 1.0.
+
+SDL_RENDER_DRIVER=software hid this: mali-fbdev has no
+CreateWindowFramebuffer, so SDL falls back to SDL_CreateWindowTexture,
+which deliberately picks an alpha-less format for the window surface and
+therefore already took the a=1.0 path.
+
+--- a/src/osdep/amiberry_gfx.cpp
++++ b/src/osdep/amiberry_gfx.cpp
+@@ -384,7 +384,7 @@
+ 			int width, height;
+ 			Uint32 format;
+ 			SDL_QueryTexture(amiga_texture, &format, nullptr, &width, &height);
+-			if (width == -w && height == -h && (depth == 16 && format == SDL_PIXELFORMAT_RGB565) || (depth == 32 && format == SDL_PIXELFORMAT_RGBA32))
++			if (width == -w && height == -h && (depth == 16 && format == SDL_PIXELFORMAT_RGB565) || (depth == 32 && format == SDL_PIXELFORMAT_RGBX32))
+ 			{
+ 				set_scaling_option(monid, &currprefs, width, height);
+ 				return true;
+@@ -397,7 +397,7 @@
+ 		SDL_DestroyTexture(amiga_texture);
+ 
+ 	AmigaMonitor* mon = &AMonitors[0];
+-	amiga_texture = SDL_CreateTexture(mon->amiga_renderer, depth == 16 ? SDL_PIXELFORMAT_RGB565 : SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, w, h);
++	amiga_texture = SDL_CreateTexture(mon->amiga_renderer, depth == 16 ? SDL_PIXELFORMAT_RGB565 : SDL_PIXELFORMAT_RGBX32, SDL_TEXTUREACCESS_STREAMING, w, h);
+ 	return amiga_texture != nullptr;
+ #endif
+ }

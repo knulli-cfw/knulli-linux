@@ -1,0 +1,19 @@
+config BR2_PACKAGE_AMIBERRY_LITE
+    bool "amiberry-lite"
+    select BR2_PACKAGE_SDL2
+    select BR2_PACKAGE_SDL2_IMAGE
+    select BR2_PACKAGE_SDL2_TTF
+    select BR2_PACKAGE_MPG123
+    select BR2_PACKAGE_LIBMPEG2
+    select BR2_PACKAGE_FLAC
+    select BR2_PACKAGE_LIBPNG
+    select BR2_PACKAGE_LIBSERIALPORT
+    select BR2_PACKAGE_LIBPORTMIDI
+    select BR2_PACKAGE_ZLIB
+    select BR2_PACKAGE_ZSTD
+    select BR2_PACKAGE_LIBENET
+    help
+    	The SDL2 branch of amiberry, kept lean for lower powered ARM
+    	devices.  Installs alongside amiberry, which is SDL3.
+
+    	https://github.com/BlitterStudio/amiberry-lite
