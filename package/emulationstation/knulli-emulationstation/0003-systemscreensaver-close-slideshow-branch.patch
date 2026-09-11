@@ -1,0 +1,29 @@
+From: knulli <knulli@knulli>
+Subject: [PATCH] SystemScreenSaver: close the slideshow branch
+
+The "slideshow" branch of startScreenSaver() opens a block that is never
+closed: the "}" at the end of the "if (!path.empty())" body is followed
+directly by "else if (screensaver_behavior == \"power save\")", so that
+else-if chains onto the inner path test instead of the outer behaviour
+chain, and the function body is left one brace short.
+
+Everything after it is then parsed as if still inside startScreenSaver(),
+which is why the errors land in unrelated headers:
+
+  SystemScreenSaver.cpp:238:40: error: qualified-id in declaration before
+  ComponentList.h:10:1: error: 'namespace' definition is not allowed here
+  GuiFileBrowser.h:7:1: error: a template declaration cannot appear at block scope
+
+Signed-off-by: knulli <knulli@knulli>
+---
+diff --git a/es-app/src/SystemScreenSaver.cpp b/es-app/src/SystemScreenSaver.cpp
+--- a/es-app/src/SystemScreenSaver.cpp
++++ b/es-app/src/SystemScreenSaver.cpp
+@@ -224,6 +224,7 @@
+ 			mTimer = 0;
+ 			return;
+ 		}
++	}
+ 	else if (screensaver_behavior == "power save")
+ 	{
+ 		mPowerSave = true;

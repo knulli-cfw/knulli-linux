@@ -1,0 +1,21 @@
+Call knulli-wifi, not batocera-wifi, when a country is set.
+
+The non-WIN32 branch names a script this image does not carry, so enabling
+wi-fi silently failed and the SSID list came back empty.  It also skipped the
+quote escaping the other branch does.
+
+--- a/es-app/src/ApiSystem.cpp
++++ b/es-app/src/ApiSystem.cpp
+@@ -625,7 +625,11 @@
+ #if !WIN32
+ bool ApiSystem::enableWifi(std::string ssid, std::string key, std::string country) 
+ {
+-	return executeScript("batocera-wifi enable \"" + ssid + "\" \"" + key + "\" \"" + country + "\"");
++	ssid = Utils::String::replace(ssid, "'", "'\\''");
++	key = Utils::String::replace(key, "'", "'\\''");
++	country = Utils::String::replace(country, "'", "'\\''");
++
++	return executeScript("knulli-wifi enable '" + ssid + "' '" + key + "' '" + country + "'");
+ }
+ #else
+ bool ApiSystem::enableWifi(std::string ssid, std::string key)

@@ -127,6 +127,9 @@ amiga500:
     amiberry:
       A500:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
       A500+:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
+    amiberry-lite:
+      A500:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
+      A500+:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -153,6 +156,9 @@ amiga1200:
     amiberry:
       A1200:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
       A4000:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
+    amiberry-lite:
+      A1200:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
+      A4000:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -175,6 +181,8 @@ amigacd32:
       CD32:     { requireAnyOf: [BR2_PACKAGE_FSUAE]         }
     amiberry:
       CD32:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY] }
+    amiberry-lite:
+      CD32:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -191,6 +199,8 @@ amigacdtv:
       CDTV:     { requireAnyOf: [BR2_PACKAGE_FSUAE]         }
     amiberry:
       CDTV:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY] }
+    amiberry-lite:
+      CDTV:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -385,6 +395,8 @@ nds:
       melondsds:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MELONDS_DS] }
     advanced_drastic:
       advanced_drastic: { requireAnyOf: [BR2_PACKAGE_ADVANCED_DRASTIC], incompatible_extensions: [7z] }
+    dsperate:
+      dsperate: { requireAnyOf: [BR2_PACKAGE_DSPERATE], incompatible_extensions: [zip, 7z] }
 
 fds:
   name:       Family Computer Disk System

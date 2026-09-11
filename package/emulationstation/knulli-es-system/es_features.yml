@@ -7230,6 +7230,134 @@ amiberry:
             choices:
                 "ON":                          true
                 "OFF":                         false
+        amiberry_ntsc:
+            prompt:      FORCE NTSC
+            description: Force NTSC instead of PAL. Defaults to whatever the rom name hints at.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_shader:
+            prompt:      SHADER
+            description: CRT shader.
+            choices:
+                "None":                        none
+                "TV CRT, heavy scanlines and curvature": tv
+                "PC monitor, lighter scanlines": pc
+                "Lightweight CRT":             lite
+                "Commodore 1084 monitor":      1084
+        amiberry_virtual_keyboard:
+            group: KEYBOARD OPTIONS
+            prompt:      VIRTUAL KEYBOARD
+            description: Enable the on-screen keyboard, toggled with the left stick.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_hires_keyboard:
+            group: KEYBOARD OPTIONS
+            prompt:      LARGER KEYBOARD
+            description: High-resolution on-screen keyboard, larger and easier to see.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_vkbd_language:
+            group: KEYBOARD OPTIONS
+            prompt:      KEYBOARD LAYOUT
+            description: Language layout of the on-screen keyboard.
+            choices:
+                "US":                          US
+                "UK":                          UK
+                "FR":                          FR
+                "DE":                          DE
+        amiberry_vkbd_transparency:
+            group: KEYBOARD OPTIONS
+            prompt:      KEYBOARD TRANSPARENCY
+            description: Set the on-screen keyboard transparency (0-100%).
+            preset:      sliderauto
+            preset_parameters: 0 100 5 60
+
+amiberry-lite:
+  features: [padtokeyboard]
+  shared: [powermode, tdp, videomode, ratio, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
+  cfeatures:
+        amiberry_linemode:
+            group: ADVANCED OPTIONS
+            prompt:      LINE MODE
+            description: Adjust screen line draw mode.
+            choices:
+                "SINGLE":                      none
+                "DOUBLE":                      double
+                "SCANLINES":                   scanlines
+        amiberry_resolution:
+            prompt:      VIDEO RESOLUTION
+            description: Manually define which internal resolution to use. AUTO = High.
+            choices:
+                "Low":                         lores
+                "High":                        hires
+                "Super high":                  superhires
+        amiberry_scalingmethod:
+            prompt:      SCALING METHOD
+            description: Change pixel scaling and filtering method.
+            choices:
+                "Automatic":                   automatic
+                "Pixelated (Nearest)":         pixelated
+                "Smooth (Linear)":             smooth
+        amiberry_flickerfixer:
+            group: ADVANCED OPTIONS
+            prompt:      REMOVE INTERLACE ARTIFACTS
+            description: Fix flickering in a static screen like Workbench.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_auto_height:
+            prompt:      AUTO HEIGHT
+            description: Resize automatically screen height.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_ntsc:
+            prompt:      FORCE NTSC
+            description: Force NTSC instead of PAL. Defaults to whatever the rom name hints at.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_shader:
+            prompt:      SHADER
+            description: CRT shader.
+            choices:
+                "None":                        none
+                "TV CRT, heavy scanlines and curvature": tv
+                "PC monitor, lighter scanlines": pc
+                "Lightweight CRT":             lite
+                "Commodore 1084 monitor":      1084
+        amiberry_virtual_keyboard:
+            group: KEYBOARD OPTIONS
+            prompt:      VIRTUAL KEYBOARD
+            description: Enable the on-screen keyboard, toggled with the left stick.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_hires_keyboard:
+            group: KEYBOARD OPTIONS
+            prompt:      LARGER KEYBOARD
+            description: High-resolution on-screen keyboard, larger and easier to see.
+            choices:
+                "ON":                          true
+                "OFF":                         false
+        amiberry_vkbd_language:
+            group: KEYBOARD OPTIONS
+            prompt:      KEYBOARD LAYOUT
+            description: Language layout of the on-screen keyboard.
+            choices:
+                "US":                          US
+                "UK":                          UK
+                "FR":                          FR
+                "DE":                          DE
+        amiberry_vkbd_transparency:
+            group: KEYBOARD OPTIONS
+            prompt:      KEYBOARD TRANSPARENCY
+            description: Set the on-screen keyboard transparency (0-100%).
+            preset:      sliderauto
+            preset_parameters: 0 100 5 60
 
 cannonball:
   shared: [powermode, tdp, videomode, ratio, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
@@ -8706,6 +8834,11 @@ moonlight:
 mupen64plus:
   shared: [powermode, tdp, videomode, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
   cfeatures:
+        mupen64plus_cheats:
+            group: ADVANCED OPTIONS
+            prompt:      CHEATS
+            description: Pass a custom cheats argument straight to mupen64plus with --cheats.
+            preset:      input
         mupen64plus_ratio:
             prompt:      GAME ASPECT RATIO
             choices:
@@ -9457,6 +9590,157 @@ aethersx2:
 ppsspp:
   shared: [powermode, tdp, videomode, ratio, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo, rewind]
   cfeatures:
+        vsync:
+            submenu: RENDERING
+            prompt: VSYNC
+            description: Enable for more fluidity, disable if screen tearing.
+            choices:
+                "Disable": 0
+                "Enable": 1
+        disable_culling:
+            submenu: SPEED HACKS
+            prompt: DISABLE CULLING
+            description: The PSP will cull triangles that are outside a 4096x4096 clipping box, and also triangles crossing the Z=1 plane if clipping is enabled.
+            choices:
+                "Off": 0
+                "On": 1
+        lazy_texture_caching:
+            submenu: SPEED HACKS
+            prompt: LAZY TEXTURE CACHING
+            description: Faster but can cause text problems in some games.
+            choices:
+                "Off": 0
+                "On": 1
+        duplicate_frames:
+            submenu: PERFORMANCE
+            prompt: RENDER DUPLICATE FRAMES TO 60 HZ
+            description: If a game runs at 30hz, PPSSPP wtill push 60 frames to the monitor.
+            choices:
+                "Off": 0
+                "On": 1
+        software_skinning:
+            submenu: PERFORMANCE
+            prompt: SOFTWARE SKINNING
+            description: "Runs \"skinning\" on the CPU instead of the GPU, means that draw calls from the game can more easily be combined, which often improves things."
+            choices:
+                "Off": 0
+                "On": 1
+        hardware_tessellation:
+            submenu: PERFORMANCE
+            prompt: HARDWARE TESSELLATION
+            description: Uses hardware to make curves.
+            choices:
+                "Off": 0
+                "On": 1
+        smart_2d:
+            submenu: TEXTURE FILTERING
+            prompt: SMART 2D TEXTURE FILTERING
+            description: When enabled and upscaling, textures look better than linear filtering for a lot of 2D art.
+            choices:
+                "Off": false
+                "On": true
+        skip_gpu_readbacks:
+            submenu: SPEED HACKS
+            prompt: SKIP GPU READBACKS
+            description: In some games, this can fix severe slowdowns, but can also cause graphical issues.
+            choices:
+                "No (Default)": 0
+                "Skip": 1
+                "Copy to texture": 2
+        curves_quality:
+            submenu: SPEED HACKS
+            prompt: SPLINE/BEZIER CURVES QUALITY
+            description: Allows reducing the visual quality of these curves for higher performance.
+            choices:
+                "Low": 0
+                "Medium": 1
+                "High": 2
+        buffer_graphics:
+            submenu: PERFORMANCE
+            prompt: BUFFER GRAPHICS COMMANDS
+            description: CPU-GPU latency limit. Lower values improve latency but may reduce performance.
+            choices:
+                "No Buffer": 1
+                "Up to 1": 2
+                "Up to 2 (Default)": 3
+        network_enable:
+            submenu: NETWORKING
+            prompt: ENABLE NETWORK (relay/internet)
+            description: Master network switch. When Off, no network settings are applied regardless of other options.
+            choices:
+                "Off": false
+                "On": true
+        lan_adhoc_mode:
+            submenu: NETWORKING
+            prompt: LAN ADHOC MODE
+            description: "Local LAN multiplayer without internet. Host: this machine runs the Ad-Hoc server. Client: connects to the host on the same network."
+            choices:
+                "Off": off
+                "Host (run local Ad-Hoc server)": host
+        adhoc_server:
+            submenu: NETWORKING
+            prompt: ADHOC SERVER
+            description: Adhoc server for local multiplayer over network. List sourced from metadata.ppsspp.org/adhoc-servers.json
+            choices:
+                "Auto (PPSSPP default)": ""
+                "Manual (keep existing)": __manual__
+                "Localhost (LAN host mode)": localhost
+                "Socom Adhoc Server (France)": socom.cc
+                "Madness Gaming Network (Alaska USA)": psp.mgn.pub
+                "EA Nation Hub (France)": eahub.eu
+                "Psi-Hate (Minnesota USA)": psi-hate.com
+                "Relay Brasileiro (Sao Paulo Brazil)": jpa36a7.glddns.com
+                "ArenaAnywhere SA (South Africa)": relay-sa.arenaanywhere.site
+                "ArenaAnywhere EU (Europe)": relay.arenaanywhere.site
+                "ArenaAnywhere Dubai": relay-dubai.arenaanywhere.site
+                "ArenaAnywhere Asia (Singapore)": relay-asia.arenaanywhere.site
+                "Saya Akan Lawan! (Indonesia)": sayaakanlawan.my.id
+                "Retroverze Relay Beta": psp.retroverze.my.id
+                "Games Nexus (Milan Italy)": adhoc.gamesnexus.ovh
+                "CVN-Play (China)": cvn-play.top
+                "NT Arena Brasil (Brazil)": ntarena.duckdns.org
+                "Lason Club Manila (Philippines)": 38.54.80.95
+                "Neko PSP (Japan)": cat.wjg.jp
+                "Sprawl Relay (Brazil)": brazil-01.sprawl-relay.link
+        adhoc_port_offset:
+            submenu: NETWORKING
+            prompt: ADHOC PORT OFFSET
+            description: Port offset for adhoc connections. Increase if running multiple instances on the same network.
+            choices:
+                "0": 0
+                "10000 (Default)": 10000
+                "20000": 20000
+                "30000": 30000
+        upnp_enable:
+            submenu: NETWORKING
+            prompt: ENABLE UPNP
+            description: Enable UPnP for automatic port forwarding. Requires a compatible router.
+            choices:
+                "Off": false
+                "On": true
+        adhoc_relay_mode:
+            submenu: NETWORKING
+            prompt: ADHOC RELAY MODE
+            description: Controls how the adhoc server relay is used.
+            choices:
+                "Auto": 0
+                "Always On": 1
+                "Always Off": 2
+        adhoc_forced_connect:
+            submenu: NETWORKING
+            prompt: FORCE FIRST CONNECT
+            description: Force the first network connection attempt. Useful for some games that fail to connect on the first try.
+            choices:
+                "Off": false
+                "On": true
+        infra_auto_dns:
+            submenu: NETWORKING
+            prompt: INFRASTRUCTURE DNS SERVER
+            description: "Auto/On: PPSSPP handles DNS automatically. Manual: disables auto DNS, use PrimaryDNSServer in ppsspp.ini."
+            choices:
+                "Auto": auto
+                "On": on
+                "Manual": manual
         gfxbackend:
             archs_include: [x86, x86_64, bcm2711, bcm2712, a3gen2]
             prompt: GRAPHICS API
@@ -11724,6 +12008,62 @@ advanced_drastic:
                 "8": 8
                 "9": 9
 
+dsperate:
+  shared: [powermode, tdp, videomode, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
+  cfeatures:
+        dsperate_layout:
+            prompt:      SCREEN LAYOUT
+            description: Arrange the two DS screens.
+            choices:
+                "Vertical (Default)": vertical
+                "Horizontal":         horizontal
+        dsperate_dual_window:
+            prompt:      DUAL PANEL MODE
+            description: One fullscreen window per display, one DS screen each. For dual panel handhelds only.
+            preset: switchauto
+        dsperate_linear:
+            prompt:      BILINEAR FILTERING
+            description: Smooths the image when scaling. May reduce sharpness.
+            preset: switchauto
+        dsperate_accel:
+            prompt:      GPU RENDERER
+            description: Present through GLES instead of the software renderer. On low core count devices the driver's own threads usually cost more than they save.
+            preset: switchauto
+        dsperate_jit:
+            group:       ADVANCED OPTIONS
+            prompt:      RECOMPILER
+            description: Translate ARM code to native code. Turning this off falls back to the interpreter and is far slower.
+            preset: switchauto
+        dsperate_quantum:
+            group:       ADVANCED OPTIONS
+            prompt:      CPU INTERLEAVE
+            description: How the two CPUs are interleaved. Event bound is faster, lockstep is more accurate.
+            choices:
+                "Event bound (Default)": 0
+                "Lockstep":              128
+        dsperate_idle_skip:
+            group:       ADVANCED OPTIONS
+            prompt:      IDLE LOOP SKIP
+            description: Skip proven side effect free poll loops. All is faster but more likely to upset a game.
+            choices:
+                "Off":                   0
+                "GXSTAT only (Default)": 1
+                "All poll loops":        all
+        dsperate_ff_speed:
+            group:       ADVANCED OPTIONS
+            prompt:      FAST FORWARD CAP
+            description: Cap fast forward at this multiple of real time. Unlimited is the default.
+            choices:
+                "Unlimited": 0
+                "2x":        2
+                "3x":        3
+                "4x":        4
+        dsperate_mic:
+            group:       ADVANCED OPTIONS
+            prompt:      MICROPHONE
+            description: Open the microphone. Holding the left stick click feeds noise instead, for blow and shout prompts.
+            preset: switchauto
+
 xemu:
   shared: [powermode, tdp, videomode, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
   cfeatures:
@@ -12972,6 +13312,71 @@ vita3k:
   shared: [powermode, tdp, videomode]
   features: []
   cfeatures:
+    vita3k_filter:
+      prompt:      SCREEN FILTER
+      description: Filter applied when scaling the emulated screen.
+      choices:
+        "Nearest": "Nearest"
+        "Bilinear": "Bilinear"
+        "Bicubic": "Bicubic"
+        "FXAA": "FXAA"
+        "FSR": "FSR"
+    vita3k_accuracy:
+      prompt:      RENDERING ACCURACY
+      description: High is more correct but slower.
+      choices:
+        "Standard": false
+        "High": true
+    vita3k_sync:
+      prompt:      ASYNCHRONOUS PIPELINE COMPILATION
+      description: Compile pipelines in the background instead of stalling on them.
+      preset:      switchauto
+    vita3k_texture:
+      prompt:      TEXTURE CACHE
+      description: Cache textures to reduce stutter.
+      preset:      switchauto
+    vita3k_shader:
+      prompt:      SHADER CACHE
+      description: Cache compiled shaders to reduce stutter.
+      preset:      switchauto
+    vita3k_hd_pixel:
+      prompt:      FULLSCREEN HD PIXEL PERFECT
+      description: Pixel perfect scaling when running fullscreen at HD resolution.
+      preset:      switchauto
+    vita3k_mapping:
+      group: ADVANCED OPTIONS
+      prompt:      MEMORY MAPPING
+      description: Memory mapping strategy. Change only if a game misbehaves.
+      choices:
+        "Disabled": "disabled"
+        "Double Buffering": "double-buffer"
+        "External Host": "external-host"
+        "Page Table": "page-table"
+        "Native Buffer": "native-buffer"
+    vita3k_system_language:
+      prompt:      SYSTEM LANGUAGE
+      description: Language reported by the emulated system.
+      choices:
+        "Japanese": 0
+        "English (US)": 1
+        "French": 2
+        "Spanish": 3
+        "German": 4
+        "Italian": 5
+        "Dutch": 6
+        "Portuguese (PT)": 7
+        "Russian": 8
+        "Korean": 9
+        "Chinese (Traditional)": 10
+        "Chinese (Simplified)": 11
+        "Finnish": 12
+        "Swedish": 13
+        "Danish": 14
+        "Norwegian": 15
+        "Polish": 16
+        "Portuguese (BR)": 17
+        "English (GB)": 18
+        "Turkish": 19
     vita3k_gfxbackend:
       prompt:      GRAPHICS API
       description: Choose which graphics API library to use.

@@ -1,0 +1,78 @@
+From: knulli <knulli@knulli>
+Subject: [PATCH] WatchersManager: add the missing FireEvent dispatch
+
+Both ends of a watcher event mechanism exist in the tree but the
+dispatcher between them was never written:
+
+  ApiSystem::enableService()  ->  mgr->FireEvent(name, "enabled"/"disabled")
+  SyncthingWatcher::handleEvent(event, value)  ->  if (event == "syncthing")
+
+so the build fails once at each end:
+
+  SyncthingWatcher.h:14: error: 'void SyncthingWatcher::handleEvent(const
+    std::string&, const std::string&)' marked 'override', but does not override
+  ApiSystem.cpp:3274: error: 'class WatchersManager' has no member named
+    'FireEvent'
+
+Add the virtual to IWatcher (default no-op, so BatteryLevelWatcher and
+NetworkStateWatcher are unaffected) and the dispatch loop to
+WatchersManager, following the same mWatchersLock idiom as
+ResetComponent().  This makes SyncthingWatcher's 'override' correct and
+actually delivers the service enable/disable events it was written for.
+
+Signed-off-by: knulli <knulli@knulli>
+---
+diff --git a/es-core/src/watchers/WatchersManager.h b/es-core/src/watchers/WatchersManager.h
+--- a/es-core/src/watchers/WatchersManager.h
++++ b/es-core/src/watchers/WatchersManager.h
+@@ -5,6 +5,7 @@
+ #include <mutex>
+ #include <list>
+ #include <chrono>
++#include <string>
+ 
+ class WatchersManager;
+ 
+@@ -17,6 +18,14 @@
+ 	virtual int  updateTime() = 0;
+ 	virtual bool check() = 0;
+ 
++	/*
++	 * Optional hook: WatchersManager::FireEvent() delivers named events to
++	 * every registered watcher.  Default no-op, so watchers that do not care
++	 * about events need not implement it.
++	 */
++	virtual void handleEvent(const std::string& /*event*/,
++				 const std::string& /*value*/) {}
++
+ 	virtual int  initialUpdateTime() { return 5 * 1000; } // 15 seconds
+ };
+ 
+@@ -50,6 +59,8 @@
+ 	static void RegisterNotify(IWatcherNotify* instance);
+ 	static void UnregisterNotify(IWatcherNotify* instance);
+ 
++	void FireEvent(const std::string& event, const std::string& value);
++
+ 	static void ResetComponent(IWatcher* instance);
+ 
+ 	static WatchersManager* getInstance();
+diff --git a/es-core/src/watchers/WatchersManager.cpp b/es-core/src/watchers/WatchersManager.cpp
+--- a/es-core/src/watchers/WatchersManager.cpp
++++ b/es-core/src/watchers/WatchersManager.cpp
+@@ -103,6 +103,15 @@
+ 	}
+ }
+ 
++void WatchersManager::FireEvent(const std::string& event, const std::string& value)
++{
++	std::unique_lock<std::mutex> lock(mWatchersLock);
++
++	for (auto comp : mWatchers)
++		if (comp->component != nullptr)
++			comp->component->handleEvent(event, value);
++}
++
+ void WatchersManager::RegisterNotify(IWatcherNotify* instance)
+ {
+ 	std::unique_lock<std::mutex> lock(mNotificationLock);
