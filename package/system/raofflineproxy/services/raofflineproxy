@@ -1,0 +1,58 @@
+#!/bin/bash
+
+LAUNCHER=/userdata/system/raofflineproxy/bin/raofflineproxy
+PIDFILE=/var/run/raofflineproxy-service.pid
+
+start() {
+    echo -n "Starting raofflineproxy: "
+    if [ ! -x "${LAUNCHER}" ]; then
+        echo "failed (app not installed at ${LAUNCHER})"
+        return 1
+    fi
+    start-stop-daemon -S -b -q -m -p "${PIDFILE}" --exec "${LAUNCHER}" -- run-service
+    RETVAL=$?
+    echo "done"
+    return ${RETVAL}
+}
+
+stop() {
+    echo -n "Stopping raofflineproxy: "
+    start-stop-daemon -K -q -p "${PIDFILE}"
+    RETVAL=$?
+    rm -f "${PIDFILE}"
+    echo "done"
+    return ${RETVAL}
+}
+
+status() {
+    if start-stop-daemon --status -q -p "${PIDFILE}"; then
+        echo "started"
+    else
+        echo "stopped"
+    fi
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        ;;
+esac
+
+exit $?
