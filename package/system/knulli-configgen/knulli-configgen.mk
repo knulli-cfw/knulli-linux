@@ -135,6 +135,10 @@ define KNULLI_CONFIGGEN_CONFIGS
         $(TARGET_DIR)/usr/share/knulli/configgen/configgen-defaults-arch.yml
     cp $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-configgen/scripts/call_achievements_hooks.sh \
         $(TARGET_DIR)/usr/share/knulli/configgen/
+    # pad combos for standalone emulators the drop does not carry a mapping for
+    mkdir -p $(TARGET_DIR)/usr/share/evmapy
+    cp $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-configgen/evmapy/*.keys \
+        $(TARGET_DIR)/usr/share/evmapy/
 endef
 
 define KNULLI_CONFIGGEN_ES_HOOKS

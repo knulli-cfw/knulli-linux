@@ -137,6 +137,32 @@ def createPPSSPPConfig(iniConfig, system):
         iniConfig.set("Graphics", "TextureFiltering", "1")
 
    ## [SYSTEM PARAM]
+    # Rendering tweaks, mostly performance levers on low power hardware.
+    # Software skinning is the one that is worth having on by default.
+    for opt, key, default in (
+            ('vsync',                 "VSync",                 False),
+            ('disable_culling',       "DisableRangeCulling",   False),
+            ('lazy_texture_caching',  "TextureBackoffCache",   False),
+            ('duplicate_frames',      "RenderDuplicateFrames", False),
+            ('software_skinning',     "SoftwareSkinning",      True),
+            ('hardware_tessellation', "HardwareTessellation",  False),
+            ('smart_2d',              "Smart2DTexFiltering",   False),
+    ):
+        if system.isOptSet(opt):
+            iniConfig.set("Graphics", key, str(system.getOptBoolean(opt)))
+        else:
+            iniConfig.set("Graphics", key, str(default))
+
+    for opt, key, default in (
+            ('skip_gpu_readbacks', "SkipGPUReadbackMode", "0"),
+            ('curves_quality',     "SplineBezierQuality", "2"),
+            ('buffer_graphics',    "InflightFrames",      "3"),
+    ):
+        if system.isOptSet(opt):
+            iniConfig.set("Graphics", key, str(system.config[opt]))
+        else:
+            iniConfig.set("Graphics", key, default)
+
     if not iniConfig.has_section("SystemParam"):
         iniConfig.add_section("SystemParam")
 
@@ -210,6 +236,40 @@ def createPPSSPPConfig(iniConfig, system):
         iniConfig.set("Achievements", "AchievementsSoundEffects", "True")
     else:
         iniConfig.set("Achievements", "AchievementsSoundEffects", "False")
+
+    ## [NETWORK]
+    if not iniConfig.has_section("Network"):
+        iniConfig.add_section("Network")
+
+    network_enable = system.isOptSet("network_enable") and system.getOptBoolean("network_enable")
+    iniConfig.set("Network", "EnableWlan", str(network_enable))
+
+    if network_enable:
+        lan_adhoc_mode = system.config["lan_adhoc_mode"] if system.isOptSet("lan_adhoc_mode") else "off"
+        port_offset = str(system.config["adhoc_port_offset"]) if system.isOptSet("adhoc_port_offset") else "10000"
+
+        # only a LAN host runs the adhoc server itself
+        iniConfig.set("Network", "EnableAdhocServer", str(lan_adhoc_mode == "host"))
+
+        adhoc_server = system.config["adhoc_server"] if system.isOptSet("adhoc_server") else ""
+        if adhoc_server and adhoc_server != "__manual__":
+            iniConfig.set("Network", "proAdhocServer", adhoc_server)
+
+        iniConfig.set("Network", "PortOffset", port_offset)
+        upnp = system.isOptSet("upnp_enable") and system.getOptBoolean("upnp_enable")
+        iniConfig.set("Network", "EnableUPnP", str(upnp))
+
+        # relay and infrastructure settings only apply away from LAN host mode
+        if lan_adhoc_mode == "off":
+            relay = str(system.config["adhoc_relay_mode"]) if system.isOptSet("adhoc_relay_mode") else "0"
+            iniConfig.set("Network", "AdhocServerRelayMode", relay)
+            forced = system.isOptSet("adhoc_forced_connect") and system.getOptBoolean("adhoc_forced_connect")
+            iniConfig.set("Network", "ForcedFirstConnect", str(forced))
+
+            if not iniConfig.has_option("Network", "PrimaryDNSServer"):
+                iniConfig.set("Network", "PrimaryDNSServer", "67.222.156.250")
+            infra_auto_dns = system.config["infra_auto_dns"] if system.isOptSet("infra_auto_dns") else "auto"
+            iniConfig.set("Network", "InfrastructureAutoDNS", "False" if infra_auto_dns == "manual" else "True")
 
     # Custom : allow the user to configure directly PPSSPP via knulli.conf via lines like : ppsspp.section.option=value
     for user_config in system.config:

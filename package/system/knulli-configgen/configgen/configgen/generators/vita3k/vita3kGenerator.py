@@ -124,12 +124,12 @@ class Vita3kGenerator(Generator):
         else:
             vita3kymlconfig["resolution-multiplier"] = 1
         # Set FXAA
-        if system.isOptSet("vita3k_fxaa") and system.getOptBoolean("vita3k_surface") == True:
+        if system.isOptSet("vita3k_fxaa") and system.getOptBoolean("vita3k_fxaa") == True:
             vita3kymlconfig["enable-fxaa"] = "true"
         else:
             vita3kymlconfig["enable-fxaa"] = "false"
         # Set VSync
-        if system.isOptSet("vita3k_vsync") and system.getOptBoolean("vita3k_surface") == False:
+        if system.isOptSet("vita3k_vsync") and system.getOptBoolean("vita3k_vsync") == False:
             vita3kymlconfig["v-sync"] = "false"
         else:
             vita3kymlconfig["v-sync"] = "true"
@@ -139,10 +139,49 @@ class Vita3kGenerator(Generator):
         else:
             vita3kymlconfig["anisotropic-filtering"] = 1
         # Set the linear filtering option
-        if system.isOptSet("vita3k_linear") and system.getOptBoolean("vita3k_surface") == True:
+        if system.isOptSet("vita3k_linear") and system.getOptBoolean("vita3k_linear") == True:
             vita3kymlconfig["enable-linear-filter"] = "true"
         else:
             vita3kymlconfig["enable-linear-filter"] = "false"
+        # Screen filter
+        if system.isOptSet("vita3k_filter"):
+            vita3kymlconfig["screen-filter"] = system.config["vita3k_filter"]
+        else:
+            vita3kymlconfig["screen-filter"] = "Bilinear"
+        # Compile pipelines in the background rather than stalling on them
+        if system.isOptSet("vita3k_sync"):
+            vita3kymlconfig["async-pipeline-compilation"] = system.getOptBoolean("vita3k_sync")
+        else:
+            vita3kymlconfig["async-pipeline-compilation"] = True
+        # Pixel perfect scaling in HD fullscreen
+        if system.isOptSet("vita3k_hd_pixel"):
+            vita3kymlconfig["fullscreen_hd_res_pixel_perfect"] = system.getOptBoolean("vita3k_hd_pixel")
+        else:
+            vita3kymlconfig["fullscreen_hd_res_pixel_perfect"] = False
+        # Accurate but slower rendering
+        if system.isOptSet("vita3k_accuracy"):
+            vita3kymlconfig["high-accuracy"] = system.getOptBoolean("vita3k_accuracy")
+        else:
+            vita3kymlconfig["high-accuracy"] = False
+        # Caches, worth keeping on: they cost storage and save a lot of stutter
+        if system.isOptSet("vita3k_texture"):
+            vita3kymlconfig["texture-cache"] = system.getOptBoolean("vita3k_texture")
+        else:
+            vita3kymlconfig["texture-cache"] = True
+        if system.isOptSet("vita3k_shader"):
+            vita3kymlconfig["shader-cache"] = system.getOptBoolean("vita3k_shader")
+        else:
+            vita3kymlconfig["shader-cache"] = True
+        # Memory mapping strategy
+        if system.isOptSet("vita3k_mapping"):
+            vita3kymlconfig["memory-mapping"] = system.config["vita3k_mapping"]
+        else:
+            vita3kymlconfig["memory-mapping"] = "double-buffer"
+        # Emulated system language
+        if system.isOptSet("vita3k_system_language"):
+            vita3kymlconfig["sys-lang"] = int(system.config["vita3k_system_language"])
+        else:
+            vita3kymlconfig["sys-lang"] = 1
         # Surface Sync
         if system.isOptSet("vita3k_surface") and system.getOptBoolean("vita3k_surface") == False:
             vita3kymlconfig["disable-surface-sync"] = "false"

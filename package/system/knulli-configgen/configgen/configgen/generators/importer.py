@@ -51,6 +51,7 @@ _GENERATOR_MAP: Final[dict[str, tuple[str, str]]] = {
     'jazz2-native': ('jazz2_native.jazz2_nativeGenerator', 'Jazz2_NativeGenerator'),
     'drastic-steward': ('drastic_steward.drasticstewardGenerator', 'DrasticstewardGenerator'),
     'advanced_drastic': ('advanced_drastic.advanced_drasticGenerator', 'Advanced_DrasticGenerator'),
+    'amiberry-lite': ('amiberry_lite.amiberry_liteGenerator', 'AmiberryLiteGenerator'),
 }
 
 

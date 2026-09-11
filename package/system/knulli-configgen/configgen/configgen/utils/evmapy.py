@@ -52,9 +52,12 @@ class evmapy(AbstractContextManager[None, None]):
             subprocess.call(["batocera-evmapy", "stop"])
 
     def __build_merged_keys_file(self) -> str | None:
-        # consider files here in this order to get a configuration
+        # consider files here in this order to get a configuration.
+        # dict.fromkeys keeps the order but drops the repeats: a system named
+        # after its own emulator names the same file twice, and merging a file
+        # with itself would bind every action to its trigger twice.
         filesToMerge = []
-        for keysfile in [
+        for keysfile in dict.fromkeys([
                 "{}.keys" .format (self.rom),
                 "{}/padto.keys" .format (self.rom), # case when the rom is a directory
                 #"/userdata/system/configs/evmapy/{}.{}.{}.keys" .format (self.system, self.emulator, self.core),
@@ -67,7 +70,7 @@ class evmapy(AbstractContextManager[None, None]):
                 "/usr/share/evmapy/{}.keys" .format (self.system),
                 "/usr/share/evmapy/{}.keys" .format (self.emulator),
                 "/usr/share/evmapy/any.keys",
-        ]:
+        ]):
             if os.path.exists(keysfile) and not (os.path.isdir(self.rom) and keysfile == "{}.keys" .format (self.rom)): # "{}.keys" .format (rom) is forbidden for directories, it must be inside
                 eslog.debug(f"evmapy file to merge : {keysfile}")
            
