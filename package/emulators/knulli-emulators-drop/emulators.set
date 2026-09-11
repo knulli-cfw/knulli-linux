@@ -42,10 +42,12 @@
 # --- standalone emulators ---
 advanced_drastic
 amiberry
+amiberry-lite
 azahar
 dolphin-emu
 dosbox-staging
 dosbox-x
+dsperate
 flycast
 gsplus
 hatari

@@ -670,8 +670,7 @@ config BR2_TARGET_KNULLI_IMAGES_DEFINITIONS
 	bool "target images definitions"
 	config BR2_TARGET_KNULLI_IMAGES
 	string "target images"
-	default "rockchip/rk3326/pixel2 rockchip/rk3326/magicx-mini-m rockchip/rk3326/r36s rockchip/rk3326/g350" \
-													if BR2_PACKAGE_BATOCERA_TARGET_RK3326
+	default "rockchip/rk3326"						if BR2_PACKAGE_BATOCERA_TARGET_RK3326
 	default "rockchip/rk3128/ps5000 rockchip/rk3128/ps7000 rockchip/rk3128/powkiddy_a13" \
 													if BR2_PACKAGE_BATOCERA_TARGET_RK3128
 	default "allwinner/h616/orangepi-zero2 allwinner/h616/orangepi-zero3 allwinner/h616/x96-mate" \
@@ -1046,6 +1045,10 @@ config BR2_PACKAGE_BATOCERA_HANDHELD_SYSTEMS
 	# missing its BATOCERA_ prefix and so has never matched anything.
 	select BR2_PACKAGE_ADVANCED_DRASTIC             if (BR2_PACKAGE_BATOCERA_TARGET_RK3326 || BR2_PACKAGE_BATOCERA_TARGET_T527 || BR2_PACKAGE_TARGET_SM8250) && !BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
 
+	# The recompiler and the NEON kernels are aarch64 only; on anything else it
+	# falls back to the interpreter and is not worth shipping.
+	select BR2_PACKAGE_DSPERATE                     if BR2_aarch64 && !BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
+
 	# 3DS
 	# Azahar replaces Citra and Lime3DS
 	select BR2_PACKAGE_AZAHAR                       if (BR2_PACKAGE_BATOCERA_TARGET_SM8250 || BR2_PACKAGE_BATOCERA_TARGET_SM8550 || BR2_PACKAGE_BATOCERA_TARGET_T527) && !BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
@@ -1293,6 +1296,7 @@ config BR2_PACKAGE_BATOCERA_COMPUTER_SYSTEMS
 
 	# Commodore Amiga
 	select BR2_PACKAGE_AMIBERRY                     if !BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
+	select BR2_PACKAGE_AMIBERRY_LITE                if !BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
 	select BR2_PACKAGE_FSUAE		if BR2_PACKAGE_BATOCERA_TARGET_X86_ANY
 	select BR2_PACKAGE_LIBRETRO_PUAE                if !BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES
 	select BR2_PACKAGE_LIBRETRO_PUAE2021            if !BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES
