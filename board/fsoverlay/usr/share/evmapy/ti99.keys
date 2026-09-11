@@ -1,0 +1,17 @@
+{
+    "actions_player1": [
+        { "trigger": "up",       "type": "key", "target": [ "KEY_UP" ],    "description": "Joystick Up" },
+        { "trigger": "down",     "type": "key", "target": [ "KEY_DOWN" ],  "description": "Joystick Down" },
+        { "trigger": "left",     "type": "key", "target": [ "KEY_LEFT" ],  "description": "Joystick Left" },
+        { "trigger": "right",    "type": "key", "target": [ "KEY_RIGHT" ], "description": "Joystick Right" },
+        { "trigger": "a",        "type": "key", "target": [ "KEY_LEFTCTRL" ], "description": "Fire" },
+        { "trigger": "b",        "type": "key", "target": [ "KEY_LEFTCTRL" ], "description": "Fire" },
+        { "trigger": "pageup",   "type": "key", "target": [ "KEY_1" ], "description": "TI 1" },
+        { "trigger": "pagedown", "type": "key", "target": [ "KEY_2" ], "description": "TI 2 (start cartridge)" },
+        { "trigger": "l2",       "type": "key", "target": [ "KEY_3" ], "description": "TI 3" },
+        { "trigger": "r2",       "type": "key", "target": [ "KEY_4" ], "description": "TI 4" },
+        { "trigger": "x",        "type": "key", "target": [ "KEY_5" ], "description": "TI 5" },
+        { "trigger": "select",   "type": "key", "target": [ "KEY_0" ], "description": "TI 0" },
+        { "trigger": ["hotkey","start"], "type": "key", "target": [ "KEY_ESC" ], "description": "Exit Emulator" }
+    ]
+}

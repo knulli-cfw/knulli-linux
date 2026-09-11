@@ -313,11 +313,23 @@ class MameGenerator(Generator):
 
             #TI-99 32k RAM expansion & speech modules - enabled by default
             if system.name == "ti99":
-                commandArray += [ "-ioport", "peb" ]
-                if not system.isOptSet("ti99_32kram") or (system.isOptSet("ti99_32kram") and system.getOptBoolean("ti99_32kram")):
-                    commandArray += ["-ioport:peb:slot2", "32kmem"]
-                if not system.isOptSet("ti99_speech") or (system.isOptSet("ti99_speech") and system.getOptBoolean("ti99_speech")):
-                    commandArray += ["-ioport:peb:slot3", "speech"]
+                # The speech synthesizer attaches to the console I/O port
+                # ("-ioport speechsyn"); the Peripheral Expansion Box chains into
+                # the synth's "extport" pass-through (real-hardware topology). PEB
+                # cards such as the 32K RAM expansion live in the PEB slots.
+                # The previous layout ("-ioport peb -ioport:peb:slot3 speech") used
+                # a non-existent slot option ('speech' is not a PEB card; the synth
+                # is 'speechsyn' on the console ioport), so MAME failed to load the
+                # machine. 32K RAM stays enabled by default for the standalone core.
+                ti99_speech = not system.isOptSet("ti99_speech") or system.getOptBoolean("ti99_speech")
+                ti99_32kram = not system.isOptSet("ti99_32kram") or system.getOptBoolean("ti99_32kram")
+                if ti99_speech:
+                    commandArray += ["-ioport", "speechsyn"]
+                    if ti99_32kram:
+                        commandArray += ["-ioport:speechsyn:extport", "peb",
+                                         "-ioport:speechsyn:extport:peb:slot2", "32kmem"]
+                elif ti99_32kram:
+                    commandArray += ["-ioport", "peb", "-ioport:peb:slot2", "32kmem"]
 
             #Laser 310 Memory Expansion & Joystick
             if system.name == "laser310":
