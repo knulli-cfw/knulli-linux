@@ -3,6 +3,7 @@
 DISPLAY="/sys/kernel/debug/dispdbg"
 HDMI_STATE="/sys/devices/platform/soc/6000000.hdmi/extcon/hdmi/state"
 read -r BOARD < "/boot/boot/knulli.board"
+LAST_STATE_FILE="/var/run/last_hdmi_state"
 
 f_usage() {
     echo "$0 listOutputs" >&2
@@ -29,6 +30,35 @@ set_fb() {
     fi
 
     fbset -g "$want_x" "$want_y" "$want_vx" "$want_vy" "$want_bpp"
+}
+
+# Sync the global display.rotate value with per-output keys.
+# When the output changes (HDMI plugged/unplugged), restore the rotation
+# previously saved for that output. When the output stays the same,
+# persist the current UI value to the active output key.
+sync_rotation_per_output() {
+    read -r STATE < "$HDMI_STATE"
+    [ -f "$LAST_STATE_FILE" ] && LAST_STATE=$(cat "$LAST_STATE_FILE") || LAST_STATE=""
+    CURRENT_ROT=$(knulli-settings-get display.rotate 2>/dev/null)
+    [ -z "$CURRENT_ROT" ] && CURRENT_ROT=0
+
+    if [ "$STATE" != "$LAST_STATE" ]; then
+        # Output changed — restore the rotation saved for this output
+        if [ "$STATE" = "HDMI=1" ]; then
+            SAVED=$(knulli-settings-get display.rotate.hdmi 2>/dev/null)
+        else
+            SAVED=$(knulli-settings-get display.rotate.internal 2>/dev/null)
+        fi
+        [ -n "$SAVED" ] && knulli-settings-set display.rotate "$SAVED"
+        echo "$STATE" > "$LAST_STATE_FILE"
+    else
+        # Same output — save current rotation to the active output key
+        if [ "$STATE" = "HDMI=1" ]; then
+            knulli-settings-set display.rotate.hdmi "$CURRENT_ROT"
+        else
+            knulli-settings-set display.rotate.internal "$CURRENT_ROT"
+        fi
+    fi
 }
 
 set_output() {
@@ -94,6 +124,7 @@ case "${ACTION}" in
     "listModes")
         ;;
     "setOutput")
+        sync_rotation_per_output
         read -r STATE < "$HDMI_STATE"
         if [ "$STATE" = "HDMI=1" ]; then
             set_output hdmi
@@ -103,12 +134,26 @@ case "${ACTION}" in
         ;;
     "currentResolution")
         if [ "$BOARD" = "rg28xx" ]; then
-            fbset | grep "geometry" | awk '{print $3"x"$2}'
+            RES=$(fbset | grep "geometry" | awk '{print $3"x"$2}')
         else
-            fbset | grep "geometry" | awk '{print $2"x"$3}'
+            RES=$(fbset | grep "geometry" | awk '{print $2"x"$3}')
+        fi
+        ROTATE=$(knulli-settings-get display.rotate 2>/dev/null)
+        if [ "$ROTATE" = "1" ] || [ "$ROTATE" = "3" ]; then
+            W=$(echo "$RES" | cut -dx -f1)
+            H=$(echo "$RES" | cut -dx -f2)
+            echo "${H}x${W}"
+        else
+            echo "$RES"
         fi
         ;;
     "currentOutput")
+        read -r STATE < "$HDMI_STATE"
+        if [ "$STATE" = "HDMI=1" ]; then
+            echo "hdmi"
+        else
+            echo "internal"
+        fi
         ;;
     "currentMode")
         ;;
@@ -117,6 +162,7 @@ case "${ACTION}" in
     "supportSystemReflection")
         ;;
     "supportSystemRotation")
+        exit 1
         ;;
     *)
         echo "error: invalid command ${ACTION}" >&2
