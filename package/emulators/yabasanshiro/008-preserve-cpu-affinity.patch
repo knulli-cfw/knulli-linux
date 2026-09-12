@@ -1,0 +1,13 @@
+diff --git a/yabause/src/retro_arena/main.cpp b/yabause/src/retro_arena/main.cpp
+index 3b3b581c..fc9dd7fb 100644
+--- a/yabause/src/retro_arena/main.cpp
++++ b/yabause/src/retro_arena/main.cpp
+@@ -447,8 +447,6 @@ int main(int argc, char** argv)
+   SDL_GL_MakeCurrent(wnd,nullptr);
+ #if defined(__RP64__) || defined(__N2__)
+   YabThreadSetCurrentThreadAffinityMask(0x4);
+-#else
+-  YabThreadSetCurrentThreadAffinityMask(0x0);
+ #endif
+   Uint32 evToggleMenu = SDL_RegisterEvents(1);
+   inputmng->setToggleMenuEventCode(evToggleMenu);

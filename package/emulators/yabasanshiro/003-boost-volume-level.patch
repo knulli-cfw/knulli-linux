@@ -1,16 +1,82 @@
---- a/yabause/src/sndsdl.c	2026-01-30 22:16:19.497863764 +0000
-+++ b/yabause/src/sndsdl.c	2026-01-30 22:16:42.589802358 +0000
-@@ -75,6 +75,8 @@ SNDSDLMidiOut
+diff --git a/yabause/src/sndsdl.c b/yabause/src/sndsdl.c
+index 0d76eba5..4a6b5e41 100644
+--- a/yabause/src/sndsdl.c
++++ b/yabause/src/sndsdl.c
+@@ -75,6 +75,14 @@ SNDSDLMidiOut
  };
- 
+
  #define NUMSOUNDBLOCKS  4
-+#define INTERNAL_BOOST_NUM 3
-+#define INTERNAL_BOOST_DEN 2
- 
++#define NORMALIZER_TARGET_LEVEL 0x1600
++#define NORMALIZER_UNITY 65536LL
++#define NORMALIZER_MIN_GAIN NORMALIZER_UNITY
++#define NORMALIZER_MAX_GAIN (8LL * NORMALIZER_UNITY)
++#define NORMALIZER_ATTACK_DIV 2
++#define NORMALIZER_RELEASE_DIV 32
++#define NORMALIZER_SILENCE_GATE 0x0040
++#define OUTPUT_CEILING 0x7000
+
  static u16 *stereodata16;
  static u32 soundoffset;
-@@ -193,21 +195,24 @@ static void sdlConvert32uto16s(s32 *srcL
- 
+@@ -188,26 +196,87 @@ static int SNDSDLChangeVideoFormat(int vertfreq)
+
+ //////////////////////////////////////////////////////////////////////////////
+
+-static void sdlConvert32uto16s(s32 *srcL, s32 *srcR, s16 *dst, u32 len) {
++static void sdlConvert32uto16s(s32 *srcL, s32 *srcR, s16 *dst, u32 len)
++{
++   static s64 normalizer_gain = NORMALIZER_UNITY;
++   s64 level_sum = 0;
++   s64 old_gain = normalizer_gain;
++   s64 new_gain = normalizer_gain;
++   s64 gain_accumulator;
++   s64 gain_step;
+    u32 i;
+
++   if (len == 0)
++      return;
++
++   /* Measure the unamplified block using the louder stereo channel. */
++   for (i = 0; i < len; i++)
++   {
++      s64 l = (s64)srcL[i];
++      s64 r = (s64)srcR[i];
++      s64 abs_l = l < 0 ? -l : l;
++      s64 abs_r = r < 0 ? -r : r;
++
++      level_sum += abs_l > abs_r ? abs_l : abs_r;
++   }
++
++   {
++      s64 average_level = level_sum / len;
++
++      average_level =
++         (average_level * soundvolume) / SDL_MIX_MAXVOLUME;
++
++      /* Hold the current gain during digital silence. */
++      if (average_level > NORMALIZER_SILENCE_GATE)
++      {
++         s64 target_gain =
++            ((s64)NORMALIZER_TARGET_LEVEL << 16) / average_level;
++
++         if (target_gain < NORMALIZER_MIN_GAIN)
++            target_gain = NORMALIZER_MIN_GAIN;
++         else if (target_gain > NORMALIZER_MAX_GAIN)
++            target_gain = NORMALIZER_MAX_GAIN;
++
++         if (target_gain < normalizer_gain)
++            new_gain +=
++               (target_gain - normalizer_gain) / NORMALIZER_ATTACK_DIV;
++         else
++            new_gain +=
++               (target_gain - normalizer_gain) / NORMALIZER_RELEASE_DIV;
++      }
++   }
++
++   /* Ramp gain across the block to avoid a discontinuity at its boundary. */
++   gain_accumulator = old_gain * NORMALIZER_UNITY;
++   gain_step =
++      ((new_gain - old_gain) * NORMALIZER_UNITY) / len;
++
     for (i = 0; i < len; i++)
     {
 -      // Left Channel
@@ -28,24 +94,30 @@
 -      srcR++;
 -      dst++;
 -   } 
-+     // Left Channel
-+     s64 l = ((s64)*srcL * soundvolume) / SDL_MIX_MAXVOLUME;
-+     l = (l * INTERNAL_BOOST_NUM) / INTERNAL_BOOST_DEN;
-+     if (l >  0x7FFF) *dst =  0x7FFF;
-+     else if (l < -0x8000) *dst = -0x8000;
-+     else *dst = (s16)l;
-+     srcL++;
-+     dst++;
++      s64 gain = gain_accumulator / NORMALIZER_UNITY;
++      s64 l = ((s64)srcL[i] * soundvolume) / SDL_MIX_MAXVOLUME;
++      s64 r = ((s64)srcR[i] * soundvolume) / SDL_MIX_MAXVOLUME;
 +
-+     // Right Channel
-+     s64 r = ((s64)*srcR * soundvolume) / SDL_MIX_MAXVOLUME;
-+     r = (r * INTERNAL_BOOST_NUM) / INTERNAL_BOOST_DEN;
-+     if (r >  0x7FFF) *dst =  0x7FFF;
-+     else if (r < -0x8000) *dst = -0x8000;
-+     else *dst = (s16)r;
-+     srcR++;
-+     dst++;
++      l = (l * gain) >> 16;
++      r = (r * gain) >> 16;
++
++      if (l > OUTPUT_CEILING)
++         l = OUTPUT_CEILING;
++      else if (l < -OUTPUT_CEILING)
++         l = -OUTPUT_CEILING;
++
++      if (r > OUTPUT_CEILING)
++         r = OUTPUT_CEILING;
++      else if (r < -OUTPUT_CEILING)
++         r = -OUTPUT_CEILING;
++
++      *dst++ = (s16)l;
++      *dst++ = (s16)r;
++
++      gain_accumulator += gain_step;
 +   }
++
++   normalizer_gain = new_gain;
  }
- 
+
  static void SNDSDLUpdateAudio(u32 *leftchanbuffer, u32 *rightchanbuffer, u32 num_samples)

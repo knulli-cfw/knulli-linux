@@ -30,12 +30,12 @@ index 4f3b80ffd3..55c3f6f98a 100644
  }
  
 -static inline int scale_axis_unsigned(unsigned int raw_val, int raw_max)
-+static inline int scale_trigger_signed_range(unsigned int raw_val, int raw_min, int raw_max)
++static inline int scale_trigger_unsigned_range(unsigned int raw_val, int raw_min, int raw_max)
  {
 -	long scaled;
 +    long scaled;
 +    long input_range = raw_max - raw_min;
-+    long output_min = -32768L;
++    long output_min = 0L;
 +    long output_max = 32767L;
 +    long output_range = output_max - output_min;
  
@@ -45,7 +45,7 @@ index 4f3b80ffd3..55c3f6f98a 100644
 +        return 0;
  
 -	scaled = (long)raw_val * 32767 / raw_max;
-+    long val_shifted = raw_val - raw_min;
++    long val_shifted = (long)raw_val - raw_min;
  
 -	if (scaled > 32767)
 -		scaled = 32767;
@@ -59,8 +59,8 @@ index 4f3b80ffd3..55c3f6f98a 100644
 +
 +    if (scaled > 32767)
 +        scaled = 32767;
-+    else if (scaled < -32768)
-+        scaled = -32768;
++    else if (scaled < 0)
++        scaled = 0;
 +
 +    return (int)scaled;
  }
@@ -82,8 +82,8 @@ index 4f3b80ffd3..55c3f6f98a 100644
 +	int raw_l_clamped = clamp(raw_trig_l_current, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
 +	int raw_r_clamped = clamp(raw_trig_r_current, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
 +	
-+	int scaled_z  = scale_trigger_signed_range(raw_l_clamped, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
-+	int scaled_rz = scale_trigger_signed_range(raw_r_clamped, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
++	int scaled_z  = scale_trigger_unsigned_range(raw_l_clamped, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
++	int scaled_rz = scale_trigger_unsigned_range(raw_r_clamped, GAMEPAD_RAW_TRIGGER_MIN, GAMEPAD_RAW_TRIGGER_MAX);
  
  	int16_t raw_lx = -(int16_t)(data->data[6]  | (data->data[7]  << 8));
  	int16_t raw_ly = -(int16_t)(data->data[8]  | (data->data[9]  << 8));

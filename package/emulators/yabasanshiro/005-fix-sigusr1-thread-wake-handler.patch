@@ -1,0 +1,16 @@
+diff --git a/yabause/src/thr-linux.cpp b/yabause/src/thr-linux.cpp
+--- a/yabause/src/thr-linux.cpp
++++ b/yabause/src/thr-linux.cpp
+@@ -106,7 +106,11 @@ int YabThreadStart(unsigned int id, const char * name, void* (*func)(void *), vo
+ {
+    // Set up a dummy signal handler for SIGUSR1 so we can return from pause()
+    // in YabThreadSleep()
+-   static struct sigaction sa; // = {.sa_handler = dummy_sighandler};
++   struct sigaction sa = {};
++   sa.sa_handler = dummy_sighandler;
++   sigemptyset(&sa.sa_mask);
++   sa.sa_flags = 0;
++
+    if (sigaction(SIGUSR1, &sa, NULL) != 0)
+    {
+       perror("sigaction(SIGUSR1)");

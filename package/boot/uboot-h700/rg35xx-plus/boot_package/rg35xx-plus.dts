@@ -3180,15 +3180,14 @@
 			usb_detect_type = <0x02>;
 			usb_id_gpio;
 			usb_det_vbus_gpio = "axp_ctrl";
-			usb_drv_vbus_gpio = <0x4b 0x08 0x10 0x01 0x01 0xffffffff 0xffffffff>;
+			usb_drv_vbus_gpio = <0x4b 0x08 0x10 0x00 0x01 0xffffffff 0xffffffff>;
 			usb_host_init_state = <0x00>;
 			usb_regulator_io = "nocare";
-			usb_wakeup_suspend = <0x02>;
+			usb_wakeup_suspend = <0x00>;
 			usb_luns = <0x03>;
 			usb_serial_unique = <0x00>;
 			usb_serial_number = "20080411";
 			rndis_wceis = <0x01>;
-			wakeup-source;
 			status = "okay";
 			usb_detect_mode = <0x00>;
 			det_vbus_supply = <0x4c>;
@@ -3236,8 +3235,7 @@
 			usb_drv_vbus_gpio = <0x4b 0x04 0x13 0x00 0x01 0xffffffff 0xffffffff>;
 			usb_host_init_state = <0x01>;
 			usb_regulator_io = "nocare";
-			usb_wakeup_suspend = <0x02>;
-			wakeup-source;
+			usb_wakeup_suspend = <0x00>;
 			status = "okay";
 			linux,phandle = <0x149>;
 			phandle = <0x149>;
@@ -3270,8 +3268,7 @@
 			usb_drv_vbus_gpio;
 			usb_host_init_state = <0x01>;
 			usb_regulator_io = "nocare";
-			usb_wakeup_suspend = <0x02>;
-			wakeup-source;
+			usb_wakeup_suspend = <0x00>;
 			status = "okay";
 			linux,phandle = <0x14c>;
 			phandle = <0x14c>;
@@ -3304,8 +3301,7 @@
 			usb_drv_vbus_gpio;
 			usb_host_init_state = <0x01>;
 			usb_regulator_io = "nocare";
-			usb_wakeup_suspend = <0x02>;
-			wakeup-source;
+			usb_wakeup_suspend = <0x00>;
 			status = "okay";
 			linux,phandle = <0x14f>;
 			phandle = <0x14f>;

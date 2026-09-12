@@ -1,0 +1,36 @@
+diff --git a/yabause/src/CMakeLists.txt b/yabause/src/CMakeLists.txt
+--- a/yabause/src/CMakeLists.txt
++++ b/yabause/src/CMakeLists.txt
+@@ -36,5 +36,10 @@
+ option(YAB_MULTIBUILD "Choose wether to build all ports or only a single one")
+ set(YAB_PORT_BUILT FALSE)
+ set(YAB_PORTS "qt" CACHE STRING "List of ports to build")
++
++string(COMPARE EQUAL "${YAB_PORTS}" "retro_arena" retro_arena)
++if(retro_arena)
++  add_definitions(-D__RETORO_ARENA__)
++endif()
+
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fomit-frame-pointer -DJSONCPP_NO_LOCALE_SUPPORT")
+diff --git a/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt b/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
+index 33b8e25..4e3ce9c 100644
+--- a/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
++++ b/yabause/src/retro_arena/nanogui-sdl/CMakeLists.txt
+@@ -114,6 +114,8 @@ elseif(CMAKE_SYSTEM MATCHES "Linux")
+   add_definitions(-DNANOGUI_LINUX)
+ endif()
+
++# Use the same NanoVG headers and implementation as the emulator OSD.
++include_directories(BEFORE ${CMAKE_SOURCE_DIR}/src)
+ include_directories(ext ext/eigen include ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+ # Run simple C converter to put font files into the data segment
+@@ -144,8 +146,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+ # Compile main NanoGUI library
+ add_library(nanogui ${NANOGUISDL_LIBRARY_TYPE}
+-  # Merge NanoVG into the NanoGUI library
+-  ext/nanovg/nanovg.c
+   # Merge GLEW into the NanoGUI library (only if needed)
+   ${LIBNANOGUISDL_EXTRA_SOURCE}
+   # Fonts etc.
