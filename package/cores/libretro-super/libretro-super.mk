@@ -152,11 +152,17 @@ endef
 # them into the drop would create a second copy that drifts from the one
 # maintained here, so they are installed from source at this point instead.
 # Fields: <core> <path relative to this checkout> <path under TARGET_DIR>.
+# src may be a directory -- mame ships its lua plugins that way -- and dest is
+# then that directory, as cores.assets specifies.
 define LIBRETRO_SUPER_INSTALL_KNULLI_PAYLOAD
 	if [ -f $(LIBRETRO_SUPER_DROP)/knulli.list ]; then \
 		while read -r core src dest; do \
 			[ -n "$$dest" ] || continue; \
-			if [ -e "$(BR2_EXTERNAL_KNULLI_PATH)/$$src" ]; then \
+			if [ -d "$(BR2_EXTERNAL_KNULLI_PATH)/$$src" ]; then \
+				mkdir -p "$(TARGET_DIR)/$$dest"; \
+				cp -a "$(BR2_EXTERNAL_KNULLI_PATH)/$$src/." \
+					"$(TARGET_DIR)/$$dest/"; \
+			elif [ -e "$(BR2_EXTERNAL_KNULLI_PATH)/$$src" ]; then \
 				$(INSTALL) -D -m 0644 "$(BR2_EXTERNAL_KNULLI_PATH)/$$src" \
 					"$(TARGET_DIR)/$$dest"; \
 			else \
