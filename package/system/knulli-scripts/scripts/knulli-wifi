@@ -85,9 +85,14 @@ case "${ACTION}" in
         ;;
     "enable")
         knulli-settings-set wifi.enabled 1
-        if [ $# -eq 2 ]; then
+        # es passes a third country argument when one is chosen; an empty one
+        # means "not set" and must not overwrite what is already stored
+        if [ $# -ge 2 ]; then
             knulli-settings-set wifi.ssid "$1"
             knulli-settings-set wifi.key "$2"
+        fi
+        if [ $# -ge 3 ] && [ -n "$3" ]; then
+            knulli-settings-set wifi.country "$3"
         fi
         /etc/init.d/S08connman reload
 
