@@ -6,13 +6,35 @@
 product=$(cat /sys/firmware/devicetree/base/model 2>/dev/null | tr -d '\0' | sed -e s+"[^A-Za-z0-9]"+"_"+g)
 GADGET=/sys/kernel/config/usb_gadget/g1
 
+# The phy's otg_mode attribute forces the OTG port's role: "host" drives its
+# VBUS supply, "peripheral" is what the gadgets need and the only mode with
+# charger detection.  With no gadget requested, boards with a dedicated host
+# port (usbhost capability) run it as host; single-port boards stay
+# peripheral, because left to their ID pin several of them go host and feed
+# the boost back into the charger.
+OTG_MODE=$(find /sys/devices/platform -name otg_mode 2>/dev/null | head -n 1)
+set_otg_mode() {
+  [ -n "$OTG_MODE" ] || return 0
+  echo "$1" > "$OTG_MODE" 2>/dev/null
+}
+idle_otg_mode() {
+  if /usr/bin/knulli-board-capability usbhost >/dev/null 2>&1; then
+    set_otg_mode host
+  else
+    set_otg_mode peripheral
+  fi
+}
+
 case "$1" in
   start)
     usbmode=$(/usr/bin/knulli-settings-get system.usbmode)
     if [ -z "$usbmode" ] || [ "$usbmode" = "off" ]; then
       "$0" stop
+      idle_otg_mode
       exit 1
     fi
+
+    set_otg_mode peripheral
 
     # UDC: get the first available UDC device
     UDC=$(ls /sys/class/udc | head -n 1)

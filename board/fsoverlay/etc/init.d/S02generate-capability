@@ -12,6 +12,14 @@ ARCH_FILE="/usr/share/knulli/knulli.arch"
 read -r BOARD < "$BOARD_FILE" 2>/dev/null
 read -r ARCH < "$ARCH_FILE" 2>/dev/null
 
+# rk3326 ships one image for all its devices, so knulli.board holds the SoC.
+# Its U-Boot detects the device from the SARADC and passes board=<hwrev> on the
+# command line; prefer that when it is there.
+CMDLINE_BOARD=$(sed -n 's/.*\bboard=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null)
+if [ -n "$CMDLINE_BOARD" ]; then
+    BOARD="$CMDLINE_BOARD"
+fi
+
 # Skip if already generated and board has not changed
 if [ -f "$CAPABILITIES_FILE" ]; then
     STORED_BOARD=$(cut -d' ' -f1 "$CAPABILITIES_FILE")
@@ -55,10 +63,14 @@ case "$ARCH" in
         BOARD_CAPABILITIES[hud]="powkiddy_a13 ps5000 ps7000"
         ;;
     rk3326)
-        BOARD_CAPABILITIES[analogstick]="r36s g350 magicx-mini-m pixel2"
-        BOARD_CAPABILITIES[rumble]="r36s g350 magicx-mini-m pixel2"
-        BOARD_CAPABILITIES[adb]="r36s g350 magicx-mini-m pixel2"
-        BOARD_CAPABILITIES[hud]="r36s g350 magicx-mini-m pixel2"
+        # Names are hwrev values from the U-Boot SARADC table, not image names.
+        BOARD_CAPABILITIES[analogstick]="r36s r36max batlexp-g350 gkd-pixel2 rppocket xf40h rg351v v10 v11 v10-go3"
+        BOARD_CAPABILITIES[rumble]="r36s r36max batlexp-g350 gkd-pixel2 rppocket xf40h rg351v v10 v11 v10-go3"
+        BOARD_CAPABILITIES[adb]="r36s r36max batlexp-g350 gkd-pixel2 rppocket xf40h rg351v v10 v11 v10-go3"
+        BOARD_CAPABILITIES[hud]="r36s r36max batlexp-g350 gkd-pixel2 rppocket xf40h rg351v v10 v11 v10-go3"
+        # Boards with a USB port separate from the charge input (G350, RPPocket and Pixel2 have one port)
+        BOARD_CAPABILITIES[usbhost]="r36max xf40h r36s mymini magicx-mini-m"
+        BOARD_CAPABILITIES[wifi]="xf40h r36max"
         ;;
     rk3568)
         # miyoo-flip lid hall now emits KEY_F12 via a gpio-keys node (decoupled from

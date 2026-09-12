@@ -15,6 +15,45 @@ do_usage() {
 # Export XDG for PW
 export XDG_RUNTIME_DIR=/var/run
 
+# One rk3326 image serves every board, so /boot/boot/knulli.board only says
+# "rk3326"; U-Boot passes the detected board on the command line.
+BOARD=$(sed -n 's/.*\bboard=\([^ ]*\).*/\1/p' /proc/cmdline 2>/dev/null)
+[ -n "${BOARD}" ] || BOARD=$(cat /boot/boot/knulli.board 2>/dev/null)
+
+# Where the rk817 output goes on each board:
+#   SPK_HP  speaker and jack both live: R36S has both on the headphone stage
+#           and the jack switches by itself (no amp switches); R36 Max has
+#           the speaker on the codec class D, selected with the spk switch
+#   HP      external amplifier fed from the headphone stage, the speaker
+#           and jack selected with the multicodecs spk/hp switches
+#           (XF40H design: use-ext-amplifier in the DTS)
+#   SPK     codec class D straight to the speaker (G350, Pixel2, ...)
+# HAS_AMP_SWITCHES: 1 only for multicodecs cards (spk/hp switch controls);
+# simple-audio-card boards let the codec drive its own spk-ctl-gpios.
+case "${BOARD}" in
+    r36s)                          SPEAKER_PATH=SPK_HP; HAS_AMP_SWITCHES=0 ;;
+    r36max)                        SPEAKER_PATH=SPK_HP; HAS_AMP_SWITCHES=1 ;;
+    xf40h|mymini|r36pro)           SPEAKER_PATH=HP;     HAS_AMP_SWITCHES=1 ;;
+    *)                             SPEAKER_PATH=SPK;    HAS_AMP_SWITCHES=0 ;;
+esac
+
+# The only sink: the rk817 node (profiles are disabled for this card, see the
+# wireplumber rule in the rk3326 overlay).
+RK817_SINK=$(LANG=C pactl list short sinks 2>/dev/null | awk '$2 ~ /rk817-sound/ { print $2; exit }')
+
+# The I2S "BCLK Ratio" control has been seen holding garbage after boot
+# (frame of 65 bit-clocks instead of 64 -> thin, distorted output); pin it.
+fix_bclk_ratio() {
+    amixer -c 0 cset name='BCLK Ratio' 64 >/dev/null 2>&1
+}
+
+amp_switches() {
+    [ "${HAS_AMP_SWITCHES}" = "1" ] || return 0
+    amixer -c 0 cset name='spk switch' "$1" >/dev/null 2>&1
+    amixer -c 0 cset name='hp switch' "$2" >/dev/null 2>&1
+    return 0
+}
+
 # Set variables
 MAX_VOLUME="$(/usr/bin/knulli-settings-get audio.volume.boost)" || MAX_VOLUME=100
 DEFAULT_SINK=$(LANG=C pactl info | grep -E '^Default Sink: ' | sed -e s+"^Default Sink: "+""+ | head -1)
@@ -36,17 +75,21 @@ case "${ACTION}" in
 
     set)
 	MODE="$2"
-        # Needed for audio resume after suspend
-        amixer -c 0 sset 'Resume Path' 'ON'
+	# Needed for audio resume after suspend
+	amixer -c 0 sset 'Resume Path' 'ON' >/dev/null 2>&1
 	case "${MODE}" in
 	    auto | speakers)
-		LANG=C pactl set-default-sink INTERNAL
-		amixer -c 0 cset name='Playback Path' SPK
+		fix_bclk_ratio
+		[ -n "${RK817_SINK}" ] && LANG=C pactl set-default-sink "${RK817_SINK}"
+		amixer -c 0 cset name='Playback Path' "${SPEAKER_PATH}" >/dev/null || exit 1
+		amp_switches 1 0
 		;;
 
 	    headphone)
-		LANG=C pactl set-default-sink INTERNAL
-		amixer -c 0 cset name='Playback Path' HP
+		fix_bclk_ratio
+		[ -n "${RK817_SINK}" ] && LANG=C pactl set-default-sink "${RK817_SINK}"
+		amixer -c 0 cset name='Playback Path' HP >/dev/null || exit 1
+		amp_switches 0 1
 		;;
 	    *)
 		LANG=C pactl set-default-sink "${MODE}"
@@ -70,7 +113,9 @@ case "${ACTION}" in
 	    CARD_NAME=$(echo "${MODE}" | cut -d @ -f 2)
 	    LANG=C pactl set-card-profile "${CARD_NAME}" "${PROFILE_NAME}" || exit 1
 	else
-		LANG=C pactl set-card-profile alsa_card._sys_devices_platform_rk817-sound_sound_card0 pro-audio || exit 1
+		# The rk817 card runs without ACP profiles (wireplumber rule in
+		# the rk3326 overlay): a single 2-channel node, nothing to select.
+		true
 	fi
 	;;
 

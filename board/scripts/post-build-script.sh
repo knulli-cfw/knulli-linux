@@ -138,10 +138,14 @@ if test -e "${TARGET_DIR}/etc/init.d/S10udev"
 then
     mv "${TARGET_DIR}/etc/init.d/S10udev"    "${TARGET_DIR}/etc/init.d/S05udev"    || exit 1 # move to make number spaces
 fi
-if test -e "${TARGET_DIR}/etc/init.d/S30dbus"
-then
-    mv "${TARGET_DIR}/etc/init.d/S30dbus"    "${TARGET_DIR}/etc/init.d/S01dbus"    || exit 1 # move really before for network (connman prerequisite) and pipewire
-fi
+# buildroot 2026.05 renamed S30dbus to S30dbus-daemon; accept either name
+for DBUS_INIT in S30dbus S30dbus-daemon
+do
+    if test -e "${TARGET_DIR}/etc/init.d/${DBUS_INIT}"
+    then
+        mv "${TARGET_DIR}/etc/init.d/${DBUS_INIT}" "${TARGET_DIR}/etc/init.d/S01dbus" || exit 1 # move really before for network (connman prerequisite) and pipewire
+    fi
+done
 if test -e "${TARGET_DIR}/etc/init.d/S40network"
 then
     mv "${TARGET_DIR}/etc/init.d/S40network" "${TARGET_DIR}/etc/init.d/S07network" || exit 1 # move to make ifaces up sooner, mainly mountable/unmountable before/after share

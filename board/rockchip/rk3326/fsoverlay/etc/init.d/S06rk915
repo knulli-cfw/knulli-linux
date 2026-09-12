@@ -1,0 +1,7 @@
+#!/bin/sh
+# One rk3326 image serves many boards; load the rk915 SDIO WiFi driver only
+# where the device tree declares the chip (xf40h, r36max).
+
+[ "$1" = "start" ] || exit 0
+[ -d /proc/device-tree/rk915-wifi ] || exit 0
+modprobe rk915

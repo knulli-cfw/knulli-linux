@@ -1,0 +1,9 @@
+config BR2_PACKAGE_RK915
+	bool "Rockchip RK915 SDIO WiFi driver (XF40H, R36 Max)"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Out-of-tree driver for the Rockchip RK915 2.4 GHz SDIO WiFi chip
+	  found in several RK3326 handhelds. Vendor BSP driver as ported to
+	  mainline by ImanolBarba/rk915, with a small compatibility layer for
+	  the 6.1 BSP kernel. Needs the rk915 MMC quirks carried in the
+	  rk3326 kernel patch, and the rk915-wifi / supports-rk915 DT nodes.

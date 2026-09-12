@@ -1,0 +1,222 @@
+From: Knulli <noreply@knulli.org>
+Subject: Build against the 6.1 BSP kernel
+
+Version-gated compatibility for kernels older than the 6.18 the port targets:
+timer_delete, ieee80211_tx_status_skb, chanreq vs chandef, MODULE_IMPORT_NS
+form, stop() without suspend, ops without radio_idx, no chanctx emulation,
+device_find_child match and platform remove signatures.
+
+diff --git a/Makefile b/Makefile
+index c798eb0..aac04c9 100755
+--- a/Makefile
++++ b/Makefile
+@@ -8,7 +8,7 @@
+ CONFIG_RK915 ?= m
+ 
+ # Include paths (relative to this directory)
+-ccflags-y += -I$(src)/inc -I$(src)/shared
++ccflags-y += -I$(src)/inc -I$(src)/shared -include $(src)/inc/compat.h
+ 
+ # Feature flags
+ ccflags-y += -DDEBUG
+diff --git a/inc/compat.h b/inc/compat.h
+new file mode 100644
+index 0000000..f415cd9
+--- /dev/null
++++ b/inc/compat.h
+@@ -0,0 +1,14 @@
++/* Compatibility with kernels older than the 6.18 this port targets. */
++#ifndef RK915_COMPAT_H
++#define RK915_COMPAT_H
++#include <linux/version.h>
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
++#include <linux/timer.h>
++#define timer_delete(t)		del_timer(t)
++#define timer_delete_sync(t)	del_timer_sync(t)
++#endif
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
++#define ieee80211_tx_status_skb(hw, skb)	ieee80211_tx_status(hw, skb)
++#define RK915_OLD_MAC80211_API 1
++#endif
++#endif
+diff --git a/inc/core.h b/inc/core.h
+index 041321e..289dfe1 100755
+--- a/inc/core.h
++++ b/inc/core.h
+@@ -1060,7 +1060,11 @@ int rpu_proc_tx(struct img_priv *priv, int descriptor_id, int queue);
+ void rpu_unblock_all_frames(struct img_priv *priv,
+ 					    int ch_id);
+ int load_rompatch(struct ieee80211_hw *hw);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+ void stop(struct ieee80211_hw *hw, bool suspend);
++#else
++void stop(struct ieee80211_hw *hw);
++#endif
+ int start_prod_mode(struct img_priv *priv, unsigned int val);
+ int stop_prod_mode(struct img_priv *priv, unsigned int val);
+ int start_prod_rx_mode(struct img_priv *priv, unsigned int val,
+diff --git a/src/hal.c b/src/hal.c
+index 44a8f0b..f830ed5 100755
+--- a/src/hal.c
++++ b/src/hal.c
+@@ -7,7 +7,11 @@
+  * (at your option) any later version.
+  */
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+ #include <linux/unaligned.h>
++#else
++#include <asm/unaligned.h>
++#endif
+ 
+ #include <linux/clk.h>
+ #include <linux/etherdevice.h>
+diff --git a/src/init.c b/src/init.c
+index 663cd87..7459bb3 100755
+--- a/src/init.c
++++ b/src/init.c
+@@ -200,10 +200,22 @@ static const struct platform_device_id rk915_id_table[] = {
+ };
+ MODULE_DEVICE_TABLE(platform, rk915_id_table);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
++/* platform_driver.remove returned int before 6.11 */
++static int rk915_remove_compat(struct platform_device *pdev)
++{
++	rk915_remove(pdev);
++	return 0;
++}
++#define RK915_REMOVE_OP rk915_remove_compat
++#else
++#define RK915_REMOVE_OP rk915_remove
++#endif
++
+ static struct platform_driver rk915_driver =
+ {
+     .probe = rk915_probe,
+-    .remove = rk915_remove,
++    .remove = RK915_REMOVE_OP,
+     .shutdown = rk915_shutdown,
+     .id_table = rk915_id_table,
+     .driver = {
+@@ -276,4 +288,8 @@ module_param_named(jtag, m0_jtag_enable, bool, 0644);
+ MODULE_AUTHOR("Rockchips");
+ MODULE_DESCRIPTION("Driver for Rockchips RK915 SDIO WiFi Devices");
+ MODULE_LICENSE("GPL");
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
+ MODULE_IMPORT_NS("VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver");
++#else
++MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
++#endif
+diff --git a/src/platform.c b/src/platform.c
+index 6c64fa9..167d292 100755
+--- a/src/platform.c
++++ b/src/platform.c
+@@ -86,7 +86,11 @@ void rk915_set_mmc_host(struct mmc_host *host)
+  * controller marked as SDIO-only (no-sd + no-mmc properties), then finds
+  * the mmc_host registered as its child device.
+  */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+ static int match_mmc_child(struct device *dev, const void *data)
++#else
++static int match_mmc_child(struct device *dev, void *data)
++#endif
+ {
+ 	/* mmc_host class devices are named "mmc0", "mmc1", etc. */
+ 	return !strncmp(dev_name(dev), "mmc", 3);
+diff --git a/src/umac_if.c b/src/umac_if.c
+index 91fbc9e..86ce5b9 100755
+--- a/src/umac_if.c
++++ b/src/umac_if.c
+@@ -822,7 +822,11 @@ out:
+ 	return ret;
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+ void stop(struct ieee80211_hw *hw, bool suspend)
++#else
++void stop(struct ieee80211_hw *hw)
++#endif
+ {
+ 	struct img_priv    *priv= (struct img_priv *)hw->priv;
+ 
+@@ -2186,6 +2190,31 @@ int load_fw(struct ieee80211_hw *hw)
+ 
+ 
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
++/* radio_idx arrived in 6.17; older mac80211 has single-radio signatures */
++static int config_compat(struct ieee80211_hw *hw, u32 changed)
++{
++	return config(hw, 0, changed);
++}
++
++static int set_antenna_compat(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
++{
++	return set_antenna(hw, 0, tx_ant, rx_ant);
++}
++
++static int set_rts_threshold_compat(struct ieee80211_hw *hw, u32 value)
++{
++	return set_rts_threshold(hw, 0, value);
++}
++#define RK915_OP_CONFIG			config_compat
++#define RK915_OP_SET_ANTENNA		set_antenna_compat
++#define RK915_OP_SET_RTS_THRESHOLD	set_rts_threshold_compat
++#else
++#define RK915_OP_CONFIG			config
++#define RK915_OP_SET_ANTENNA		set_antenna
++#define RK915_OP_SET_RTS_THRESHOLD	set_rts_threshold
++#endif
++
+ static struct ieee80211_ops ops = {
+ 	.tx                 = tx,
+ 	.wake_tx_queue       = ieee80211_handle_wake_tx_queue,
+@@ -2194,7 +2223,7 @@ static struct ieee80211_ops ops = {
+ 	.add_interface      = add_interface,
+ 	.remove_interface   = remove_interface,
+ 	.change_interface   = change_interface,
+-	.config             = config,
++	.config             = RK915_OP_CONFIG,
+ 	.prepare_multicast  = prepare_multicast,
+ 	.configure_filter   = configure_filter,
+ 	.sw_scan_start      = NULL,
+@@ -2207,7 +2236,7 @@ static struct ieee80211_ops ops = {
+ 	.set_key            = set_key,
+ 	.tx_last_beacon     = tx_last_beacon,
+ 	.ampdu_action       = ampdu_action,
+-	.set_antenna	    = set_antenna,
++	.set_antenna	    = RK915_OP_SET_ANTENNA,
+ 	.remain_on_channel = remain_on_channel,
+ 	.cancel_remain_on_channel = cancel_remain_on_channel,
+ #ifdef CONFIG_PM
+@@ -2217,10 +2246,12 @@ static struct ieee80211_ops ops = {
+ 	.hw_scan	    = scan,
+ 	.cancel_hw_scan	    = cancel_hw_scan,
+ 	.set_rekey_data     = NULL,
+-	.set_rts_threshold  = set_rts_threshold,
++	.set_rts_threshold  = RK915_OP_SET_RTS_THRESHOLD,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+ 	.add_chanctx        = ieee80211_emulate_add_chanctx,
+ 	.remove_chanctx     = ieee80211_emulate_remove_chanctx,
+ 	.change_chanctx     = ieee80211_emulate_change_chanctx,
++#endif
+ };
+ 
+ static int parse_mac_addr_string(const char *str, unsigned char *addr)
+diff --git a/src/vif.c b/src/vif.c
+index 8315ded..d9aed9a 100755
+--- a/src/vif.c
++++ b/src/vif.c
+@@ -427,7 +427,11 @@ void rpu_vif_bss_info_changed(struct umac_vif *uvif,
+ 					  uvif->vif->addr,
+ 					  uvif->vif->cfg.aid);
+ 
++				#ifdef RK915_OLD_MAC80211_API
++				center_freq = bss_conf->chandef.chan->center_freq;
++#else
+ 				center_freq = bss_conf->chanreq.oper.chan->center_freq;
++#endif
+ 				chan = ieee80211_frequency_to_channel(center_freq);
+ 				CALL_RPU(rpu_prog_vif_op_channel,
+ 					  uvif->vif_index,

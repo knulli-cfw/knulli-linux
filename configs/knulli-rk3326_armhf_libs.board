@@ -1,31 +1,29 @@
 include knulli-board.libs
 include knulli-rk3326_armhf_libs.packages
 
-# Target definition
+# Target definition - RK3326/PX30 is quad Cortex-A35 (ARMv8.0), not A53/A55
 BR2_arm=y
 BR2_ARM_EABIHF=y
 BR2_ARM_FPU_NEON_FP_ARMV8=y
-BR2_cortex_a53=y
+BR2_cortex_a35=y
 BR2_PACKAGE_BATOCERA_TARGET_RK3326=y
-BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char -mcpu=cortex-a55 -mtune=cortex-a55"
+BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char -mcpu=cortex-a35+crypto -mtune=cortex-a35"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
 BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3326/patches"
-BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3326/fsoverlay"
 
-# Use custom kernel headers from tarball
-BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_4_4=y
-BR2_KERNEL_HEADERS_CUSTOM_TARBALL=y
-BR2_DEFAULT_KERNEL_HEADERS="4.4.189"
-BR2_KERNEL_HEADERS_CUSTOM_TARBALL_LOCATION="$(call github,shantigilbert,hardkernel-linux,d167de7358c9c53d5e6592978f7cdde7674c420b)/d167de7358c9c53d5e6592978f7cdde7674c420b.tar.gz"
-
-# System
-BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
+# Buildroot's own 6.1.x headers, not a custom tarball: a custom tarball builds
+# into build/linux-headers-custom and never rebuilds when the pin moves.
+BR2_KERNEL_HEADERS_6_1=y
 
 # GPU
 BR2_PACKAGE_MALI_G31_GBM=y
+BR2_PACKAGE_HAS_LIBMALI=y
+BR2_PACKAGE_PROVIDES_LIBMALI="mali-g31-gbm"
 
-# Firmware
-BR2_PACKAGE_FIRMWARE_ARMBIAN=y
+## Add packages that are missed by automatic config
+
+BR2_PACKAGE_LIBMALI=y
+BR2_PACKAGE_LIBEGL=y
 
 # Overlay
 BR2_PACKAGE_KNULLI_OVERLAY=y

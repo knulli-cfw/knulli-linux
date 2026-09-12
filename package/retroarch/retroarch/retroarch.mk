@@ -129,12 +129,14 @@ ifeq ($(BR2_PACKAGE_ROCKCHIP_RGA),y)
     RETROARCH_DEPENDENCIES += rockchip-rga
 endif
 
-ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3326),y)
+# oga_gfx and deps/libgo2 include xf86drm.h, which pulls <drm.h> from
+# include/libdrm.  configure only probes libdrm when KMS is on, and rk3326 has
+# no GBM provider so KMS is off there -- pass the include path either way.
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3326)$(BR2_PACKAGE_BATOCERA_TARGET_RK3568),y)
      RETROARCH_CONF_OPTS += --enable-odroidgo2
-endif
-
-ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3568),y)
-     RETROARCH_CONF_OPTS += --enable-odroidgo2
+     RETROARCH_TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libdrm
+     RETROARCH_TARGET_LDFLAGS += -ldrm
+     RETROARCH_DEPENDENCIES += libdrm
 endif
 
 ifeq ($(BR2_PACKAGE_HAS_LIBGL),y)

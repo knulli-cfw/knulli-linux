@@ -4,28 +4,10 @@
 # using the sdl-compat/SDL2 for rendering
 insmod /lib/modules/mali_kbase.ko
 
-# Rotate screen for the rg28xx
-BOARD=$(cat /boot/boot/knulli.board)
-if [ "$BOARD" = "rg28xx" ]; then
-    fbset -g 480 640 480 1280 32
-fi
-
-# This is needed so that on a restart charger binary is not run while plugged in
-RESTART_FLAG=$( [ -f /boot/restart.flag ] && cat /boot/restart.flag || echo 0 )
-
-if [ "$RESTART_FLAG" = "1" ]; then
-    # Reset the flag to 0 for the next boot
-    mount -o remount,rw /boot
-    echo "0" > /boot/restart.flag
-    sync
-    mount -o remount,ro /boot
-else
-    # Call the charger process
-    /usr/bin/charger
-fi
-
-# Start the progress bar
-/usr/bin/progressbar &
+# Start the boot progress bar. rk3326 uses the /dev/fb0-direct variant
+# (progressbar_rk): SDL2 defaults to KMSDRM here, which is not scanned out
+# during early boot, so the generic progressbar would show nothing.
+/usr/bin/progressbar_rk &
 
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.

@@ -4,7 +4,7 @@ CAPABILITIES_FILE="/boot/boot/knulli.board.capability"
 CAPABILITY="$1"
 
 [ -z "$CAPABILITY" ] && {
-    echo "Usage: $0 <rgb|lid|hdmi|wifi|bluetooth|analogstick|rumble|adb|bezelproject|rotatedpanel>"
+    echo "Usage: $0 <rgb|lid|hdmi|wifi|bluetooth|analogstick|rumble|adb|bezelproject|rotatedpanel|usbhost>"
     exit 1
 }
 
