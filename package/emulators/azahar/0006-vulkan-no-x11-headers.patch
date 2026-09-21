@@ -1,0 +1,61 @@
+vulkan: do not require X11 headers on a Wayland-only sysroot
+
+vk_platform.cpp defines both VK_USE_PLATFORM_WAYLAND_KHR and
+VK_USE_PLATFORM_XLIB_KHR for every non-Android/Windows/Apple build.  The Xlib
+one makes vulkan.h include <X11/Xlib.h>, so azahar cannot compile on a target
+without X11 -- which is every knulli board: rk3576/rk3566 are Wayland via
+weston, the rest are fbdev.
+
+Ask for the Xlib platform only when the header exists, and guard the two places
+that need Xlib types.  A target that does have X11 keeps its Xlib surface path,
+verified with the cross compiler both with and without X11/Xlib.h reachable.
+
+--- a/src/video_core/renderer_vulkan/vk_platform.cpp
++++ b/src/video_core/renderer_vulkan/vk_platform.cpp
+@@ -11,8 +11,15 @@
+ #define VK_USE_PLATFORM_METAL_EXT
+ #else
+ #define VK_USE_PLATFORM_WAYLAND_KHR
++// Defining VK_USE_PLATFORM_XLIB_KHR makes vulkan.h include <X11/Xlib.h>, which
++// is absent on a Wayland-only or fbdev-only sysroot.  Ask for it only when the
++// header is really there, so an X11 build is unaffected.
++#if defined(__has_include)
++#if __has_include(<X11/Xlib.h>)
+ #define VK_USE_PLATFORM_XLIB_KHR
+ #endif
++#endif
++#endif
+ 
+ #include <memory>
+ #include <vector>
+@@ -145,6 +152,7 @@
+         }
+     }
+ #elif defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_WAYLAND_KHR)
++#if defined(VK_USE_PLATFORM_XLIB_KHR)
+     if (window_info.type == Frontend::WindowSystemType::X11) {
+         const vk::XlibSurfaceCreateInfoKHR xlib_ci = {
+             .dpy = static_cast<Display*>(window_info.display_connection),
+@@ -156,7 +164,9 @@
+             LOG_ERROR(Render_Vulkan, "Failed to initialize Xlib surface: {}", vk::to_string(res));
+             UNREACHABLE();
+         }
+-    } else if (window_info.type == Frontend::WindowSystemType::Wayland) {
++    } else
++#endif
++    if (window_info.type == Frontend::WindowSystemType::Wayland) {
+         const vk::WaylandSurfaceCreateInfoKHR wayland_ci = {
+             .display = static_cast<wl_display*>(window_info.display_connection),
+             .surface = static_cast<wl_surface*>(window_info.render_surface),
+@@ -231,9 +241,11 @@
+         extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+         break;
+ #elif defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_WAYLAND_KHR)
++#if defined(VK_USE_PLATFORM_XLIB_KHR)
+     case Frontend::WindowSystemType::X11:
+         extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+         break;
++#endif
+     case Frontend::WindowSystemType::Wayland:
+         extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+         break;

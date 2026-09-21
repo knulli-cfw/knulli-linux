@@ -1,0 +1,34 @@
+citra_sdl: undefine X11's None before azahar's headers
+
+Building with an SDL2 that has the X11 video driver, <SDL_syswm.h> includes
+<X11/Xlib.h>, which does "#define None 0L".  The azahar headers included just
+below then fail:
+
+  common/settings.h:57:43: error: expected identifier before numeric constant
+     enum class SecondaryDisplayLayout : u32 { None, TopScreenOnly, ... };
+
+with a cascade of "was not declared in this scope" behind it.
+
+Drop the macro straight after the SDL include.  This file only reads
+wm.info.x11.display / wm.info.x11.window, so it never needs X11's None, and the
+X11 code path is otherwise untouched.
+
+Complements 0006, which handles the opposite case -- a sysroot with NO X11
+headers.  Boards that have X11 (SDL2_X11, e.g. sm8250/sm8550) hit this one.
+
+--- a/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
++++ b/src/citra_sdl/emu_window/emu_window_sdl2_vk.cpp
+@@ -8,6 +8,13 @@
+ #include <SDL.h>
+ #include <SDL_vulkan.h>
+ #include <SDL_syswm.h>
++// SDL_syswm.h pulls in <X11/Xlib.h> when SDL is built with its X11 driver, and
++// Xlib #defines None to 0L.  Settings::SecondaryDisplayLayout has an enumerator
++// called None, so every azahar header included below fails to parse.  Nothing
++// in this file needs X11's None -- it only reads wm.info.x11 struct fields.
++#ifdef None
++#undef None
++#endif
+ #include <fmt/format.h>
+ #include "citra_sdl/emu_window/emu_window_sdl2_vk.h"
+ #include "common/logging/log.h"
