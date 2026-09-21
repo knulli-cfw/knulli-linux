@@ -60,3 +60,4 @@ comment "libmali needs udev, toolchain w/ threads, dynamic library, C++, gcc >= 
     depends on !BR2_PACKAGE_HAS_UDEV || !BR2_TOOLCHAIN_HAS_THREADS || \
         BR2_STATIC_LIBS || !BR2_INSTALL_LIBSTDCPP || \
         !BR2_TOOLCHAIN_GCC_AT_LEAST_4_9
+

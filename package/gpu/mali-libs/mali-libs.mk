@@ -4,10 +4,8 @@
 #
 ################################################################################
 
-MALI_LIBS_VERSION = 5a4d5c16d51fdd8659af9072eaf6b83c52b1cd86
-#MALI_LIBS_VERSION = master
-#MALI_LIBS_SITE = https://github.com/knulli-cfw/libmali.git
-MALI_LIBS_SITE = https://github.com/ROCKNIX/libmali.git
+MALI_LIBS_VERSION = 746bafbc5eb7d52b68a71d1bd673d51730c31aae
+MALI_LIBS_SITE = https://github.com/knulli-cfw/libmali-next.git
 MALI_LIBS_SITE_METHOD = git
 MALI_LIBS_LICENSE = Proprietary
 MALI_LIBS_LICENSE_FILES = END_USER_LICENCE_AGREEMENT.txt
@@ -35,20 +33,22 @@ endif
 # Determine GPU and architecture
 ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3588),y)
 MALI_LIBS_GPU = valhall-g610
-MALI_LIBS_VERSION_GPU = g6p0
+MALI_LIBS_VERSION_GPU = g29p1
 else
 # Default to G52 (covers RK3566/RK3568)
 MALI_LIBS_GPU = bifrost-g52
-MALI_LIBS_VERSION_GPU = g13p0
+MALI_LIBS_VERSION_GPU = g29p1
 endif
 
 ifeq ($(BR2_aarch64),y)
 MALI_LIBS_ARCH = aarch64-linux-gnu
+MALI_LIBS_WSI_ARCH = aarch64
 else
 MALI_LIBS_ARCH = arm-linux-gnueabihf
+MALI_LIBS_WSI_ARCH = arm
 endif
 
-MALI_LIBS_SO_NAME = libmali-$(MALI_LIBS_GPU)-$(MALI_LIBS_VERSION_GPU)-wayland-gbm.so
+MALI_LIBS_SO_NAME = libmali-$(MALI_LIBS_GPU)-$(MALI_LIBS_VERSION_GPU).so
 
 define MALI_LIBS_INSTALL_STAGING_CMDS
     # Install library
@@ -126,6 +126,20 @@ define MALI_LIBS_INSTALL_STAGING_CMDS
         echo 'Cflags: -I$${includedir}'; \
     ) > $(STAGING_DIR)/usr/lib/pkgconfig/glesv2.pc
 
+    # Install Vulkan ICD to staging
+    mkdir -p $(STAGING_DIR)/etc/vulkan/icd.d
+    sed 's|@LIB@|/usr/lib/libmali.so.1|g' \
+        $(@D)/data/vulkan/mali.json.in > $(STAGING_DIR)/etc/vulkan/icd.d/mali.json
+
+    # Install Vulkan implicit layer (WSI) to staging
+    $(INSTALL) -D -m 0755 \
+        $(@D)/data/vulkan/lib/$(MALI_LIBS_WSI_ARCH)/libVkLayer_window_system_integration.so \
+        $(STAGING_DIR)/usr/lib/libVkLayer_window_system_integration.so
+    mkdir -p $(STAGING_DIR)/etc/vulkan/implicit_layer.d
+    sed 's|@LIB@|/usr/lib/libVkLayer_window_system_integration.so|g' \
+        $(@D)/data/vulkan/VkLayer_window_system_integration.json.in \
+        > $(STAGING_DIR)/etc/vulkan/implicit_layer.d/VkLayer_window_system_integration.json
+
 endef
 
 define MALI_LIBS_INSTALL_TARGET_CMDS
@@ -147,6 +161,20 @@ define MALI_LIBS_INSTALL_TARGET_CMDS
     # Create symlinks for GBM
     ln -sf libmali.so.1 $(TARGET_DIR)/usr/lib/libgbm.so.1
     ln -sf libgbm.so.1 $(TARGET_DIR)/usr/lib/libgbm.so
+
+    # Install Vulkan ICD
+    mkdir -p $(TARGET_DIR)/etc/vulkan/icd.d
+    sed 's|@LIB@|/usr/lib/libmali.so.1|g' \
+        $(@D)/data/vulkan/mali.json.in > $(TARGET_DIR)/etc/vulkan/icd.d/mali.json
+
+    # Install Vulkan implicit layer (WSI)
+    $(INSTALL) -D -m 0755 \
+        $(@D)/data/vulkan/lib/$(MALI_LIBS_WSI_ARCH)/libVkLayer_window_system_integration.so \
+        $(TARGET_DIR)/usr/lib/libVkLayer_window_system_integration.so
+    mkdir -p $(TARGET_DIR)/etc/vulkan/implicit_layer.d
+    sed 's|@LIB@|/usr/lib/libVkLayer_window_system_integration.so|g' \
+        $(@D)/data/vulkan/VkLayer_window_system_integration.json.in \
+        > $(TARGET_DIR)/etc/vulkan/implicit_layer.d/VkLayer_window_system_integration.json
 endef
 
 $(eval $(generic-package))
