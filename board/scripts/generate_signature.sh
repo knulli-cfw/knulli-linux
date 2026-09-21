@@ -37,6 +37,15 @@ calculate_md5() {
     fi
 }
 
+# MD5 of the rootfs: post-image-script.sh hashes it once for all the images of a build
+rootfs_md5() {
+    if [[ -n "${KNULLI_ROOTFS_MD5}" ]]; then
+        echo "${KNULLI_ROOTFS_MD5}"
+    else
+        calculate_md5 "${BINARIES_DIR}/rootfs.squashfs"
+    fi
+}
+
 # Function to get file size
 get_file_size() {
     local file="$1"
@@ -127,7 +136,7 @@ generate_signature_allwinner_bsp() {
     local rootfs="${BINARIES_DIR}/rootfs.squashfs"
     local md5
     local size
-    md5=$(calculate_md5 "$rootfs")
+    md5=$(rootfs_md5)
     size=$(get_file_size "$rootfs")
     echo "rootfs.squashfs_md5=${md5}"   >> "$SIGNATURE_FILE"
     echo "rootfs.squashfs_size=${size}" >> "$SIGNATURE_FILE"
@@ -152,7 +161,7 @@ generate_signature_boot_fat() {
     local rootfs="${BINARIES_DIR}/rootfs.squashfs"
     local md5
     local size
-    md5=$(calculate_md5 "$rootfs")
+    md5=$(rootfs_md5)
     size=$(get_file_size "$rootfs")
     echo "rootfs.squashfs_md5=${md5}"   >> "$SIGNATURE_FILE"
     echo "rootfs.squashfs_size=${size}" >> "$SIGNATURE_FILE"

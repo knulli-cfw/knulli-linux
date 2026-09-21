@@ -19,7 +19,6 @@ mkdir -p "${KNULLI_BINARIES_DIR}/boot/boot"     || exit 1
 #cp "${BINARIES_DIR}/rootfs.squashfs"	"${KNULLI_BINARIES_DIR}/boot/boot/knulli.update"	|| exit 1
 # touch "${KNULLI_BINARIES_DIR}/boot/boot/knulli.update" || exit 1
 cp "${BINARIES_DIR}/rootfs.squashfs"	"${KNULLI_BINARIES_DIR}/boot/boot/knulli.update"	|| exit 1
-cp "${BINARIES_DIR}/firmware.sig"       "${KNULLI_BINARIES_DIR}/boot/boot/firmware.sig"       || exit 1
 cp "${BOARD_DIR}/knulli-boot.conf"	"${KNULLI_BINARIES_DIR}/boot/knulli-boot.conf"	|| exit 1
 cp "${BOARD_DIR}/bootlogo.bmp"      	"${KNULLI_BINARIES_DIR}/boot/bootlogo.bmp"		|| exit 1
 

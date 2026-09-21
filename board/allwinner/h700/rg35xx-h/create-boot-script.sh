@@ -16,8 +16,9 @@ BATOCERA_BINARIES_DIR=$6
 
 mkdir -p "${BATOCERA_BINARIES_DIR}/boot/boot"     || exit 1
 
+# hard link instead of a 2GB copy per image (the rootfs is never modified in place)
+ln -f "${BINARIES_DIR}/rootfs.squashfs"	"${BATOCERA_BINARIES_DIR}/boot/boot/knulli.update"	2>/dev/null || \
 cp "${BINARIES_DIR}/rootfs.squashfs"	"${BATOCERA_BINARIES_DIR}/boot/boot/knulli.update"	|| exit 1
-cp "${BINARIES_DIR}/firmware.sig"	"${BATOCERA_BINARIES_DIR}/boot/boot/firmware.sig"	|| exit 1
 cp "${BOARD_DIR}/knulli-boot.conf" 	"${BATOCERA_BINARIES_DIR}/boot/knulli-boot.conf"	|| exit 1
 cp "${BOARD_DIR}/bootlogo.bmp"		"${BATOCERA_BINARIES_DIR}/boot/bootlogo.bmp"		|| exit 1
 

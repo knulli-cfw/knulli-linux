@@ -51,6 +51,43 @@ SUFFIXVERSION=$(awk '{if ($1 ~ /^[0-9\.]+$/) print $1; else print $1}' "${TARGET
 
 SUFFIXDATE=$(date +%Y%m%d)
 
+# the rootfs is the same for every image: hash it once for generate_signature.sh
+export KNULLI_ROOTFS_MD5=$(md5sum "${BINARIES_DIR}/rootfs.squashfs" | cut -d' ' -f1)
+
+#### fast multi-image mode ######
+# Every image of these targets carries the same rootfs and the same boot.vfat /
+# userdata.ext4 definitions; they only differ in a few small files inside the
+# boot.vfat and in the raw partitions of the knulli.img layout.  So the big
+# boot.vfat (holding the rootfs) and userdata.ext4 are built once, and each
+# image then gets a copy of that boot.vfat with its own small files added,
+# which genimage only has to assemble into knulli.img.
+# A board whose genimage.cfg defines boot.vfat/userdata.ext4 differently from
+# the first board is built the normal way.
+KNULLI_FAST_IMAGE_TARGETS="h700"
+
+# genimage.cfg up to the knulli.img definition (boot.vfat and userdata.ext4)
+genimage_common_part() {
+    sed -n '/^image knulli\.img/q;p' "$1"
+}
+
+FASTIMG=no
+if test "${IMGMODE}" = "multi" && echo " ${KNULLI_FAST_IMAGE_TARGETS} " | grep -q " ${KNULLI_LOWER_TARGET} " && ! grep -qE "^BR2_TARGET_SYSLINUX=y$" "${BR2_CONFIG}"
+then
+    FASTIMG=yes
+    COMMONDIR="${KNULLI_BINARIES_DIR}/common"
+    COMMONCFG="${BR2_EXTERNAL_KNULLI_PATH}/board/$(echo ${KNULLI_IMAGES_TARGETS} | cut -d' ' -f1)/genimage.cfg"
+    echo "creating the boot.vfat and userdata.ext4 shared by all images" >&2
+    mkdir -p "${COMMONDIR}/boot/boot" "${COMMONDIR}/emptyroot" || exit 1
+    ln -f "${BINARIES_DIR}/rootfs.squashfs" "${COMMONDIR}/boot/boot/knulli" 2>/dev/null || cp "${BINARIES_DIR}/rootfs.squashfs" "${COMMONDIR}/boot/boot/knulli" || exit 1
+    {
+        genimage_common_part "${COMMONCFG}" | sed -n '1,/@files/p' | sed '/@files/d'
+        echo '                        file "boot/knulli" { image = "boot/knulli" }'
+        genimage_common_part "${COMMONCFG}" | sed -n '/@files/,$p' | sed '1d'
+    } > "${COMMONDIR}/genimage.cfg" || exit 1
+    rm -rf "${GENIMAGE_TMP}" || exit 1
+    "${HOST_DIR}/bin/genimage" --rootpath="${TARGET_DIR}" --inputpath="${COMMONDIR}/boot" --outputpath="${COMMONDIR}" --config="${COMMONDIR}/genimage.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
+fi
+
 #### build the images ###########
 for KNULLI_PATHSUBTARGET in ${KNULLI_IMAGES_TARGETS}
 do
@@ -90,35 +127,56 @@ do
     GENIMAGEDIR="${BR2_EXTERNAL_KNULLI_PATH}/board/${KNULLI_PATHSUBTARGET}"
     GENIMAGEFILE="${GENIMAGEDIR}/genimage.cfg"
 
-    # Generate the genimage config with proper file entries
-    {
-        # Copy everything before @files
-        sed -n '1,/@files/p' "${GENIMAGEFILE}" | sed '/@files/d'
-        
-        # Generate file entries
-        find "${KNULLI_BINARIES_DIR}/boot" -type f | sed -e "s|^${KNULLI_BINARIES_DIR}/boot/\(.*\)$|                        file \"\1\" { image = \"\1\" }|"
-        
-        # Copy everything after @files
-        sed -n '/@files/,$p' "${GENIMAGEFILE}" | sed '1d'
-        
-    } > "${KNULLI_BINARIES_DIR}/genimage.cfg" || exit 1
-
-    # install syslinux
-    if grep -qE "^BR2_TARGET_SYSLINUX=y$" "${BR2_CONFIG}"
+    if test "${FASTIMG}" = "yes" && test "$(genimage_common_part "${GENIMAGEFILE}")" = "$(genimage_common_part "${COMMONCFG}")"
     then
-        GENIMAGEBOOTFILE="${GENIMAGEDIR}/genimage-boot.cfg"
-        echo "installing syslinux" >&2
-        cat "${GENIMAGEBOOTFILE}" | sed -e s+'@files'+"${FILES}"+ | tr '@' '\n' > "${KNULLI_BINARIES_DIR}/genimage-boot.cfg" || exit 1
-        genimage --rootpath="${TARGET_DIR}" --inputpath="${KNULLI_BINARIES_DIR}/boot" --outputpath="${KNULLI_BINARIES_DIR}" --config="${KNULLI_BINARIES_DIR}/genimage-boot.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
-        "${HOST_DIR}/bin/syslinux" -i "${KNULLI_BINARIES_DIR}/boot.vfat" -d "/boot/syslinux" || exit 1
-        # remove genimage temp path as sometimes genimage v14 fails to start
-        rm -rf ${GENIMAGE_TMP}
-        mkdir ${GENIMAGE_TMP}
+        # the shared boot.vfat already holds boot/knulli: add the other files of this board
+        cp --sparse=always "${COMMONDIR}/boot.vfat" "${KNULLI_BINARIES_DIR}/boot.vfat" || exit 1
+        # mmd fails when it skips an existing directory (e.g. boot); a directory
+        # really missing makes the mcopy below fail
+        (cd "${KNULLI_BINARIES_DIR}/boot" && find . -mindepth 1 -type d | sort) | while read -r D
+        do
+            MTOOLS_SKIP_CHECK=1 "${HOST_DIR}/bin/mmd" -D s -i "${KNULLI_BINARIES_DIR}/boot.vfat" "::${D#./}" || true
+        done
+        (cd "${KNULLI_BINARIES_DIR}/boot" && find . -type f ! -path ./boot/knulli | sort) | while read -r F
+        do
+            MTOOLS_SKIP_CHECK=1 "${HOST_DIR}/bin/mcopy" -p -o -i "${KNULLI_BINARIES_DIR}/boot.vfat" "${KNULLI_BINARIES_DIR}/boot/${F#./}" "::${F#./}" || exit 1
+        done || exit 1
+
+        # only assemble knulli.img, from this boot.vfat and the shared userdata.ext4
+        sed -n '/^image knulli\.img/,$p' "${GENIMAGEFILE}" | sed -e 's+image = "boot.vfat"+image = "'"${KNULLI_BINARIES_DIR}/boot.vfat"'"+' \
+                                                               -e 's+image = "userdata.ext4"+image = "'"${COMMONDIR}/userdata.ext4"'"+' > "${KNULLI_BINARIES_DIR}/genimage.cfg" || exit 1
+        "${HOST_DIR}/bin/genimage" --rootpath="${COMMONDIR}/emptyroot" --inputpath="${KNULLI_BINARIES_DIR}/boot" --outputpath="${KNULLI_BINARIES_DIR}" --config="${KNULLI_BINARIES_DIR}/genimage.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
+    else
+        # Generate the genimage config with proper file entries
+        {
+            # Copy everything before @files
+            sed -n '1,/@files/p' "${GENIMAGEFILE}" | sed '/@files/d'
+            
+            # Generate file entries
+            find "${KNULLI_BINARIES_DIR}/boot" -type f | sed -e "s|^${KNULLI_BINARIES_DIR}/boot/\(.*\)$|                        file \"\1\" { image = \"\1\" }|"
+            
+            # Copy everything after @files
+            sed -n '/@files/,$p' "${GENIMAGEFILE}" | sed '1d'
+            
+        } > "${KNULLI_BINARIES_DIR}/genimage.cfg" || exit 1
+
+        # install syslinux
+        if grep -qE "^BR2_TARGET_SYSLINUX=y$" "${BR2_CONFIG}"
+        then
+            GENIMAGEBOOTFILE="${GENIMAGEDIR}/genimage-boot.cfg"
+            echo "installing syslinux" >&2
+            cat "${GENIMAGEBOOTFILE}" | sed -e s+'@files'+"${FILES}"+ | tr '@' '\n' > "${KNULLI_BINARIES_DIR}/genimage-boot.cfg" || exit 1
+            genimage --rootpath="${TARGET_DIR}" --inputpath="${KNULLI_BINARIES_DIR}/boot" --outputpath="${KNULLI_BINARIES_DIR}" --config="${KNULLI_BINARIES_DIR}/genimage-boot.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
+            "${HOST_DIR}/bin/syslinux" -i "${KNULLI_BINARIES_DIR}/boot.vfat" -d "/boot/syslinux" || exit 1
+            # remove genimage temp path as sometimes genimage v14 fails to start
+            rm -rf ${GENIMAGE_TMP}
+            mkdir ${GENIMAGE_TMP}
+        fi
+
+        # Generate knulli.img
+        "${HOST_DIR}/bin/genimage" --rootpath="${TARGET_DIR}" --inputpath="${KNULLI_BINARIES_DIR}/boot" --outputpath="${KNULLI_BINARIES_DIR}" --config="${KNULLI_BINARIES_DIR}/genimage.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
     fi
 
-    # Generate knulli.img
-    "${HOST_DIR}/bin/genimage" --rootpath="${TARGET_DIR}" --inputpath="${KNULLI_BINARIES_DIR}/boot" --outputpath="${KNULLI_BINARIES_DIR}" --config="${KNULLI_BINARIES_DIR}/genimage.cfg" --tmppath="${GENIMAGE_TMP}" || exit 1
- 
     # Remove temporary images
     rm -f "${KNULLI_BINARIES_DIR}/boot.vfat" || exit 1
     rm -f "${KNULLI_BINARIES_DIR}/userdata.ext4" || exit 1
@@ -134,12 +192,16 @@ do
     # copy the update signature files
     cp "${BINARIES_DIR}/firmware.sig" "${KNULLI_BINARIES_DIR}/images/${KNULLI_SUBTARGET}" || exit 1
 done
+if test "${FASTIMG}" = "yes"
+then
+    rm -rf "${COMMONDIR}" || exit 1
+fi
 
 #### Create the rootfs patches ##########
 # Only process if there are previous rootfs files to diff against
 if ls "${RELEASES_DIR}/"*"_rootfs.squashfs" 1> /dev/null 2>&1; then
     # Calculate the current rootfs.squashfs md5sum
-    CURRENT_ROOTFS_MD5SUM=$(md5sum "${BINARIES_DIR}/rootfs.squashfs" | awk '{ print $1 }')
+    CURRENT_ROOTFS_MD5SUM="${KNULLI_ROOTFS_MD5}"
     for ROOTFS_TARGET in "${RELEASES_DIR}/"*"_rootfs.squashfs"
     do
         # ROOTFS_TARGET is in the form of md5sum_rootfs.squashfs. We need to extract the md5sum into a variable
@@ -156,16 +218,15 @@ else
 fi
 
 #### md5 and sha256 #######################
-for FILE in "${KNULLI_BINARIES_DIR}/images/"*"/knulli-"*"_boot.tar.gz" "${KNULLI_BINARIES_DIR}/images/"*"/knulli-"*".img.gz"
+# hash all files in parallel (several GB each), then collect the sums in order
+CKSFILES=("${KNULLI_BINARIES_DIR}/images/"*"/knulli-"*"_boot.tar.gz" "${KNULLI_BINARIES_DIR}/images/"*"/knulli-"*".img.gz")
+printf '%s\0' "${CKSFILES[@]}" | xargs -0 -n 1 -P "$(nproc)" sh -c 'md5sum "$1" | cut -d" " -f1 > "$1.md5" && sha256sum "$1" | cut -d" " -f1 > "$1.sha256"' sh || exit 1
+for FILE in "${CKSFILES[@]}"
 do
     echo "creating ${FILE}.md5"
-    CKS=$(md5sum "${FILE}" | sed -e s+'^\([^ ]*\) .*$'+'\1'+)
-    echo "${CKS}" > "${FILE}.md5"
-    echo "${CKS}  $(basename "${FILE}")" >> "${KNULLI_BINARIES_DIR}/MD5SUMS"
+    echo "$(cat "${FILE}.md5")  $(basename "${FILE}")" >> "${KNULLI_BINARIES_DIR}/MD5SUMS"
     echo "creating ${FILE}.sha256"
-    CKS=$(sha256sum "${FILE}" | sed -e s+'^\([^ ]*\) .*$'+'\1'+)
-    echo "${CKS}" > "${FILE}.sha256"
-    echo "${CKS}  $(basename "${FILE}")" >> "${KNULLI_BINARIES_DIR}/SHA256SUMS"
+    echo "$(cat "${FILE}.sha256")  $(basename "${FILE}")" >> "${KNULLI_BINARIES_DIR}/SHA256SUMS"
 done
 
 #### update the target dir with some information files
