@@ -1,0 +1,11 @@
+config BR2_PACKAGE_RAOFFLINEPROXY
+	bool "raofflineproxy"
+
+	help
+	  System integration for RAOfflineProxy, an offline proxy for
+	  RetroAchievements (offline achievement caching and casual unlock
+	  queueing). Ships the service file so the proxy can be toggled in
+	  EmulationStation. The app itself installs to /userdata via the
+	  RAOfflineProxy installer; the service is a no-op without it.
+
+	  https://github.com/misantronic/RAOfflineProxy
