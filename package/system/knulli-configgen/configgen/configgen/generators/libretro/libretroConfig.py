@@ -917,6 +917,35 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
     else:
         retroarchConfig['cheevos_enable'] = 'false'
 
+    # RAOfflineProxy: when the proxy service is listening and not disabled via
+    # retroachievements.proxy, route RetroAchievements through it. The proxy
+    # serves cached data offline, so cheevos stays enabled without internet.
+    # Casual-only by design: hardcore is forced off while routing through it.
+    try:
+        raop_port = 8080
+        try:
+            import json as raop_json
+            with open('/userdata/system/.config/raofflineproxy/config.json') as raop_fh:
+                raop_port = int(raop_json.load(raop_fh).get('proxy_port', 8080))
+        except Exception:
+            pass
+        import socket as raop_socket
+        raop_sock = raop_socket.socket(raop_socket.AF_INET, raop_socket.SOCK_STREAM)
+        raop_sock.settimeout(0.25)
+        raop_running = raop_sock.connect_ex(('127.0.0.1', raop_port)) == 0
+        raop_sock.close()
+        raop_wanted = system.isOptSet('retroachievements') and system.getOptBoolean('retroachievements') == True
+        raop_core_ok = (system.config['core'] in coreToRetroachievements) or (system.isOptSet('cheevos_force') and system.getOptBoolean('cheevos_force') == True)
+        raop_proxy_on = (not system.isOptSet('retroachievements.proxy')) or (system.getOptBoolean('retroachievements.proxy') == True)
+        if raop_running and raop_wanted and raop_core_ok and raop_proxy_on:
+            retroarchConfig['cheevos_enable'] = 'true'
+            retroarchConfig['cheevos_custom_host'] = '127.0.0.1:%s' % raop_port
+            retroarchConfig['cheevos_hardcore_mode_enable'] = 'false'
+        else:
+            retroarchConfig['cheevos_custom_host'] = ''
+    except Exception:
+        retroarchConfig['cheevos_custom_host'] = ''
+
     if system.isOptSet('integerscale') and system.getOptBoolean('integerscale') == True:
         retroarchConfig['video_scale_integer'] = 'true'
     else:
