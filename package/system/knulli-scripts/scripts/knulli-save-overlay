@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Disable saving overlay if in debug boot mode
+if [ -f /overlay/bootmode.debug ]; then
+    echo "Overlay save is disabled during debug boot."
+    exit 1
+fi
+
 # if you modify the root using mount -o remount,rw /
 # then, you need to save it using this script
 

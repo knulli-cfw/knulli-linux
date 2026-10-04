@@ -28,6 +28,11 @@ test -n "${FIND_CUSTOMESFEATURES}" && EXTRA=${EXTRA}f
 test -n "${FIND_CUSTOMSERVICES}"   && EXTRA=${EXTRA}u
 test -n "${FIND_PRO}"              && EXTRA=${EXTRA}p
 
+# Report debug boot mode for session
+if [ -f /overlay/bootmode.debug ]; then
+    EXTRA=debug
+fi
+
 if test "${1}" = "--extra"
 then
     if test -z "${EXTRA}"

@@ -357,6 +357,16 @@ case "${MODE}" in
     ;;
 esac
 
+# Boot with temporary userdata, keeping the original mounts available.
+if [ -f /overlay/bootmode.debug ]; then
+    mkdir -p /userdata.real
+
+    # Preserve the existing share, including RAM/fallback tmpfs and any submounts.
+    mount --move /userdata /userdata.real
+    mountRAMDisk
+    mkdir -p /userdata/system
+fi
+
 # filesystem compression
 compressenabled="$(/usr/bin/knulli-settings-get system.fscompression.enabled)"
 if [ "$compressenabled" = "1" ]

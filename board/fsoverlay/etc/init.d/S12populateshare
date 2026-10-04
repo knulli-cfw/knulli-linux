@@ -3,7 +3,9 @@
 if test "$1" != "start"
 then
     # call user script with stop condition
-    test -e /boot/postshare.sh && bash /boot/postshare.sh stop
+    if [ ! -f /overlay/bootmode.debug ]; then
+        test -e /boot/postshare.sh && bash /boot/postshare.sh stop
+    fi
     exit 0
 fi
 
@@ -182,8 +184,21 @@ ln -sf /userdata/system/machine-id /etc/machine-id
 # save to avoid to redo that all the times
 cp /usr/share/knulli/knulli.version /userdata/system/data.version
 
+# Populate defaults before exposing the user's ROMs and BIOS files.
+if [ -f /overlay/bootmode.debug ]; then
+    for DIR in roms bios saves
+    do
+        if [ -d "/userdata.real/${DIR}" ]; then
+            mkdir -p "${OUT}/${DIR}" || exit 1
+            mount --rbind "/userdata.real/${DIR}" "${OUT}/${DIR}" || exit 1
+        fi
+    done
+fi
+
 # call user script with start condition
-test -e /boot/postshare.sh && bash /boot/postshare.sh start
+if [ ! -f /overlay/bootmode.debug ]; then
+    test -e /boot/postshare.sh && bash /boot/postshare.sh start
+fi
 
 exit 0
 # END
