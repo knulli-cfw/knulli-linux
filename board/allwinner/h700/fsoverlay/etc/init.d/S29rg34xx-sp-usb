@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ "$1" != "start" ]; then
+    exit 0
+fi
+
+# USB host controllers 1/2/3 (ehci1-3/ohci1-3) are not physically wired on
+# this board - usbc1/2/3 in the devicetree carry usb_host_init_state=1 and
+# no drvvbus-supply regulator (only usbc0, the real OTG/charging port, has
+# one - see rg34xx-sp.dts), so nothing can ever be attached to them.
+BOARD=$(cat /boot/boot/knulli.board)
+if [ "$BOARD" = "rg34xx-sp" ]; then
+    [ -e /sys/bus/platform/drivers/sunxi-ohci/5200000.ohci1-controller ] && echo 5200000.ohci1-controller > /sys/bus/platform/drivers/sunxi-ohci/unbind 2>/dev/null
+    [ -e /sys/bus/platform/drivers/sunxi-ehci/5200000.ehci1-controller ] && echo 5200000.ehci1-controller > /sys/bus/platform/drivers/sunxi-ehci/unbind 2>/dev/null
+    [ -e /sys/bus/platform/drivers/sunxi-ohci/5310000.ohci2-controller ] && echo 5310000.ohci2-controller > /sys/bus/platform/drivers/sunxi-ohci/unbind 2>/dev/null
+    [ -e /sys/bus/platform/drivers/sunxi-ehci/5310000.ehci2-controller ] && echo 5310000.ehci2-controller > /sys/bus/platform/drivers/sunxi-ehci/unbind 2>/dev/null
+    [ -e /sys/bus/platform/drivers/sunxi-ohci/5311000.ohci3-controller ] && echo 5311000.ohci3-controller > /sys/bus/platform/drivers/sunxi-ohci/unbind 2>/dev/null
+    [ -e /sys/bus/platform/drivers/sunxi-ehci/5311000.ehci3-controller ] && echo 5311000.ehci3-controller > /sys/bus/platform/drivers/sunxi-ehci/unbind 2>/dev/null
+fi
