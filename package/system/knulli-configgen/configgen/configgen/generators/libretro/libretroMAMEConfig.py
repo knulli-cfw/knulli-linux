@@ -135,11 +135,23 @@ def generateMAMEConfigs(playersControllers: ControllerMapping, system: Emulator,
             # TI-99 32k RAM expansion & speech modules
             # Don't enable 32k by default
             if system.name == "ti99":
-                commandLine += [ "-ioport", "peb" ]
-                if system.isOptSet("ti99_32kram") and system.getOptBoolean("ti99_32kram"):
-                    commandLine += ["-ioport:peb:slot2", "32kmem"]
-                if not system.isOptSet("ti99_speech") or (system.isOptSet("ti99_speech") and system.getOptBoolean("ti99_speech")):
-                    commandLine += ["-ioport:peb:slot3", "speech"]
+                # The speech synthesizer attaches to the console I/O port
+                # ("-ioport speechsyn"); the Peripheral Expansion Box chains into
+                # the synth's "extport" pass-through (real-hardware topology). PEB
+                # cards such as the 32K RAM expansion live in the PEB slots.
+                # The previous layout ("-ioport peb -ioport:peb:slot3 speech") used
+                # a non-existent slot option ('speech' is not a PEB card; the synth
+                # is 'speechsyn' on the console ioport), so lr-mame failed to load
+                # the machine (and older builds segfaulted on the bad argument).
+                ti99_speech = not system.isOptSet("ti99_speech") or system.getOptBoolean("ti99_speech")
+                ti99_32kram = system.isOptSet("ti99_32kram") and system.getOptBoolean("ti99_32kram")
+                if ti99_speech:
+                    commandLine += ["-ioport", "speechsyn"]
+                    if ti99_32kram:
+                        commandLine += ["-ioport:speechsyn:extport", "peb",
+                                        "-ioport:speechsyn:extport:peb:slot2", "32kmem"]
+                elif ti99_32kram:
+                    commandLine += ["-ioport", "peb", "-ioport:peb:slot2", "32kmem"]
 
             #Laser 310 Memory Expansion & joystick
             if system.name == "laser310":

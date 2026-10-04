@@ -253,6 +253,7 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
     retroarchConfig['input_joypad_driver'] = 'udev'
     retroarchConfig['input_driver'] = 'udev'                    # driver for mouse/keyboard. udev required for guns.
     retroarchConfig['input_max_users'] = "16"                   # Allow up to 16 players
+    retroarchConfig['input_auto_game_focus'] = '2'              # Auto-enable Game Focus for keyboard cores (e.g. ti99/MAME computers) so keyboard/evmapy input reaches the core
 
     retroarchConfig['input_libretro_device_p1'] = '1'           # Default devices choices
     retroarchConfig['input_libretro_device_p2'] = '1'
