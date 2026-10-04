@@ -1,0 +1,34 @@
+--- a/grub-core/term/efi/console.c
++++ b/grub-core/term/efi/console.c
+@@ -204,6 +204,8 @@
+     GRUB_TERM_KEY_F10, GRUB_TERM_KEY_F11, GRUB_TERM_KEY_F12, GRUB_TERM_ESC
+   };
+ 
++#define GRUB_EFI_SCAN_SUSPEND 0x0102
++
+ static int
+ grub_efi_translate_key (grub_efi_input_key_t key)
+ {
+@@ -222,6 +224,9 @@
+   /* Some devices send enter with scan_code 0x0d (F3) and unicode_char 0x0d. */
+   else if (key.scan_code == '\r' && key.unicode_char == '\r')
+     return key.unicode_char;
++  /* Qualcomm firmware reports the power button as EFI_SCAN_SUSPEND. */
++  else if (key.scan_code == GRUB_EFI_SCAN_SUSPEND)
++    return '\r';
+   else if (key.scan_code < ARRAY_SIZE (efi_codes))
+     return efi_codes[key.scan_code];
+ 
+@@ -365,6 +370,12 @@
+   text_input = grub_efi_open_protocol(grub_efi_system_table->console_in_handler,
+ 				      &text_input_ex_guid,
+ 				      GRUB_EFI_OPEN_PROTOCOL_GET_PROTOCOL);
++
++  /* Discard keys queued by firmware before GRUB took over input.  This is
++     particularly important when the power button is also used as Enter. */
++  if (text_input)
++    text_input->reset (text_input, 0);
++
+   term->data = (void *)text_input;
+ 
+   return 0;
