@@ -1,0 +1,47 @@
+From 22452ffc2cb597c00cb4ad62b35ab1aeb337c733 Mon Sep 17 00:00:00 2001
+From: Marek Jalovec <marek.jalovec@gmail.com>
+Date: Tue, 6 Oct 2026 11:43:03 +0200
+Subject: [PATCH] PMF: Do not use optional PMF if the driver does not support
+ BIP
+
+wpas_get_ssid_pmf() already ignores the pmf=1 default when the driver
+does not support BIP, since the connection with PMF would fail. A network
+profile with ieee80211w=1 was not covered, so wpa_supplicant enabled PMF
+with an MFP-capable AP and the connection failed.
+
+ConnMan sets ieee80211w=1 for WPA2/WPA3-Personal transition mode networks,
+so devices whose driver does not support BIP (e.g., rtl8821cs) could not
+connect to these networks at all.
+
+Apply the same check to ieee80211w=1. PMF is optional for the network, so
+connect without it instead of failing.
+
+Signed-off-by: Marek Jalovec <marek.jalovec@gmail.com>
+---
+ wpa_supplicant/wpa_supplicant.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/wpa_supplicant/wpa_supplicant.c b/wpa_supplicant/wpa_supplicant.c
+index 037bfa3..8a45e24 100644
+--- a/wpa_supplicant/wpa_supplicant.c
++++ b/wpa_supplicant/wpa_supplicant.c
+@@ -8770,6 +8770,16 @@ int wpas_get_ssid_pmf(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid)
+ 		return wpa_s->conf->pmf;
+ 	}
+ 
++	if (ssid->ieee80211w == MGMT_FRAME_PROTECTION_OPTIONAL &&
++	    !(wpa_s->drv_enc & WPA_DRIVER_CAPA_ENC_BIP)) {
++		/*
++		 * Driver does not support BIP -- connect without PMF since the
++		 * connection with PMF would fail and the network does not
++		 * require it.
++		 */
++		return NO_MGMT_FRAME_PROTECTION;
++	}
++
+ 	return ssid->ieee80211w;
+ }
+ 
+-- 
+2.54.0 (Apple Git-157)
+
