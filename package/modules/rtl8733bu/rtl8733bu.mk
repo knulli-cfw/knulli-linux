@@ -4,16 +4,15 @@
 #
 # Used by the Miyoo Flip (USB combo chip 0bda:b733 / 0bda:f72b). The WiFi side
 # is NOT in mainline nor in our rockchip BSP (only rkwifi/bcmdhd is vendored
-# there); the BT side is handled by in-tree btusb. Source is vendored from the
+# there); the BT side is handled by in-tree btusb. Source is taken from the
 # GammaOS BSP kernel tree (supports up to kernel 6.9, builds clean against 6.1).
 # cfg80211/nl80211 mode is the driver default (drv_conf.h defines
 # CONFIG_IOCTL_CFG80211) -> registers a proper wiphy, works with connman.
 #
 ################################################################################
 
-RTL8733BU_VERSION = 1.0
-RTL8733BU_SITE = $(BR2_EXTERNAL_KNULLI_PATH)/package/modules/rtl8733bu/src
-RTL8733BU_SITE_METHOD = local
+RTL8733BU_VERSION = 49f8481f6da77183972a07df248d14db0c485316
+RTL8733BU_SITE = $(call github,knulli-cfw,rtl8733bu,$(RTL8733BU_VERSION))
 RTL8733BU_LICENSE = GPL-2.0
 RTL8733BU_LICENSE_FILES = LICENSE
 RTL8733BU_DEPENDENCIES = linux
