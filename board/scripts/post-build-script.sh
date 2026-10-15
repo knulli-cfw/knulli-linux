@@ -49,6 +49,7 @@ rm -f "${TARGET_DIR}/etc/init.d/S25silky-rgb" || exit 1
 rm -f "${TARGET_DIR}/etc/pm/sleep.d/99-postresume-jsled" || exit 1
 rm -f "${TARGET_DIR}/usr/bin/knulli-settings-set-queue" || exit 1
 rm -f "${TARGET_DIR}/usr/share/emulationstation/scripts/powermanagement-changed/refresh-battery-state.sh" || exit 1
+rm -f "${TARGET_DIR}/etc/batteryplus/discharging.d/00shutdown" || exit 1
 
 # Remove base batocera init scripts we don't need
 rm -f "${TARGET_DIR}/etc/init.d/S50kodi" || exit 1

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+STATUS_FILE="/tmp/battery.status"
+
+[ "$1" = "0" ] || exit 0
+
+TIMEOUT=30
+
+is_discharging() {
+    [ "$(cat "$STATUS_FILE" 2>/dev/null)" = "Discharging" ]
+}
+
+# Only run while discharging
+if ! is_discharging; then
+    exit 0
+fi
+
+# Start critical LED blinking
+if knulli-board-capability "pwrled"; then
+    /usr/bin/knulli-power-led critical &
+fi
+
+# Wait for the charge state to change or for the timeout to expire
+inotifywait -q -t "$TIMEOUT" -e close_write "$STATUS_FILE" >/dev/null 2>&1
+
+# Shut down if we're still discharging after the timeout
+if is_discharging; then
+    knulli-shutdown -s
+fi
+
+exit 0
