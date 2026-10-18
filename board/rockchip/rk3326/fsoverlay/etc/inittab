@@ -9,6 +9,11 @@ si0::sysinit:/bin/mount -t proc proc /proc
 si2::sysinit:/bin/mkdir -p /dev/pts
 si3::sysinit:/bin/mkdir -p /dev/shm
 si4::sysinit:/bin/mount -a
+# fstab mounts an empty tmpfs over /var: recreate what the init scripts write
+# to before rcS runs (batocera links /var/run from its rcS; knulli's per-board
+# rcS copies dropped that, and nothing ever made /var/log or /var/lib/dbus)
+si7::sysinit:/bin/sh -c '[ -e /var/run ] || ln -s /run /var/run'
+si8::sysinit:/bin/mkdir -p /var/log /var/lib/dbus /var/tmp
 si5::sysinit:/bin/hostname -F /etc/hostname
 si6::sysinit:/etc/init.d/rcS
 

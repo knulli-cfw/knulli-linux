@@ -1,0 +1,104 @@
+Rotate evdev touch with the KMSDRM librga frame rotation
+
+diff --git a/src/core/linux/SDL_evdev.c b/src/core/linux/SDL_evdev.c
+index 910b7a0..faa45b8 100644
+--- a/src/core/linux/SDL_evdev.c
++++ b/src/core/linux/SDL_evdev.c
+@@ -32,6 +32,7 @@
+ #include "SDL_evdev.h"
+ #include "SDL_evdev_kbd.h"
+ 
++#include <stdio.h>
+ #include <sys/stat.h>
+ #include <unistd.h>
+ #include <fcntl.h>
+@@ -304,6 +305,81 @@ int SDL_EVDEV_GetDeviceCount(int device_class)
+     return count;
+ }
+ 
++/*
++ * KMSDRM rotates the whole frame with librga (SDL_KMSDRM_ORIENTATION, else
++ * fbcon=rotate: on the kernel command line; clockwise, as in the kmsdrm
++ * driver), but a touchscreen keeps reporting panel coordinates.  Rotate
++ * them back into the window's frame so fingers and the synthesized mouse
++ * land where the picture is.  SDL_EVDEV_TOUCH_ROTATION (0-3) overrides it.
++ */
++static int SDL_EVDEV_GetTouchRotation(void)
++{
++    static int rotation = -1;
++    const char *driver, *env;
++    char cmdline[4096];
++    FILE *fp;
++
++    if (rotation >= 0) {
++        return rotation;
++    }
++
++    /* Only the KMSDRM driver rotates; wait until it is up before caching. */
++    driver = SDL_GetCurrentVideoDriver();
++    if (!driver) {
++        return 0;
++    }
++    rotation = 0;
++    if (SDL_strcmp(driver, "KMSDRM") != 0) {
++        return rotation;
++    }
++
++    env = SDL_getenv("SDL_EVDEV_TOUCH_ROTATION");
++    if (!env || !*env) {
++        env = SDL_getenv("SDL_KMSDRM_ORIENTATION");
++    }
++    if (env && *env) {
++        rotation = SDL_clamp(SDL_atoi(env), 0, 3);
++        return rotation;
++    }
++
++    fp = fopen("/proc/cmdline", "r");
++    if (fp) {
++        if (fgets(cmdline, sizeof(cmdline), fp)) {
++            const char *p = SDL_strstr(cmdline, "fbcon=rotate:");
++            if (p) {
++                rotation = SDL_clamp(SDL_atoi(p + 13), 0, 3);
++            }
++        }
++        fclose(fp);
++    }
++
++    return rotation;
++}
++
++static void SDL_EVDEV_RotateTouch(float *x, float *y)
++{
++    float t;
++
++    switch (SDL_EVDEV_GetTouchRotation()) {
++    case 1: /* frame turned 90 degrees clockwise */
++        t = *x;
++        *x = *y;
++        *y = 1.0f - t;
++        break;
++    case 2:
++        *x = 1.0f - *x;
++        *y = 1.0f - *y;
++        break;
++    case 3: /* frame turned 270 degrees clockwise */
++        t = *x;
++        *x = 1.0f - *y;
++        *y = t;
++        break;
++    default:
++        break;
++    }
++}
++
+ void SDL_EVDEV_Poll(void)
+ {
+     struct input_event events[32];
+@@ -519,6 +595,7 @@ void SDL_EVDEV_Poll(void)
+                                      (float)item->touchscreen_data->range_x;
+                             norm_y = (float)(item->touchscreen_data->slots[j].y - item->touchscreen_data->min_y) /
+                                      (float)item->touchscreen_data->range_y;
++                            SDL_EVDEV_RotateTouch(&norm_x, &norm_y);
+ 
+                             if (item->touchscreen_data->range_pressure > 0) {
+                                 norm_pressure = (float)(item->touchscreen_data->slots[j].pressure - item->touchscreen_data->min_pressure) /
