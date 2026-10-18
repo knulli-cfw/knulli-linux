@@ -1,0 +1,69 @@
+wayland: size a turned output with its transform applied
+
+diff --git a/input/common/wayland_common.c b/input/common/wayland_common.c
+index e5e523f..4075b6d 100644
+--- a/input/common/wayland_common.c
++++ b/input/common/wayland_common.c
+@@ -668,6 +668,25 @@ static void xdg_surface_handle_configure(
+     xdg_surface_ack_configure(surface, serial);
+ }
+ 
++/* width/height are the output's size as a client sees it: a panel turned by
++ * a quarter (WL_OUTPUT_TRANSFORM_90/270 and their flipped forms, the odd
++ * values) is laid out with its mode's dimensions swapped.  Without this a
++ * fullscreen window starts at the panel's native size and is squeezed into
++ * the turned output until the compositor's configure resizes it. */
++static void wl_output_update_size(output_info_t *oi)
++{
++   if (oi->transform & 1)
++   {
++      oi->width  = oi->mode_height;
++      oi->height = oi->mode_width;
++   }
++   else
++   {
++      oi->width  = oi->mode_width;
++      oi->height = oi->mode_height;
++   }
++}
++
+ static void wl_output_handle_geometry(void *data,
+       struct wl_output *output,
+       int x, int y,
+@@ -682,6 +701,8 @@ static void wl_output_handle_geometry(void *data,
+    oi->physical_height = physical_height;
+    oi->make            = strdup(make);
+    oi->model           = strdup(model);
++   oi->transform       = transform;
++   wl_output_update_size(oi);
+ }
+ 
+ static void wl_output_handle_mode(void *data,
+@@ -692,9 +713,10 @@ static void wl_output_handle_mode(void *data,
+       int refresh)
+ {
+    output_info_t *oi = (output_info_t*)data;
+-   oi->width         = width;
+-   oi->height        = height;
++   oi->mode_width    = width;
++   oi->mode_height   = height;
+    oi->refresh_rate  = refresh;
++   wl_output_update_size(oi);
+ }
+ 
+ static void wl_output_handle_done(void *data, struct wl_output *output) { }
+diff --git a/input/common/wayland_common.h b/input/common/wayland_common.h
+index 7f685b6..df8d9a4 100644
+--- a/input/common/wayland_common.h
++++ b/input/common/wayland_common.h
+@@ -86,6 +86,10 @@ typedef struct output_info
+    uint32_t global_id;
+    unsigned width;
+    unsigned height;
++   /* The output's mode as sent, before the transform is applied. */
++   unsigned mode_width;
++   unsigned mode_height;
++   int transform;
+    unsigned physical_width;
+    unsigned physical_height;
+    unsigned scale;
