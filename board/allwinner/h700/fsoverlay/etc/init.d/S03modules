@@ -1,6 +1,27 @@
 #!/bin/sh
 
-#insmod /lib/modules/mali_kbase.ko
-insmod /lib/modules/4.9.170/kernel/drivers/net/wireless/rtl8821cs/8821cs.ko
-#insmod /lib/modules/4.9.170/kernel/drivers/bluetooth/bcm_btlpm.ko
-insmod /lib/modules/4.9.170/kernel/drivers/bluetooth/rtl_btlpm.ko
+# The rtl8821cs efuse carries no MAC and the driver's fallback file
+# (/data/wifimac.txt) does not exist, so it picked a random one every boot.
+# Derive a stable, locally administered MAC from the SoC serial instead: the
+# vendor U-Boot passed it as snum=; with extlinux there is no snum=, so build
+# the same string from the chip id in sysfs (U-Boot prints words 1..3 of the
+# SID as %x%x%x, the first one shifted down 16 bits).  Without either the
+# driver keeps its old behaviour.
+wifi_mac() {
+    snum=$(sed -n 's/.*\bsnum=\([0-9a-fA-F]*\).*/\1/p' /proc/cmdline)
+    if [ -z "${snum}" ]; then
+        chipid=$(sed -n 's/^sunxi_chipid *: *//p' /sys/class/sunxi_info/sys_info 2>/dev/null)
+        [ ${#chipid} -eq 32 ] && snum=$(printf '%x%x%x' \
+            $(( 0x$(echo "${chipid}" | cut -c9-16) >> 16 )) \
+            0x$(echo "${chipid}" | cut -c17-24) 0x$(echo "${chipid}" | cut -c25-32))
+    fi
+    [ -n "${snum}" ] || return 1
+    h=$(printf 'wlan0:%s' "${snum}" | md5sum | cut -c1-12)
+    b0=$(( (0x$(echo "${h}" | cut -c1-2) & 0xfc) | 0x02 ))
+    printf '%02x:%s\n' "${b0}" "$(echo "${h}" | cut -c3-12 | sed 's/../&:/g; s/:$//')"
+}
+
+# No IPS/LPS: waking the chip over SDIO times out on this host and the
+# driver then declares the card removed (bSurpriseRemoved floods).
+MAC=$(wifi_mac)
+modprobe 8821cs rtw_ips_mode=0 rtw_power_mgnt=0 ${MAC:+rtw_initmac=${MAC}}

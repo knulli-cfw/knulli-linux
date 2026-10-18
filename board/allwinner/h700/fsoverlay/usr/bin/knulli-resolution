@@ -1,7 +1,8 @@
 #!/bin/sh
 
 DISPLAY="/sys/kernel/debug/dispdbg"
-HDMI_STATE="/sys/devices/platform/soc/6000000.hdmi/extcon/hdmi/state"
+# soc on the vendor 4.9 kernel, soc@3000000 on 5.4
+HDMI_STATE=$(ls /sys/devices/platform/soc*/6000000.hdmi/extcon/*/state 2>/dev/null | head -n 1)
 read -r BOARD < "/boot/boot/knulli.board"
 
 f_usage() {
@@ -57,10 +58,15 @@ set_output() {
             esac
             ;;
         internal)
-            echo "disp0" > "$DISPLAY/name"
-            echo "switch" > "$DISPLAY/command"
-            echo "1 0" > "$DISPLAY/param"
-            echo 1 > "$DISPLAY/start"
+            # switching tears the lcd down and brings it back up; skip it when
+            # the panel is already the active output
+            if ! grep -q "lcd output" /sys/class/disp/disp/attr/sys 2>/dev/null; then
+                { date; echo "switch to lcd by pid $$ (parent $(cat /proc/$PPID/comm 2>/dev/null))"; cat /sys/class/disp/disp/attr/sys; } >> /tmp/knulli-resolution.log 2>&1
+                echo "disp0" > "$DISPLAY/name"
+                echo "switch" > "$DISPLAY/command"
+                echo "1 0" > "$DISPLAY/param"
+                echo 1 > "$DISPLAY/start"
+            fi
 
             case "$BOARD" in
                 rg28xx)
@@ -94,7 +100,8 @@ case "${ACTION}" in
     "listModes")
         ;;
     "setOutput")
-        read -r STATE < "$HDMI_STATE"
+        STATE=
+        [ -n "$HDMI_STATE" ] && read -r STATE < "$HDMI_STATE"
         if [ "$STATE" = "HDMI=1" ]; then
             set_output hdmi
         else

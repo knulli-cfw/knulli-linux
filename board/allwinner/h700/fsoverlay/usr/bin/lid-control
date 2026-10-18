@@ -14,7 +14,7 @@ fi
 
 trap 'flock -u 200;' EXIT
 
-HDMI_STATE_FILE="/sys/devices/platform/soc/6000000.hdmi/extcon/hdmi/state"
+HDMI_STATE_FILE=$(ls /sys/devices/platform/soc*/6000000.hdmi/extcon/*/state 2>/dev/null | head -n 1)
 FLAG_FILE="/var/run/lcd_off.flag"
 
 # Sets a default if not already set

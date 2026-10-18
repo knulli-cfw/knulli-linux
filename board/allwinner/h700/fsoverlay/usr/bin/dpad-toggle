@@ -5,7 +5,14 @@ if knulli-board-capability "analogstick"; then
     exit 1
 fi
 
-DPAD_STATE_FILE="/sys/class/power_supply/axp2202-battery/nds_pwrkey"
+# rk3566: the D-pad<->virtual-stick toggle is exposed by the singleadc-joypad
+# driver (boards that opt in via the "rocknix,dpad-joystick" DT prop, e.g. the
+# RG ARC-S). 0 = D-pad (BTN_DPAD_*), 1 = emulated left analog stick (ABS_X/Y).
+DPAD_STATE_FILE=$(ls /sys/devices/platform/*joypad*/dpad_mode 2>/dev/null | head -1)
+
+# Bail out on boards that don't expose the toggle (no-op safety).
+[ -w "$DPAD_STATE_FILE" ] || exit 1
+
 STATE=$(cat "$DPAD_STATE_FILE")
 
 check_ingame() {
@@ -27,7 +34,7 @@ if [ "${STATE}" -eq 0 ]; then
     do_notification "Virtual Joystick ON"
 
     knulli-rumble 0.1
-    echo 2 > "$DPAD_STATE_FILE"
+    echo 1 > "$DPAD_STATE_FILE"
 else
     do_notification "Virtual Joystick OFF"
 
