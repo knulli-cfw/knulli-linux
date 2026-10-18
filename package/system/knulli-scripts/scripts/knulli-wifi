@@ -1,15 +1,40 @@
 #!/bin/sh
 
+export LC_ALL=C
+
 notify() {
     [ -n "$1" ] && curl -s http://localhost:1234/notify -d "$1" >/dev/null
 }
 
 do_help() {
-    echo "$0 scanlist\n$0 list" >&2
+    echo "$0 scanlist" >&2
+    echo "$0 list" >&2
+    echo "$0 connected" >&2
+    echo "$0 start" >&2
+    echo "$0 enable [ssid key [country]]" >&2
+    echo "$0 disable" >&2
+    echo "$0 configure" >&2
+    echo "$0 connect ssid" >&2
+    echo "$0 get_route" >&2
+    echo "$0 get_interface" >&2
+    echo "$0 has_ap_mode" >&2
 }
 
 do_list() {
     connmanctl services | sed 's/^...[ ]*//' | awk -F '[ ]*[ ]wifi_[[:alnum:]]*_' '{if (NF==2) print $1}' | sort -u # remove duplicates (a single wifi can appear under 2 interfaces)
+}
+
+do_connected() {
+    connmanctl services 2>/dev/null |
+        awk '
+            substr($0, 3, 1) ~ /^[RO]$/ && $NF ~ /^wifi_[[:alnum:]_]+$/ {
+                name = substr($0, 4)
+                sub(/^[[:space:]]+/, "", name)
+                sub(/[[:space:]]+wifi_[[:alnum:]_]+$/, "", name)
+                print name
+                exit
+            }
+        '
 }
 
 do_scanlist() {
@@ -47,6 +72,67 @@ wait_for_ip() {
     fi
 }
 
+connect_wifi() {
+    local ssid="$1"
+    local ssid_hex
+    local services
+    local service
+    local candidate
+    local strength
+    local attempt
+
+    [ -n "$ssid" ] || return 1
+
+    /etc/init.d/S08connman configure || return 1
+    connmanctl scan wifi >/dev/null 2>&1
+    sleep 1
+
+    ssid_hex="$(printf '%s' "$ssid" | od -An -v -tx1 | tr -d ' \n')"
+
+    services="$(
+        connmanctl services 2>/dev/null |
+            awk -v ssid="$ssid_hex" '
+                {
+                    id = $NF
+                    split(id, parts, "_")
+                    if (parts[1] == "wifi" && parts[3] == ssid)
+                        print id
+                }
+            '
+    )"
+
+    [ -n "$services" ] || return 1
+
+    # Choose the strongest signal if more than one service matches.
+    service="$(
+        for candidate in $services; do
+            strength="$(
+                connmanctl services "$candidate" 2>/dev/null |
+                    awk '$1 == "Strength" && $2 == "=" {print $3; exit}'
+            )"
+            printf '%s %s\n' "${strength:-0}" "$candidate"
+        done |
+            sort -rn |
+            awk 'NR == 1 {print $2}'
+    )"
+
+    connmanctl connect "$service" >/dev/null 2>&1
+
+    # Wait for the selected Wi-Fi network to connect.
+    attempt=0
+    while [ "$attempt" -lt 20 ]; do
+        if connmanctl services "$service" 2>/dev/null |
+            grep -qE '^[[:space:]]*State[[:space:]]*=[[:space:]]*(ready|online)[[:space:]]*$'; then
+            return 0
+        fi
+
+        attempt=$((attempt + 1))
+        sleep 0.5
+    done
+
+    return 1
+}
+
 get_route() {
     echo $(ip route show default | awk '/^default/ && $0 ~ /wl/ { print $3 }')
 }
@@ -77,21 +163,32 @@ case "${ACTION}" in
     "list")
         do_list
         ;;
+    "connected")
+        do_connected
+        ;;
     "scanlist")
         do_scanlist
         ;;
     "start")
         /etc/init.d/S08connman restart
         ;;
+    "configure")
+        # provision the saved networks without restarting connman
+        /etc/init.d/S08connman configure
+        ;;
+    "connect")
+        connect_wifi "$1"
+        ;;
     "enable")
         knulli-settings-set wifi.enabled 1
-        # es passes a third country argument when one is chosen; an empty one
-        # means "not set" and must not overwrite what is already stored
+
         if [ $# -ge 2 ]; then
             knulli-settings-set wifi.ssid "$1"
             knulli-settings-set wifi.key "$2"
         fi
-        if [ $# -ge 3 ] && [ -n "$3" ]; then
+
+        # An empty country clears the saved setting.
+        if [ $# -ge 3 ]; then
             knulli-settings-set wifi.country "$3"
         fi
         /etc/init.d/S08connman reload
@@ -125,5 +222,3 @@ case "${ACTION}" in
         exit 1
         ;;
 esac
-
-exit 0
