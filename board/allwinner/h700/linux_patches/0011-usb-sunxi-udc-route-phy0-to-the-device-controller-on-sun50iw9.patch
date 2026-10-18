@@ -1,0 +1,22 @@
+usb: sunxi udc: route PHY0 to the device controller on sun50iw9
+
+open_usb_clock() switches the shared PHY0 mux (0x5100420 bit 0) to the
+device controller only on a list of SoCs that lacks sun50iw9; U-Boot
+uses the port as a host and leaves the mux on the EHCI side, so the
+UDC came up enabled and armed with the PHY belonging to ehci0.
+
+--- a/drivers/usb/sunxi_usb/udc/sunxi_udc_board.c
++++ b/drivers/usb/sunxi_usb/udc/sunxi_udc_board.c
+@@ -113,8 +113,10 @@
+ 	|| defined(CONFIG_ARCH_SUN8IW17) || defined(CONFIG_ARCH_SUN8IW18) \
+ 	|| defined(CONFIG_ARCH_SUN8IW16) || defined(CONFIG_ARCH_SUN8IW19) \
+ 	|| defined(CONFIG_ARCH_SUN8IW8) || defined(CONFIG_ARCH_SUN8IW20)\
+-	|| defined(CONFIG_ARCH_SUN20IW1) || defined(CONFIG_ARCH_SUN50IW12)
+-	/* otg and hci0 Controller Shared phy in SUN50I and SUN8IW10 */
++	|| defined(CONFIG_ARCH_SUN20IW1) || defined(CONFIG_ARCH_SUN50IW12) \
++	|| defined(CONFIG_ARCH_SUN50IW9)
++	/* otg and hci0 Controller Shared phy in SUN50I and SUN8IW10;
++	 * sun50iw9 too, and U-Boot leaves the mux on the hci side */
+ 	USBC_SelectPhyToDevice(sunxi_udc_io->usb_vbase);
+ #endif
+ 

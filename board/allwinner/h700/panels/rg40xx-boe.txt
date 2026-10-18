@@ -1,0 +1,103 @@
+# rg40xx-boe: panel init sequence of the Anbernic rg40xx-h and rg40xx-v vendor U-Boot, boe (PE6 low).
+# Decoded from u-boot.bin (board/allwinner/h700/scripts/vendorseq.py); one command per line as
+# "cmd data...", "wait <hex ms>" for mdelay.  Sent over the bit-banged 3-wire SPI.
+d7 61 74 97
+d0 10
+60 ff
+61 ff
+62 ff
+63 ff
+64 ff
+65 ff
+66 ff
+67 ff
+68 ff
+69 ff
+6a ff
+6b ff
+6c ff
+6d ff
+6e ff
+6f ff
+a9 13
+a8 0c
+f5 b2
+fd 66
+9d 8e
+a5 00
+a6 c0 80
+7a 25
+7b 76
+88 32
+b8 01 df
+b7 30
+b5 80
+92 14 0e 20 20 0f
+ad 88
+d0 11
+60 ff
+61 ff
+62 ff
+63 ff
+64 ff
+65 ff
+66 ff
+67 ff
+68 ff
+69 ff
+6a ff
+6b ff
+6c ff
+6d ff
+b8 0f
+b9 ff
+ba 8f
+b3 3f 3f 36 37 3e 01 34 28 29 0d 0d 0f 0f 09 09 0b 0b 3f 3f 3f 3f 3f 3f 3f 36 37 3e 00 34 28 29 0c 0c 0e 0e 08 08 0a 0a 3f 3f 3f 3f 3f
+b7 07
+bc 00 0e
+a0 30 05 69 69 30 07 69 69
+a1 30 07 69 69 30 05 69 69
+a3 30 00 69 69 30 00 01 f3 69 69
+a7 33 69 69 69 69
+a8 00 07 01 ef 00 00 07 01 ef 00
+a4 3c 01 f6 01 f6 69 69
+b0 33 11 33 22 33 33 f0
+c3 1b
+e5 06 0a
+f8 29
+ac c1
+f4 ff
+f5 00
+f6 ff
+f7 00
+e4 e6
+d0 12
+80 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+81 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+82 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+83 03 50 03 5a 03 68 03 90 03 e0 03 e4
+84 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+85 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+86 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+87 03 50 03 5a 03 68 03 90 03 e0 03 e4
+88 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+89 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+8a 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+8b 03 50 03 5a 03 68 03 90 03 e0 03 e4
+90 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+91 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+92 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+93 03 50 03 5a 03 68 03 90 03 ee 03 ff
+94 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+95 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+96 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+97 03 50 03 5a 03 68 03 90 03 ee 03 ff
+98 00 26 00 28 00 3e 00 55 00 70 00 8a 00 9d 00 b1
+99 00 c8 00 ef 01 1a 01 43 01 66 01 9c 01 d0 01 d2
+9a 02 05 02 4f 02 80 02 bf 02 e9 03 1d 03 32 03 40
+9b 03 50 03 5a 03 68 03 90 03 ee 03 ff
+36 02
+3a 70
+11 00
+wait 78
+29 00

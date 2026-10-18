@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Mali devfreq policy.  kbase's utilisation metric on this platform never
+# reaches simple_ondemand's threshold, so the GPU would idle at 240 MHz for
+# good; run it at the top OPP like the vendor kernel did.
+#
+G=/sys/class/devfreq/1800000.gpu
+
+case "$1" in
+    start)
+        [ -d "$G" ] || exit 0
+        if grep -q performance "$G/available_governors"; then
+            echo performance > "$G/governor"
+        else
+            cat "$G/max_freq" > "$G/min_freq"
+        fi
+        [ -w "$G/device/pm_poweroff" ] && echo "400000 125 0" > "$G/device/pm_poweroff"
+        ;;
+    stop|restart|reload)
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+exit 0

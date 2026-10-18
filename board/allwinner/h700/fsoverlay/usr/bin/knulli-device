@@ -1,0 +1,106 @@
+#!/bin/sh
+# One image for every H700 board: /boot/knulli.device names the board, the
+# extlinux "default" and knulli.board follow it.  Without it the image boots
+# the "select" device tree (every panel as a node, no board specifics) and
+# knulli-devsel lets the user switch panels live (d-pad) until one is
+# readable, then pick the device; one reboot into the real device tree
+# follows.  Writing the file by hand is the manual route.  Run from rcS
+# before the charger and the init scripts: it must block, and it may reboot.
+PANELS=/usr/share/knulli/h700-panels.conf
+UBOOTENV=/boot/knulli.env
+DEVICES=/usr/share/knulli/h700-devices.conf
+DEVFILE=/boot/knulli.device
+EXTLINUX=/boot/extlinux/extlinux.conf
+BOARD=/boot/boot/knulli.board
+
+[ -f "$DEVICES" ] && [ -f "$EXTLINUX" ] || exit 0
+
+booted=$(tr -d '\0' < /proc/device-tree/knulli,device 2>/dev/null)
+[ -n "$booted" ] || exit 0
+
+set_default() {
+    mount -o remount,rw /boot
+    sed -i "s/^default .*/default $1/" "$EXTLINUX"
+    sync
+}
+
+# a big-endian u32 device tree property as a number
+dt_u32() {
+    set -- $(od -An -tu1 "$1" 2>/dev/null)
+    [ $# -eq 4 ] && echo $(( ($1 << 24) | ($2 << 16) | ($3 << 8) | $4 ))
+}
+
+# /boot/knulli.env: what U-Boot needs to bring the panel up and show the
+# logo before the kernel (knulli_disp): the board, for its DTB, and the logo
+# for its resolution (the vendor lcd0 copy the "lcd0" alias names).
+# $2 = WxH when the booted tree is not the board's (first boot, select tree)
+write_uboot_env() {
+    if [ -n "$2" ]; then
+        dims=$2
+    else
+        lcd=/proc/device-tree$(tr -d '\0' < /proc/device-tree/aliases/lcd0 2>/dev/null)
+        w=$(dt_u32 "$lcd/lcd_x"); h=$(dt_u32 "$lcd/lcd_y")
+        [ -n "$w" ] && [ -n "$h" ] || return 0
+        dims=${w}x${h}
+    fi
+    [ -f "/boot/bootlogo-${dims}.bmp" ] || return 0
+    env="knulli_device=$1
+knulli_logo=bootlogo-${dims}.bmp"
+    [ "$(cat "$UBOOTENV" 2>/dev/null)" = "$env" ] && return 0
+    mount -o remount,rw /boot
+    echo "$env" > "$UBOOTENV"
+    sync
+}
+
+# Screen off first (the panel keeps the last frame until the kernel goes),
+# and no restart.flag: this reboot is part of the first boot, the charger
+# must still run on the boot that follows it.
+do_reboot() {
+    knulli-brightness dispoff >/dev/null 2>&1
+    mount -o remount,rw /boot
+    rm -f /boot/restart.flag
+    sync
+    reboot
+}
+
+if [ -f "$DEVFILE" ]; then
+    wanted=$(tr -d ' \r\n' < "$DEVFILE")
+    if [ "$wanted" != "$booted" ] && grep -q "^label $wanted\$" "$EXTLINUX"; then
+        echo "knulli-device: $DEVFILE says $wanted, booted $booted: switching"
+        set_default "$wanted"
+        do_reboot
+        exit 0
+    fi
+    [ "$(cat "$BOARD" 2>/dev/null)" = "$booted" ] || {
+        mount -o remount,rw /boot; echo "$booted" > "$BOARD"; sync; }
+    write_uboot_env "$booted"
+    exit 0
+fi
+
+if [ "$booted" != "select" ]; then
+    # a device tree picked by hand in extlinux: record it
+    mount -o remount,rw /boot
+    echo "$booted" > "$DEVFILE"
+    echo "$booted" > "$BOARD"
+    sync
+    exit 0
+fi
+
+# first boot: ask.  No U-Boot logo until a board is chosen (a stale env
+# would light a panel the select tree does not describe).
+[ -f "$UBOOTENV" ] && { mount -o remount,rw /boot; rm -f "$UBOOTENV"; sync; }
+chosen=$(knulli-devsel "$PANELS" "$DEVICES" 2>/tmp/knulli-devsel.log)
+if [ $? -eq 0 ] && [ -n "$chosen" ]; then
+    mount -o remount,rw /boot
+    echo "$chosen" > "$DEVFILE"
+    echo "$chosen" > "$BOARD"
+    sed -i "s/^default .*/default $chosen/" "$EXTLINUX"
+    sync
+    # the logo from U-Boot already on the boot into the board's tree
+    dims=$(awk -F'|' -v d="$chosen" '!/^#/ && index(","$5",", ","d",") {print $3; exit}' "$PANELS")
+    write_uboot_env "$chosen" "$dims"
+    do_reboot
+else
+    echo "knulli-device: knulli-devsel failed, staying on $booted"
+fi
+exit 0

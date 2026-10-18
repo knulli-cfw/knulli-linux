@@ -1,0 +1,19 @@
+cpufreq: sun50i-cpufreq-nvmem: map the H700 speed bin 0x6c00 to a5
+
+The H700 fuses 0x6c00, which this driver does not know and so falls
+back to bin a0.  Mainline maps it to speed bin 5 with its own voltage
+set (see the a5 entries in the board DTS).
+
+--- a/drivers/cpufreq/sun50i-cpufreq-nvmem.c
++++ b/drivers/cpufreq/sun50i-cpufreq-nvmem.c
+@@ -122,6 +122,10 @@
+ 	case 0x5c00:
+ 		value = 4;
+ 		break;
++	case 0x6c00:
++		/* H700, as mainline's speed5 */
++		value = 5;
++		break;
+ 	case 0x5d00:
+ 	default:
+ 		value = 0;

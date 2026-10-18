@@ -1,0 +1,52 @@
+# rg28xx: panel init sequence of the Anbernic rg28xx vendor U-Boot, single panel.
+# Decoded from u-boot.bin (board/allwinner/h700/scripts/vendorseq.py); one command per line as
+# "cmd data...", "wait <hex ms>" for mdelay.  Sent over the bit-banged 3-wire SPI.
+ff 77 01 00 00 13
+ef 08
+ff 77 01 00 00 10
+c0 4f 00
+c1 10 02
+c2 07 02
+c3 02 10 02
+c7 04
+cc 10
+b0 00 10 17 0d 11 06 05 08 07 1f 04 11 0e 29 30 1f
+b1 00 0d 14 0e 11 06 04 08 08 20 05 13 13 26 30 1f
+ff 77 01 00 00 11
+b0 65
+b1 71
+b2 87
+b3 80
+b5 4d
+b7 85
+b8 20
+c1 78
+c2 78
+d0 88
+ee 42
+e0 00 00 02
+e1 04 a0 06 a0 05 a0 07 a0 00 44 44
+e2 00 00 00 00 00 00 00 00 00 00 00 00
+e3 00 00 22 22
+e4 44
+e5 0c 90 a0 a0 0e 92 a0 a0 08 8c a0 a0 0a 8e a0 a0
+e6 00 00 22 22
+e7 44 44
+e8 0d 91 a0 a0 0f 93 a0 a0 09 8d a0 a0 0b 8f a0 a0
+eb 00 00 e4 e4 44 00 40
+ed ff f5 47 6f 0b a1 ba ff ff ab 1a b0 f6 74 5f ff
+ef 08 08 08 45 3f 54
+ff 77 01 00 00 00
+ff 77 01 00 00 13
+e6 16
+e8 00 0e
+ff 77 01 00 00 00
+36 10
+11
+wait 78
+ff 77 01 00 00 13
+e8 00 0c
+wait 0a
+e8 00 00
+ff 77 01 00 00 00
+29

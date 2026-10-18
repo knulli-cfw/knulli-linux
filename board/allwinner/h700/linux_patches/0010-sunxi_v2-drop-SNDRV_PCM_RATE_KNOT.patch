@@ -1,0 +1,45 @@
+ASoC: sunxi_v2: drop SNDRV_PCM_RATE_KNOT from the aaudio and codec DAIs
+
+Neither DAI installs a rate constraint list, so KNOT left the rate
+interval unbounded and pipewire's probe reached the machine hw_params
+with rate INT_MAX ("Invalid rate 2147483647").  8000-192000 is what the
+machine driver handles anyway.
+
+diff --git a/sound/soc/sunxi_v2/snd_sun50iw9_codec.c b/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
+index 5af92d6b0..ca7c7de85 100644
+--- a/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
++++ b/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
+@@ -276,8 +276,7 @@ static struct snd_soc_dai_driver sunxi_internal_codec_dai = {
+ 		.stream_name	= "Playback",
+ 		.channels_min	= 1,
+ 		.channels_max	= 2,
+-		.rates		= SNDRV_PCM_RATE_8000_192000
+-				| SNDRV_PCM_RATE_KNOT,
++		.rates		= SNDRV_PCM_RATE_8000_192000,
+ 		.formats	= SNDRV_PCM_FMTBIT_S16_LE
+ 				| SNDRV_PCM_FMTBIT_S24_LE
+ 				| SNDRV_PCM_FMTBIT_S32_LE,
+diff --git a/sound/soc/sunxi_v2/snd_sunxi_aaudio.c b/sound/soc/sunxi_v2/snd_sunxi_aaudio.c
+index 861367fb4..eeb35877f 100644
+--- a/sound/soc/sunxi_v2/snd_sunxi_aaudio.c
++++ b/sound/soc/sunxi_v2/snd_sunxi_aaudio.c
+@@ -62,8 +62,7 @@ static struct snd_soc_dai_driver sunxi_aaudio_dai = {
+ 		.stream_name	= "Playback",
+ 		.channels_min	= 1,
+ 		.channels_max	= 2,
+-		.rates		= SNDRV_PCM_RATE_8000_192000
+-				| SNDRV_PCM_RATE_KNOT,
++		.rates		= SNDRV_PCM_RATE_8000_192000,
+ 		.formats	= SNDRV_PCM_FMTBIT_S16_LE
+ 				| SNDRV_PCM_FMTBIT_S24_LE
+ 				| SNDRV_PCM_FMTBIT_S32_LE,
+@@ -72,8 +71,7 @@ static struct snd_soc_dai_driver sunxi_aaudio_dai = {
+ 		.stream_name	= "Capture",
+ 		.channels_min	= 1,
+ 		.channels_max	= 3,
+-		.rates		= SNDRV_PCM_RATE_8000_192000
+-				| SNDRV_PCM_RATE_KNOT,
++		.rates		= SNDRV_PCM_RATE_8000_192000,
+ 		.formats	= SNDRV_PCM_FMTBIT_S16_LE
+ 				| SNDRV_PCM_FMTBIT_S24_LE
+ 				| SNDRV_PCM_FMTBIT_S32_LE,

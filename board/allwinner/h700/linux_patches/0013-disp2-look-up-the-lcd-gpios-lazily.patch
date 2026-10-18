@@ -1,0 +1,88 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: look up the lcd gpios when first used
+
+disp2 resolves lcd_gpio_N at probe time, before the sun50iw9 pinctrl driver
+is up, so every lookup fails and the panel driver cannot drive its pins.
+Resolve (and request) them lazily from the open flow and the gpio helpers;
+set_direction now uses the cached gpio like set_value instead of the
+disp node.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
+@@ -2484,22 +2484,58 @@
+ }
+ 
+ /* direction: input(0), output(1) */
++/*
++ * The lcd gpios are looked up when disp probes, which on sun50iw9 is before
++ * the pinctrl driver is up, so they all come back invalid.  Look them up
++ * again when they are first needed.
++ */
++static void disp_lcd_gpio_lookup(struct disp_device *lcd, u32 io_index)
++{
++	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
++	struct disp_gpio_info *gpio_info;
++	char primary_key[20], sub_name[25];
++
++	if (io_index >= LCD_GPIO_NUM)
++		return;
++	gpio_info = &lcdp->lcd_cfg.lcd_gpio[io_index];
++	if (gpio_is_valid(gpio_info->gpio))
++		return;
++
++	sprintf(primary_key, "lcd%d", lcd->disp);
++	if (io_index == LCD_GPIO_SCL)
++		strcpy(sub_name, "lcd_gpio_scl");
++	else if (io_index == LCD_GPIO_SDA)
++		strcpy(sub_name, "lcd_gpio_sda");
++	else
++		sprintf(sub_name, "lcd_gpio_%d", io_index);
++	if (disp_sys_script_get_item(primary_key, sub_name, (int *)gpio_info, 3))
++		return;
++	if (gpio_is_valid(gpio_info->gpio)) {
++		lcdp->lcd_cfg.lcd_gpio_used[io_index] = 1;
++		disp_sys_gpio_request(gpio_info);
++	}
++}
++
+ s32 disp_lcd_gpio_set_direction(struct disp_device *lcd, u32 io_index,
+ 				u32 direction)
+ {
+ 	int gpio, value, ret;
+ 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
+ 	char gpio_name[20];
+-	struct device_node *node = g_disp_drv.node;
+ 
+ 	if ((lcd == NULL) || (lcdp == NULL)) {
+ 		DE_WRN("NULL hdl!\n");
+ 		return DIS_FAIL;
+ 	}
+ 
++	if (io_index >= LCD_GPIO_NUM) {
++		DE_WRN("gpio num out of range\n");
++		return DIS_FAIL;
++	}
+ 	sprintf(gpio_name, "lcd_gpio_%d", io_index);
+ 
+-	gpio = of_get_named_gpio(node, gpio_name, 0);
++	disp_lcd_gpio_lookup(lcd, io_index);
++	gpio = lcdp->lcd_cfg.lcd_gpio[io_index].gpio;
+ 	if (!gpio_is_valid(gpio)) {
+ 		DE_WRN("of_get_named_gpio_flags for %s failed\n", gpio_name);
+ 		return DIS_FAIL;
+@@ -2563,6 +2599,7 @@
+ 	}
+ 	sprintf(gpio_name, "lcd_gpio_%d", io_index);
+ 
++	disp_lcd_gpio_lookup(lcd, io_index);
+ 	gpio = lcdp->lcd_cfg.lcd_gpio[io_index].gpio;
+ 	if (!gpio_is_valid(gpio)) {
+ 		DE_WRN("of_get_named_gpio_flags for %s failed\n", gpio_name);
+@@ -2908,6 +2945,7 @@
+ 				(i << 24) | (i << 16) | (i << 8) | (i);
+ 		}
+ 		for (i = 0; i < LCD_GPIO_NUM; i++) {
++			disp_lcd_gpio_lookup(lcd, i);
+ 			if (!lcdp->lcd_cfg.lcd_gpio_used[i])
+ 				continue;
+ 

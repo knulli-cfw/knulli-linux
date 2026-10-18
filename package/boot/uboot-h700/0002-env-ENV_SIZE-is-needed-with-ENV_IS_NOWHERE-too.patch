@@ -1,0 +1,19 @@
+From: knulli
+Subject: [PATCH] env: Kconfig: ENV_SIZE is needed with ENV_IS_NOWHERE too
+
+include/environment.h sizes the in-memory environment with CONFIG_ENV_SIZE
+regardless of where (or whether) it is stored, but Kconfig hides the symbol
+for ENV_IS_NOWHERE and the build fails in asm-offsets.
+
+diff --git a/env/Kconfig b/env/Kconfig
+index 1faa33f78c..16f1889bee 100644
+--- a/env/Kconfig
++++ b/env/Kconfig
+@@ -469,7 +469,6 @@ config ENV_OFFSET
+ 
+ config ENV_SIZE
+ 	hex "Environment Size"
+-	depends on !ENV_IS_NOWHERE
+ 	default 0x20000 if ARCH_SUNXI
+ 	help
+ 	  Size of the environment storage area

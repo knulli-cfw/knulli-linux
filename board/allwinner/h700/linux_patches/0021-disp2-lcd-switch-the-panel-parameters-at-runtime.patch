@@ -1,0 +1,273 @@
+disp2: lcd: switch the panel parameters at runtime
+
+/sys/class/disp/disp/attr/lcd_panel <name> re-reads the lcd0 parameters
+(timings, dot clock, init table) from the device tree node with compatible
+"knulli,panel-<name>" and re-inits the panel; "default" goes back to lcd0.
+One device tree can then carry every Anbernic panel and the first boot can
+try them without a reboot per candidate.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/disp_sys_intf.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/disp_sys_intf.c
+@@ -182,16 +182,42 @@
+ }
+ 
+ /* type: 0:invalid, 1: int; 2:str, 3: gpio */
++/* knulli: the lcd0 panel parameters can be taken from another node at
++ * runtime (compatible "knulli,panel-<name>") so one device tree can carry
++ * every panel and the first boot can try them without rebooting */
++static char lcd0_compat_override[64];
++
++void disp_sys_set_lcd0_compat(const char *compat)
++{
++	if (compat && *compat)
++		strlcpy(lcd0_compat_override, compat,
++			sizeof(lcd0_compat_override));
++	else
++		lcd0_compat_override[0] = 0;
++}
++EXPORT_SYMBOL(disp_sys_set_lcd0_compat);
++
++struct device_node *disp_sys_lcd0_node(void)
++{
++	return of_find_compatible_node(NULL, NULL, lcd0_compat_override[0] ?
++				       lcd0_compat_override :
++				       "allwinner,sunxi-lcd0");
++}
++EXPORT_SYMBOL(disp_sys_lcd0_node);
++
+ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[],
+ 			     int type)
+ {
+-	char compat[32];
++	char compat[64];
+ 	u32 len = 0;
+ 	struct device_node *node;
+ 	int ret = 0;
+ 	enum of_gpio_flags flags;
+ 
+-	len = sprintf(compat, "allwinner,sunxi-%s", main_name);
++	if (!strcmp(main_name, "lcd0") && lcd0_compat_override[0])
++		len = snprintf(compat, sizeof(compat), "%s", lcd0_compat_override);
++	else
++		len = sprintf(compat, "allwinner,sunxi-%s", main_name);
+ 	if (len > 32)
+ 		__wrn("size of mian_name is out of range\n");
+ 
+--- a/drivers/video/fbdev/sunxi/disp2/disp/disp_sys_intf.h
++++ b/drivers/video/fbdev/sunxi/disp2/disp/disp_sys_intf.h
+@@ -41,6 +41,8 @@
+ void disp_sys_enable_irq(u32 IrqNo);
+ 
+ /* returns: 0:invalid, 1: int; 2:str, 3: gpio */
++void disp_sys_set_lcd0_compat(const char *compat);
++struct device_node *disp_sys_lcd0_node(void);
+ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[],
+ 			     int count);
+ 
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
+@@ -2854,22 +2854,13 @@
+ 	return color_temperature;
+ }
+ 
+-static s32 disp_lcd_init(struct disp_device *lcd, int lcd_index)
++/* panel parameters and the timings derived from them: at init, and again
++ * when the lcd0 node is switched at runtime (disp_lcd_reload_panel) */
++static void lcd_load_panel(struct disp_device *lcd, int lcd_index)
+ {
+ 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
+-	struct disp_gpio_info gpio_info;
+-	int i;
+-
+-	if ((lcd == NULL) || (lcdp == NULL)) {
+-		DE_WRN("NULL hdl!\n");
+-		return DIS_FAIL;
+-	}
+-
+-	lcd_get_sys_config(lcd_index, &lcdp->lcd_cfg);
+ 
+-	lcd_regulator_get_wrap(&lcdp->lcd_cfg);
+-
+-	if (disp_lcd_is_used(lcd)) {
++	{
+ 		struct disp_video_timings *timmings;
+ 		struct disp_panel_para *panel_info;
+ 
+@@ -2909,6 +2900,43 @@
+ 		    panel_info->lcd_vt - panel_info->lcd_vbp -
+ 		    panel_info->lcd_y;
+ 	}
++}
++
++s32 disp_lcd_reload_panel(struct disp_device *lcd)
++{
++	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
++	int was_enabled;
++
++	if ((lcd == NULL) || (lcdp == NULL)) {
++		DE_WRN("NULL hdl!\n");
++		return DIS_FAIL;
++	}
++	was_enabled = disp_lcd_is_enabled(lcd) == 1;
++	if (was_enabled && lcd->disable)
++		lcd->disable(lcd);
++	lcd_load_panel(lcd, lcd->disp);
++	if (was_enabled && lcd->enable)
++		return lcd->enable(lcd);
++	return 0;
++}
++
++static s32 disp_lcd_init(struct disp_device *lcd, int lcd_index)
++{
++	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
++	struct disp_gpio_info gpio_info;
++	int i;
++
++	if ((lcd == NULL) || (lcdp == NULL)) {
++		DE_WRN("NULL hdl!\n");
++		return DIS_FAIL;
++	}
++
++	lcd_get_sys_config(lcd_index, &lcdp->lcd_cfg);
++
++	lcd_regulator_get_wrap(&lcdp->lcd_cfg);
++
++	if (disp_lcd_is_used(lcd))
++		lcd_load_panel(lcd, lcd_index);
+ 	disp_lcd_bright_curve_init(lcd);
+ 
+ 	if (disp_lcd_is_used(lcd)) {
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.h
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.h
+@@ -67,6 +67,7 @@
+ s32 disp_lcd_gpio_get_value(struct disp_device *lcd, u32 io_index);
+ s32 disp_lcd_gpio_set_value(struct disp_device *lcd, u32 io_index, u32 data);
+ s32 disp_lcd_is_enabled(struct disp_device *lcd);
++s32 disp_lcd_reload_panel(struct disp_device *lcd);
+ #if defined(SUPPORT_EINK) && defined(CONFIG_EINK_PANEL_USED)
+ extern int display_finish_flag;
+ #endif
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c
+@@ -1644,6 +1644,17 @@
+ 	return gdisp.tv_registered;
+ }
+ 
++s32 disp_lcd_reload_panel(struct disp_device *lcd);
++
++s32 bsp_disp_lcd_reload_panel(u32 disp)
++{
++	struct disp_device *lcd = disp_get_lcd(disp);
++
++	if (lcd == NULL)
++		return -1;
++	return disp_lcd_reload_panel(lcd);
++}
++
+ s32 bsp_disp_lcd_backlight_enable(u32 disp)
+ {
+ 	s32 ret = -1;
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.h
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.h
+@@ -100,6 +100,7 @@
+ /* lcd */
+ s32 bsp_disp_lcd_set_panel_funs(char *name, struct disp_lcd_panel_fun *lcd_cfg);
+ s32 bsp_disp_lcd_backlight_enable(u32 disp);
++s32 bsp_disp_lcd_reload_panel(u32 disp);
+ s32 bsp_disp_lcd_backlight_disable(u32 disp);
+ s32 bsp_disp_lcd_pwm_enable(u32 disp);
+ s32 bsp_disp_lcd_pwm_disable(u32 disp);
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
+@@ -742,6 +742,49 @@
+ 
+ static DEVICE_ATTR(runtime_enable, 0660,
+ 		   disp_runtime_enable_show, disp_runtime_enable_store);
++
++/* knulli: switch lcd0 to the panel node "knulli,panel-<name>" of the
++ * device tree ("default" = the lcd0 node) and re-init the panel */
++static char disp_lcd_panel_name[32] = "default";
++
++static ssize_t disp_lcd_panel_show(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%s\n", disp_lcd_panel_name);
++}
++
++static ssize_t disp_lcd_panel_store(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
++{
++	char name[32], compat[64];
++	struct device_node *np;
++	size_t n = strcspn(buf, " \t\r\n");
++
++	if (n == 0 || n >= sizeof(name))
++		return -EINVAL;
++	memcpy(name, buf, n);
++	name[n] = 0;
++	if (!strcmp(name, "default")) {
++		compat[0] = 0;
++	} else {
++		snprintf(compat, sizeof(compat), "knulli,panel-%s", name);
++		np = of_find_compatible_node(NULL, NULL, compat);
++		if (!np) {
++			pr_warn("disp: no panel node %s\n", compat);
++			return -ENOENT;
++		}
++		of_node_put(np);
++	}
++	disp_sys_set_lcd0_compat(compat);
++	strlcpy(disp_lcd_panel_name, name, sizeof(disp_lcd_panel_name));
++	pr_info("disp: lcd0 panel -> %s\n", name);
++	if (bsp_disp_lcd_reload_panel(0))
++		return -EIO;
++	return count;
++}
++
++static DEVICE_ATTR(lcd_panel, 0660, disp_lcd_panel_show, disp_lcd_panel_store);
+ static ssize_t disp_color_temperature_show(struct device *dev,
+ 	struct device_attribute *attr, char *buf)
+ {
+@@ -1137,6 +1180,7 @@
+ 	&dev_attr_enhance_mode.attr,
+ 	&dev_attr_cvbs_enhacne_mode.attr,
+ 	&dev_attr_runtime_enable.attr,
++	&dev_attr_lcd_panel.attr,
+ 	&dev_attr_enhance_bright.attr,
+ 	&dev_attr_enhance_saturation.attr,
+ 	&dev_attr_enhance_contrast.attr,
+--- a/drivers/video/fbdev/sunxi/disp2/disp/lcd/fog_fj035fhd05_v1.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/lcd/fog_fj035fhd05_v1.c
+@@ -78,20 +78,15 @@
+ 
+ static const struct anbernic_panel *anbernic_panel_lookup(u32 sel)
+ {
+-	static const struct anbernic_panel *cached;
+ 	char names[64] = "";
+ 	const char *want;
+ 	unsigned int i;
+ 
+-	if (cached)
+-		return cached;
+-
+ 	if (panel_override && *panel_override) {
+ 		want = panel_override;
+ 	} else if (disp_sys_script_get_item("lcd0", "lcd_panel_init", (int *)names,
+ 				     2) == 2) {
+-		struct device_node *np = of_find_compatible_node(NULL, NULL,
+-						"allwinner,sunxi-lcd0");
++		struct device_node *np = disp_sys_lcd0_node();
+ 		int n = np ? of_property_count_strings(np, "lcd_panel_init") : 0;
+ 		int type = n > 1 ? anbernic_panel_type() : 0;
+ 
+@@ -124,8 +119,7 @@
+ 	}
+ 	pr_info("fog_fj035fhd05_v1: panel init table %s\n",
+ 		anbernic_panels[i].name);
+-	cached = &anbernic_panels[i];
+-	return cached;
++	return &anbernic_panels[i];
+ }
+ 
+ /* one 9-bit word: D/C bit first, then the byte MSB first; SPI mode 0 */

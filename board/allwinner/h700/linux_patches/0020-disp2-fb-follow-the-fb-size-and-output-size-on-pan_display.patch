@@ -1,0 +1,33 @@
+disp2: fb: follow the fb size and the output size on pan_display
+
+sunxi fbdev has no set_par, so fbset changes var but the layer keeps the
+boot fb size and screen window: after switching to HDMI and fbset 1280x720
+the layer still says 720x720 in a 720x720 window and the sink shows black.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
+@@ -722,6 +722,24 @@
+ 				    ((long long)var->xres) << 32;
+ 				config.info.fb.crop.height =
+ 				    ((long long)(var->yres / buffer_num)) << 32;
++				/* there is no set_par: fbset only changes var,
++				 * so follow the new fb size here and fill the
++				 * output that is active now (lcd or hdmi) */
++				{
++					unsigned int sw = 0, sh = 0;
++
++					config.info.fb.size[0].width = var->xres;
++					config.info.fb.size[0].height = var->yres;
++					config.info.fb.size[1] = config.info.fb.size[0];
++					config.info.fb.size[2] = config.info.fb.size[0];
++					if (!bsp_disp_get_display_size(sel, &sw, &sh)
++					    && sw && sh) {
++						config.info.screen_win.x = 0;
++						config.info.screen_win.y = 0;
++						config.info.screen_win.width = sw;
++						config.info.screen_win.height = sh;
++					}
++				}
+ 
+ #if defined(CONFIG_SUNXI_DISP2_FB_ROTATION_SUPPORT)
+ 				if (mgr->rot_sw && mgr->rot_sw->apply) {

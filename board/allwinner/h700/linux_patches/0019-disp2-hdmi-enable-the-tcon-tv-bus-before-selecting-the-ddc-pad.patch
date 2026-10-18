@@ -1,0 +1,21 @@
+disp2: hdmi: enable the tcon tv bus before selecting the DDC pad
+
+disp_hdmi_pad_sel() writes tcon_tv0's GCTL pad_sel to route DDC/CEC to the
+HDMI pins. Without U-Boot's HDMI init the tcon tv bus is gated and in reset,
+so the write is lost and every EDID read times out.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_hdmi.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_hdmi.c
+@@ -245,6 +245,12 @@
+ 		return;
+ 	}
+ 
++	/* the pad select lives in the tcon tv registers: they are only
++	 * reachable once its bus clock is gated on and the reset released */
++	if (hdmip->rst_bus_clk && reset_control_deassert(hdmip->rst_bus_clk))
++		pr_err("deassert tcon tv reset failed\n");
++	if (hdmip->bus_clk && !__clk_is_enabled(hdmip->bus_clk))
++		clk_prepare_enable(hdmip->bus_clk);
+ 	if (hdmip->clk) {
+ 		if (!__clk_is_enabled(hdmip->clk))
+ 			clk_prepare_enable(hdmip->clk);

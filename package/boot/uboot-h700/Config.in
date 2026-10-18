@@ -14,3 +14,4 @@ config BR2_PACKAGE_UBOOT_H700
       
       The resulting boot packages are placed in:
       output/images/h700-boot-packages/<device>_boot_package.fex
+

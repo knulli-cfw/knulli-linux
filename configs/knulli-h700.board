@@ -9,8 +9,10 @@ BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char -mcpu=cortex-a53 -mtune=cortex-a53"
 #BR2_TARGET_GENERIC_GETTY_PORT="tty1"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
 BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/patches"
+# fsoverlay-vendor-modules: prebuilt modules for the vendor 4.9 kernel.
+# Append it again for devices that still boot the vendor boot.img.
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/fsoverlay"
-BR2_TARGET_ROOTFS_SQUASHFS4_GZIP=y
+BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
 
 # batocera splash screen
 BR2_PACKAGE_BATOCERA_SPLASH_MPV=y
@@ -18,6 +20,7 @@ BR2_PACKAGE_BATOCERA_SPLASH_MPV=y
 # Batocera system
 BR2_PACKAGE_BATOCERA_KODI20=n
 BR2_PACKAGE_MPV=y
+# BR2_PACKAGE_LVM2_STANDARD_INSTALL is not set
 
 # Bootloader
 #BR2_TARGET_ARM_TRUSTED_FIRMWARE_CUSTOM_VERSION=y
@@ -30,16 +33,23 @@ BR2_PACKAGE_MPV=y
 #BR2_PACKAGE_MTD=y
 
 ######
-# Linux headers same as kernel, a 4.9 series
+# Kernel: orangepi 5.4 sun50iw9 BSP (orange-pi-5.4-sun50iw9, pinned).
+# Toolchain headers stay 4.9.
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/orangepi-xunlong/linux-orangepi.git"
-BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="orange-pi-4.9-sun50iw9"
+BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="3a4a29414d558664847202f4d8919b8ab8bcf4a8"
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/linux_patches"
 BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/linux-sunxi64-legacy.config"
-BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="4.9.170"
-BR2_LINUX_KERNEL_VERSION="4.9.170"
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/linux-sunxi64-5.4.config"
+BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="sunxi/sun50i-h700-anbernic-rg28xx sunxi/sun50i-h700-anbernic-rg34xx sunxi/sun50i-h700-anbernic-rg34xx-sp sunxi/sun50i-h700-anbernic-rg35xx-h sunxi/sun50i-h700-anbernic-rg35xx-plus sunxi/sun50i-h700-anbernic-rg35xx-pro sunxi/sun50i-h700-anbernic-rg35xx-sp sunxi/sun50i-h700-anbernic-rg40xx-h sunxi/sun50i-h700-anbernic-rg40xx-v sunxi/sun50i-h700-anbernic-rg-cubexx sunxi/sun50i-h700-anbernic-rg-sp sunxi/sun50i-h700-anbernic-select"
+BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/h700/dts/*"
 BR2_KERNEL_HEADERS_VERSION=y
+BR2_PACKAGE_MALI_KBASE_SUNXI=y
+BR2_PACKAGE_RTL8821CS=y
+# buttons + sticks (analog mux on the gpadc) as one device
+BR2_PACKAGE_ROCKNIX_JOYPAD=y
 BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_4_9=y
 BR2_DEFAULT_KERNEL_VERSION="4.9.170"
 BR2_DEFAULT_KERNEL_HEADERS="4.9.170"

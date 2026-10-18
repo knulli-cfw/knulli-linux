@@ -1,0 +1,31 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: enable the de iommu on a smooth boot too
+
+The framebuffer comes from ion and is mapped behind the iommu, so its
+smem_start is an iova (0xffc00000 here, while ram starts at 0x40000000).
+disp_init_connections() only turns on translation for the display engine when
+u-boot did NOT hand the display over (boot_info.sync == 0); after a smooth
+handoff the engine fetches the iova as a physical address, so the panel shows
+a constant colour no matter what is in the framebuffer, and /sys/class/disp/
+disp/attr/sys reports iommu[0].
+
+diff --git a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c
+index 0ae409fd7..88d63aff1 100644
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_display.c
+@@ -494,6 +494,15 @@ s32 disp_init_connections(struct disp_bsp_init_para *para)
+ 					}
+ 				}
+ 			}
++			/*
++			 * The framebuffer is allocated from ion and lives
++			 * behind the iommu, so the display engine needs
++			 * translation whether or not u-boot handed the display
++			 * over.  Without this the engine fetches the iova as a
++			 * physical address and the panel shows a constant
++			 * colour.
++			 */
++			mgr->enable_iommu(mgr, true);
+ 		} else if (para->boot_info.sync == 0) {
+ 			dispdev = disp_device_get(disp, DISP_OUTPUT_TYPE_LCD);
+ 			if ((dispdev) && (dispdev->set_manager))

@@ -1,0 +1,84 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: wait for the pio driver before the cold-boot lcd enable
+
+On a cold boot (no smooth-boot handoff from U-Boot) start_work enables the
+lcd: pin config, the panel gpios, the backlight.  On sun50iw9 the pio driver
+only comes up after disp, from a deferred-probe retry, so every one of those
+steps failed silently and the panel stayed dark until the next open flow (a
+resume brought it up).  Re-run start_work from a delayed work until pinctrl
+is bound (up to 20 s) instead of sleeping in it: the hdmi init flushes the
+workqueue with a 10 s timeout, and the pio retry only happens once such
+drivers bind, so sleeping there cost 10 s and still lost the race.
+Deferring the whole disp probe is not an option either: the hdmi driver
+calls disp_boot_para_parse() from its probe and oopses when disp has not
+probed.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
+@@ -19,6 +19,7 @@
+ #include <linux/version.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/reset.h>
++#include <linux/of_platform.h>
+ #ifndef dma_mmap_writecombine
+ #define dma_mmap_writecombine dma_mmap_wc
+ #endif
+@@ -1813,6 +1814,40 @@
+ 		return bsp_disp_device_set_config(screen_id, &config);
+ }
+ 
++/*
++ * On a cold boot start_work enables the lcd: pin config, the panel's gpios,
++ * the backlight.  On sun50iw9 the pio driver comes up later than disp (its
++ * probe defers until other drivers have bound), so all of that would fail
++ * silently and the screen would stay dark until the next open flow.  Wait
++ * for pinctrl, but without holding the workqueue: other init code flushes
++ * it, and pinctrl only re-probes once those drivers bind.
++ */
++static bool disp_pinctrl_ready(void)
++{
++	struct device_node *np;
++	struct platform_device *pio;
++	bool ready;
++
++	np = of_find_compatible_node(NULL, NULL, "allwinner,sun50iw9-pinctrl");
++	if (!np)
++		return true;
++	pio = of_find_device_by_node(np);
++	of_node_put(np);
++	if (!pio)
++		return false;
++	ready = pio->dev.driver != NULL;
++	put_device(&pio->dev);
++	return ready;
++}
++
++static void start_work(struct work_struct *work);
++static void start_retry(struct work_struct *work)
++{
++	start_work(&g_disp_drv.start_work);
++}
++static DECLARE_DELAYED_WORK(start_retry_work, start_retry);
++static int start_retries;
++
+ static void start_work(struct work_struct *work)
+ {
+ 	int num_screens;
+@@ -1826,6 +1861,17 @@
+ 	}
+ 	if (count >= 5)
+ 		pr_warn("%s, timeout\n", __func__);
++	if (g_disp_drv.para.boot_info.sync == 0 && !disp_pinctrl_ready() &&
++	    start_retries < 400) {
++		start_retries++;
++		schedule_delayed_work(&start_retry_work, msecs_to_jiffies(50));
++		return;
++	}
++	if (start_retries) {
++		pr_info("%s: waited %d ms for pinctrl\n", __func__,
++			start_retries * 50);
++		start_retries = 0;
++	}
+ 	if (g_disp_drv.para.boot_info.sync == 0) {
+ 		for (screen_id = 0; screen_id < num_screens; screen_id++) {
+ 			int disp_mode = g_disp_drv.disp_init.disp_mode;
