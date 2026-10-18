@@ -13,7 +13,7 @@ echo "HOST_DIR = $HOST_DIR"
 echo "BINARIES_DIR = $BINARIES_DIR"
 echo "TARGET_DIR = $TARGET_DIR"
 
-KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_(GLES|GLES2|GLES3|VULKAN|OPENGL)=y$" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
+KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_(GLES|GLES2|GLES3|VULKAN|OPENGL|ANY|PLATFORM)=y$" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
 echo "KNULLI_TARGET = $KNULLI_TARGET"
 
 # For the root user:
@@ -82,6 +82,13 @@ rm -f "${TARGET_DIR}/etc/init.d/S28splash" || exit 1
 rm -f "${TARGET_DIR}/etc/init.d/S47fake-hwclock" || exit 1
 
 rm -f "${TARGET_DIR}/etc/init.d/S50dropbear" || exit 1
+
+# A board S05udev starts udevd and triggers the coldplug itself; eudev's
+# S10udevd would start a second daemon and replay every event
+if test -e "${TARGET_DIR}/etc/init.d/S05udev"
+then
+    rm -f "${TARGET_DIR}/etc/init.d/S10udevd" || exit 1
+fi
 
 # Remove base batocera udev rules we don't need
 rm -f "${TARGET_DIR}/etc/udev/rules.d/99-wol.rules" || exit 1
@@ -313,4 +320,20 @@ if [ -n "$LOADER" ]; then
         exit 1
     fi
     echo "Vulkan loader intact (${LOADER_SIZE} bytes)"
+fi
+
+# Ship ld.so.cache; the host ldconfig skips foreign-arch libs, so use the target's
+LDCONFIG="${TARGET_DIR}/sbin/ldconfig"
+QEMU="${HOST_DIR}/bin/qemu-aarch64"
+if [ -x "$LDCONFIG" ] && [ -x "$QEMU" ] && grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}"; then
+    rm -f "${TARGET_DIR}/etc/ld.so.cache"
+    "$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -X -r "${TARGET_DIR}" || exit 1
+    echo "ld.so.cache: $("$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -r "${TARGET_DIR}" -p | head -1)"
+fi
+
+# Without plugins.dat, libvlc dlopens every plugin when ES starts
+VLC_CACHE_GEN="${TARGET_DIR}/usr/lib/vlc/vlc-cache-gen"
+if [ -x "$VLC_CACHE_GEN" ] && [ -x "$QEMU" ] && grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}"; then
+    "$QEMU" -L "${TARGET_DIR}" "$VLC_CACHE_GEN" "${TARGET_DIR}/usr/lib/vlc/plugins" || exit 1
+    echo "vlc plugins.dat: $(stat -c %s "${TARGET_DIR}/usr/lib/vlc/plugins/plugins.dat") bytes"
 fi
