@@ -559,10 +559,10 @@ def main():
             print("ERROR: Invalid channel. Use: stable, dev, or alpha")
             return 1
     else:
-        # Get default channel from batocera settings
+        # Get default channel from knulli settings
         try:
             result = subprocess.run(
-                ["batocera-settings-get", "updates.type"],
+                ["knulli-settings-get", "updates.type"],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -570,13 +570,13 @@ def main():
             if result.returncode == 0:
                 channel = result.stdout.strip()
                 if channel not in ["stable", "dev", "alpha"]:
-                    print(f"WARNING: Invalid channel '{channel}' from batocera settings, using 'stable'")
+                    print(f"WARNING: Invalid channel '{channel}' from knulli settings, using 'stable'")
                     channel = "stable"
             else:
-                print("WARNING: Failed to get channel from batocera settings, using 'stable'")
+                print("WARNING: Failed to get channel from knulli settings, using 'stable'")
                 channel = "stable"
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            print("WARNING: batocera-settings-get not available, using 'stable'")
+            print("WARNING: knulli-settings-get not available, using 'stable'")
             channel = "stable"
     
     upgrader = KnulliUpgrader()
