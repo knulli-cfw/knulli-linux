@@ -14,11 +14,20 @@ MALI_G57_SUNXI_INSTALL_STAGING = YES
 MALI_G57_SUNXI_PROVIDES = libegl libgles libopencl libmali libgbm
 MALI_G57_SUNXI_DEPENDENCIES = libdrm
 
+# The blob's vulkan/ headers are 1.1.108; copied after vulkan-headers they
+# replaced its current ones and hid the Vulkan 1.2+ API (DSperate).
+ifeq ($(BR2_PACKAGE_VULKAN_HEADERS),y)
+MALI_G57_SUNXI_SKIP_HEADERS = vulkan
+endif
+
 define MALI_G57_SUNXI_INSTALL_STAGING_CMDS
         mkdir -p $(STAGING_DIR)/usr/lib/pkgconfig
 
         # Install headers
-        cp -rf $(@D)/include/* $(STAGING_DIR)/usr/include/
+        for h in $(@D)/include/*; do \
+                case " $(MALI_G57_SUNXI_SKIP_HEADERS) " in *" $$(basename $$h) "*) continue ;; esac; \
+                cp -rf $$h $(STAGING_DIR)/usr/include/; \
+        done
 
         # Install patched eglplatform.h that doesn't require X11 headers
         $(INSTALL) -D -m 0644 $(BR2_EXTERNAL_KNULLI_PATH)/package/gpu/mali-g57-sunxi/include/EGL/eglplatform.h \
