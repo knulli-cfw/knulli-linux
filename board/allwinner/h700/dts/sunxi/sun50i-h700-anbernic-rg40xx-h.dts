@@ -3068,11 +3068,11 @@
 &udc {
 	reg = <0x0 0x05100000 0x0 0x1000>,
 	      <0x0 0x00000000 0x0 0x100>,
-	      <0x0 0x05101800 0x0 0x100>;
-	clocks = <&ccu CLK_BUS_OTG>, <&ccu CLK_USB_PHY0>, <&ccu CLK_BUS_EHCI0>;
-	clock-names = "bus_otg", "phy", "bus_ehci0";
-	resets = <&ccu RST_BUS_OTG>, <&ccu RST_USB_PHY0>, <&ccu RST_BUS_EHCI0>;
-	reset-names = "otg", "phy", "ehci0";
+	      <0x0 0x05310800 0x0 0x100>;
+	clocks = <&ccu CLK_BUS_OTG>, <&ccu CLK_USB_PHY0>, <&ccu CLK_USB_PHY2>, <&ccu CLK_BUS_EHCI2>;
+	clock-names = "bus_otg", "phy", "phy2", "bus_ehci2";
+	resets = <&ccu RST_BUS_OTG>, <&ccu RST_USB_PHY0>, <&ccu RST_USB_PHY2>, <&ccu RST_BUS_EHCI2>;
+	reset-names = "otg", "phy", "phy2", "ehci2";
 	det_vbus_supply = <&v_usb_power_supply>;
 	status = "okay";
 };
