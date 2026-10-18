@@ -1,0 +1,49 @@
+From: knulli
+Subject: [PATCH] singleadc-joypad: honour linux,input-value for EV_ABS buttons
+
+Like gpio-keys: a button declared with linux,input-type = EV_ABS reports
+linux,input-value while pressed (-1/1 for a hat direction) and gets the
+-1..1 range, so a dpad wired as two hat axes keeps its layout.  Buttons
+without the property still report 1.
+
+--- a/rocknix-singleadc-joypad.c	2026-09-24 20:46:23.181440904 +0000
++++ b/rocknix-singleadc-joypad.c	2026-09-24 20:46:37.221432792 +0000
+@@ -74,6 +74,8 @@
+ 	int report_type;
+ 	/* report linux code */
+ 	int linux_code;
++	/* value reported while pressed (linux,input-value: a hat direction) */
++	int input_value;
+ 	/* prev button value */
+ 	bool old_value;
+ 	/* button press level */
+@@ -823,7 +825,7 @@
+ 			input_event(poll_dev->input,
+ 				gpio->report_type,
+ 				gpio->linux_code,
+-				(value == gpio->active_level) ? 1 : 0);
++				(value == gpio->active_level) ? gpio->input_value : 0);
+ 			gpio->old_value = value;
+ 		}
+ 	}
+@@ -1214,6 +1216,10 @@
+ 		if (of_property_read_u32(pp, "linux,input-type",
+ 				&gpio->report_type))
+ 			gpio->report_type = EV_KEY;
++		/* like gpio-keys: an EV_ABS button reports this value (e.g. -1 for hat up) */
++		if (of_property_read_u32(pp, "linux,input-value",
++				(u32 *)&gpio->input_value))
++			gpio->input_value = 1;
+ 	}
+ 	if (nbtn == 0)
+ 		return -EINVAL;
+@@ -1385,6 +1391,9 @@
+ 		struct bt_gpio *gpio = &joypad->gpios[nbtn];
+ 		input_set_capability(input, gpio->report_type,
+ 				gpio->linux_code);
++		/* a hat needs its range like gpio-keys gives it */
++		if (gpio->report_type == EV_ABS)
++			input_set_abs_params(input, gpio->linux_code, -1, 1, 0, 0);
+ 	}
+ 
+ 	if (joypad->auto_repeat)

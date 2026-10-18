@@ -1,0 +1,80 @@
+From: knulli
+Subject: [PATCH] joypad: build against the 5.4 sun50iw9 BSP
+
+platform_driver.remove_new only exists since 6.3: use .remove with a
+wrapper on older kernels.  joypad_input_g is only declared extern; rocknix
+defines it in its kernel, so define it here.
+
+diff -ur a/rocknix-joypad.c b/rocknix-joypad.c
+--- a/rocknix-joypad.c	2026-09-24 21:02:40.376798379 +0000
++++ b/rocknix-joypad.c	2026-09-24 21:02:40.390798369 +0000
+@@ -989,6 +989,15 @@
+ {
+ 	sysfs_remove_group(&pdev->dev.kobj, &joypad_attr_group);
+ }
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0))
++/* platform_driver.remove_new only exists since 6.3 */
++static int joypad_remove_compat(struct platform_device *pdev)
++{
++	joypad_remove(pdev);
++	return 0;
++}
++#endif
+ /*----------------------------------------------------------------------------*/
+ static const struct of_device_id joypad_of_match[] = {
+ 	{ .compatible = "rocknix-joypad", },
+@@ -1000,7 +1009,11 @@
+ /*----------------------------------------------------------------------------*/
+ static struct platform_driver joypad_driver = {
+ 	.probe = joypad_probe,
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
+ 	.remove_new = joypad_remove,
++#else
++	.remove = joypad_remove_compat,
++#endif
+ 	.driver = {
+ 		.name = DRV_NAME,
+ 		.of_match_table = of_match_ptr(joypad_of_match),
+diff -ur a/rocknix-singleadc-joypad.c b/rocknix-singleadc-joypad.c
+--- a/rocknix-singleadc-joypad.c	2026-09-24 21:02:40.379798377 +0000
++++ b/rocknix-singleadc-joypad.c	2026-09-24 21:03:51.302748531 +0000
+@@ -236,7 +236,9 @@
+ 
+ };
+ 
+-extern struct input_dev * joypad_input_g;
++/* defined here: nothing else in this tree provides it (rocknix keeps it in its kernel) */
++struct input_dev *joypad_input_g;
++EXPORT_SYMBOL(joypad_input_g);
+ 
+ static int pwm_vibrator_start(struct joypad *joypad)
+ {
+@@ -1910,6 +1912,15 @@
+ 		dev_info(joypad->dev, "Miyoo serial logic stopped.\n");
+ 	}
+ }
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0))
++/* platform_driver.remove_new only exists since 6.3 */
++static int joypad_remove_compat(struct platform_device *pdev)
++{
++	joypad_remove(pdev);
++	return 0;
++}
++#endif
+ /*----------------------------------------------------------------------------*/
+ static const struct of_device_id joypad_of_match[] = {
+ 	{ .compatible = "rocknix-singleadc-joypad", },
+@@ -1921,7 +1932,11 @@
+ /*----------------------------------------------------------------------------*/
+ static struct platform_driver joypad_driver = {
+ 	.probe = joypad_probe,
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
+ 	.remove_new = joypad_remove,
++#else
++	.remove = joypad_remove_compat,
++#endif
+ 	.driver = {
+ 		.name = DRV_NAME,
+ 		.pm = &joypad_pm_ops,
