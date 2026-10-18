@@ -1,0 +1,4 @@
+# RG Vita Pro default values
+
+# portrait DSI panel, turned by labwc
+display.rotate.DSI-1=1

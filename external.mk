@@ -33,6 +33,11 @@ $(BR2_EXTERNAL_KNULLI_PATH)/package/toolchain/*/*.mk \
 $(BR2_EXTERNAL_KNULLI_PATH)/package/utils/*/*.mk \
 $(BR2_EXTERNAL_KNULLI_PATH)/package/weston-legacy/*/*.mk))
 
+# batocera's local-python infra and the python-src packages knulli uses
+# (python-batocera-common: hotkeygen, batocera-led-handheld)
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/package/batocera/pkg-local-python.mk
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/python-src/python-batocera-common/python-batocera-common.mk
+
 # Include batocera packages but exclude conflicting ones
 include $(sort $(filter-out $(addprefix %/,$(addsuffix .mk,$(KNULLI_OVERRIDE_PACKAGES))), \
 $(wildcard $(BR2_EXTERNAL_KNULLI_PATH)/batocera/package/batocera/*/*.mk \

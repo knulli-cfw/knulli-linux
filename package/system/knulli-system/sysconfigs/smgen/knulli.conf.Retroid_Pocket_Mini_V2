@@ -1,0 +1,7 @@
+# rpmini default values
+
+# Default rotate value for rp5miniv2
+display.rotate.DSI-1=3
+
+# default suspend on handled boards
+system.suspendmode=fakesuspend

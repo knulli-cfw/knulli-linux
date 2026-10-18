@@ -1,0 +1,7 @@
+# rpmini default values
+
+# Default rotate value for rpflip2
+display.rotate.DSI-1=1
+
+# default suspend on handled boards
+system.suspendmode=fakesuspend

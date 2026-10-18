@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ARCHS="rk3128 rk3326 rk3566 a133 h700 r16 sm8250 sm8550"
+ARCHS="rk3128 rk3326 rk3566 rk3576 a133 h700 r16 sm6115 smgen t618"
 
 BR_DIR=$1
 KNULLI_BINARIES_DIR=$2
