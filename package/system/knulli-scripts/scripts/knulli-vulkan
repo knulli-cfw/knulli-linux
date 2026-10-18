@@ -9,13 +9,20 @@ if [ -z "$WAYLAND_DISPLAY" ]; then
     fi
 fi
 
-# Check if vulkaninfo exists
-if [ ! -e "$VULKANINFO" ]; then
-    echo "Vulkan not found"
-    exit 1
-fi
+# vulkaninfo takes ~150 ms and its answer cannot change until the next boot
+VK_CACHE="/var/run/knulli-vulkan.info"
 
-VK_OUT="$("$VULKANINFO" 2>/dev/null)"
+load_vk_out() {
+    if [ ! -e "$VULKANINFO" ]; then
+        echo "Vulkan not found"
+        exit 1
+    fi
+    if [ ! -s "$VK_CACHE" ]; then
+        "$VULKANINFO" > "$VK_CACHE.$$" 2>/dev/null
+        mv -f "$VK_CACHE.$$" "$VK_CACHE"
+    fi
+    VK_OUT="$(cat "$VK_CACHE")"
+}
 
 # Function to list Vulkan GPU devices
 list_devices() {
@@ -46,6 +53,12 @@ vulkan_version() {
 }
 
 # Handle input options
+case "$1" in
+    "listDevices"|"numDevices"|"hasVulkan"|"vulkanVersion")
+        load_vk_out
+        ;;
+esac
+
 case "$1" in
     "listDevices")
         list_devices
