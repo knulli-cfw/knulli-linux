@@ -1,0 +1,8 @@
+obj-m += snd-soc-aw883xx.o
+snd-soc-aw883xx-objs := aw883xx.o aw883xx_bin_parse.o aw883xx_calib.o \
+	aw883xx_device.o aw883xx_init.o aw883xx_monitor.o aw883xx_spin.o \
+	aw883xx_pid_2049_init.o aw883xx_pid_2066_init.o aw883xx_pid_2183_init.o
+
+# Written for an unsigned char (the arm64 default); the board builds with
+# -fsigned-char, and the ACF checksum then sums bytes >= 0x80 as negatives.
+ccflags-y += -funsigned-char

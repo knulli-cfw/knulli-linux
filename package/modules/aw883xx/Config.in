@@ -1,0 +1,10 @@
+config BR2_PACKAGE_AW883XX
+	bool "Awinic AW883xx smart amplifier driver (RG DS Plus)"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Awinic's ASoC driver for the AW883xx smart amplifiers (chip ids
+	  2049, 2066 and 2183). The RG DS Plus speakers sit behind two
+	  2066 parts, which the 2049-only copy in the Rockchip BSP kernel
+	  rejects. Needs aw883xx_acf.bin in /lib/firmware.
+
+	  https://github.com/awinic-driver/aw883xx
