@@ -1,30 +1,36 @@
 include knulli-board.common
 
-# Target definition
+# Target definition: one ARMv8.2-A rootfs for every Qualcomm SM board
+# (sm8250, sm8550, sm4450, sm6450); sm6115 is ARMv8.0 and builds separately.
 BR2_aarch64=y
 BR2_cortex_a76_a55=y
 BR2_ARM_FPU_NEON_FP_ARMV8=y
-BR2_PACKAGE_BATOCERA_TARGET_SM8250=y
+BR2_PACKAGE_BATOCERA_TARGET_SMGEN=y
 BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char"
 BR2_TARGET_GENERIC_GETTY_PORT="ttyMSM0"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
-BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/sm8250/patches"
-BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/sm8250/fsoverlay"
+BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/patches"
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay"
 
 # Kernel
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_VERSION=y
-BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.18.9"
-BR2_KERNEL_HEADERS_6_18=y
-BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/sm8250/linux_patches"
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="7.2.8"
+BR2_KERNEL_HEADERS_7_2=y
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/linux_patches"
 BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/sm8250/linux_sm8250-defconfig.config"
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/linux_smgen-defconfig.config"
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="qcom/sm8250-retroidpocket-flip2 qcom/sm8250-retroidpocket-rp5 qcom/sm8250-retroidpocket-rpmini qcom/sm8250-retroidpocket-rpminiv2"
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="qcom/sm8250-retroidpocket-flip2 qcom/sm8250-retroidpocket-flip2-visionox qcom/sm8250-retroidpocket-rp5 qcom/sm8250-retroidpocket-rp5-visionox qcom/sm8250-retroidpocket-rpmini qcom/sm8250-retroidpocket-rpminiv2 qcom/qcs8550-retroidpocket-rpnova qcom/qcs8550-retroidpocket-rp6 qcom/qcs8550-retroidpocket-rp6-top-dpad qcom/qcs8550-ayn-odin2 qcom/qcs8550-ayn-odin2portal qcom/qcs8550-ayn-odin2mini qcom/qcs8550-ayn-thor qcom/qcs8550-ayaneo-pocketace qcom/qcs8550-ayaneo-pocketdmg qcom/qcs8550-ayaneo-pocketds qcom/qcs8550-ayaneo-pocketevo qcom/qcs8550-ayaneo-pockets1k qcom/qcs8550-ayaneo-pockets2k qcom/qcs8550-ayaneo-pocketsmini qcom/sm4450-anbernic-rg55g1 qcom/sm4450-retroid-pocket-classic-revq qcom/sm6450-trimui-tg4070"
+BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/dts/*"
 
 # System
 BR2_PACKAGE_BATOCERA_USE_QCOM_FW=y
+BR2_PACKAGE_QUALCOMM_FIRMWARE=y
+BR2_PACKAGE_FIRMWARE_ARMBIAN=y
+BR2_TOOLCHAIN_BUILDROOT_WCHAR=y
+BR2_TARGET_ROOTFS_CPIO_LZ4=y
 BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
 
 # GPU
@@ -37,17 +43,9 @@ BR2_PACKAGE_HOST_DOSFSTOOLS=y
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_PACKAGE_HOST_MTOOLS=y
 
-# U-Boot Bootloader
-BR2_TARGET_GRUB2=y
-BR2_TARGET_GRUB2_ARM64_EFI=y
-BR2_TARGET_GRUB2_BUILTIN_MODULES_EFI="boot linux ext2 fat squash4 part_msdos part_gpt normal efi_gop search search_fs_file search_fs_uuid search_label chain reboot"
-
 # ABL Bootloader
 BR2_PACKAGE_ROCKNIX_ABL=y
 BR2_PACKAGE_HOST_PYTHON_MKBOOTIMG=y
-
-# Filesystem
-BR2_TARGET_ROOTFS_CPIO_LZ4=y
 
 # Batocera Splash Support
 BR2_PACKAGE_BATOCERA_SPLASH_MPV=n
@@ -64,9 +62,13 @@ BR2_PACKAGE_XCB_UTIL_KEYSYMS=y
 # the compiled cores: the drop is built once and reused, so only the first
 # board on a given ABI pays the compile.
 BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
-BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="sm8250"
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="smgen"
 BR2_PACKAGE_IPUTILS=y
 BR2_PACKAGE_MPV=y
+
+# ADB
+BR2_PACKAGE_ANDROID_TOOLS=y
+BR2_PACKAGE_ANDROID_TOOLS_ADBD=y
 
 # NO emulators drop for this board.  The drop is keyed on the ABI profile alone,
 # and aarch64-v8.2a is harvested from a527 -- a MALI board.  sm8250/sm8550 are
