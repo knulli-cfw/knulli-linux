@@ -62,20 +62,45 @@ case "${ACTION}" in
                             ;;
                         "h700")
                             # Needed if booted with hdmi cable plugged in
-                            HDMI_STATE="$(cat /sys/devices/platform/soc/6000000.hdmi/extcon/hdmi/state)"
+                            # (soc on the vendor 4.9 kernel, soc@3000000 on 5.4)
+                            HDMI_STATE=
+                            for f in /sys/devices/platform/soc*/6000000.hdmi/extcon/hdmi/state; do
+                                [ -r "$f" ] && read -r HDMI_STATE < "$f" && break
+                            done
                             if [ "$HDMI_STATE" = "HDMI=1" ]; then
-                                MODE=alsa_output._sys_devices_platform_soc_soc_03000000_ahub1_mach_sound_card2.stereo-fallback
+                                MODE=$(LANG=C pactl list short sinks | awk '/ahub1_mach/ {print $2; exit}')
                             else
-                                MODE=alsa_output._sys_devices_platform_soc_soc_03000000_codec_mach_sound_card0.stereo-fallback
+                                MODE=$(LANG=C pactl list short sinks | awk '/codec_mach/ {print $2; exit}')
                             fi
                             amixer -c 0 sset "OutputL Mixer DACL" on
                             amixer -c 0 sset "OutputL Mixer DACR" off
                             amixer -c 0 sset "OutputR Mixer DACL" off
                             amixer -c 0 sset "OutputR Mixer DACR" on
+                            # volume is pipewire's soft mixer; keep the analog stages at full scale
+                            amixer -c 0 sset "digital volume" 63 >/dev/null 2>&1
+                            amixer -c 0 sset "lineout volume" 31 >/dev/null 2>&1
                             amixer -c 0 sset LINEOUT on
                             LANG=C pactl set-default-sink "${MODE}" || exit 1
                             ;;
                         "a133")
+                            # 5.15 BSP codec (has an SPK control): the speaker amp is fed
+                            # from the HPOUT stage.  Digital stages at unity: alsactl init
+                            # leaves DACL/DACR at +30 dB (clips) and HPOUT at -42 dB.
+                            if amixer -c 0 sget SPK >/dev/null 2>&1; then
+                                amixer -c 0 sset 'DAC digital volume' 63
+                                amixer -c 0 sset 'DACL volume' 159
+                                amixer -c 0 sset 'DACR volume' 159
+                                amixer -c 0 sset 'HPOUT volume' 6
+                                amixer -c 0 sset HPOUT on
+                                amixer -c 0 sset SPK on
+                                amixer -c 0 sset 'LINEOUT volume' 26
+                                amixer -c 0 sset LINEOUT on
+                                # no sink yet: fail, S27audioconfig retries
+                                MODE=$(LANG=C pactl list short sinks | awk '/codec_mach/ {print $2; exit}')
+                                [ -n "$MODE" ] || exit 1
+                                LANG=C pactl set-default-sink "${MODE}" || exit 1
+                                exit 0
+                            fi
                             MODE=alsa_output._sys_devices_platform_soc_sndcodec_sound_card0.playback.0.0
                             amixer -c 0 sset 'HpSpeaker' on
                             amixer -c 0 sset 'Headphone' on
@@ -125,10 +150,24 @@ case "${ACTION}" in
                                 MODE=alsa_output._sys_devices_platform_hdmi-sound_sound_card1.stereo-fallback
                             else
                                 MODE=alsa_output._sys_devices_platform_rk817-sound_sound_card0.stereo-fallback
+                                # RG DS Plus: the speakers are the AW883xx card, the
+                                # rk817 only drives the headphone jack
+                                SPK=$(LANG=C pactl list short sinks | awk '/aw883xx-sound/ {print $2; exit}')
+                                if [ -n "$SPK" ] && ! grep -qs "HEADPHONE=1" /sys/class/extcon/*/state; then
+                                    MODE="$SPK"
+                                fi
                             fi
 
-                            if [[ "$BOARD" == "powkiddy-rgb30" ]]; then
+                            # rk817 route, as headphone-switch sets it on jack events;
+                            # soundconfig no longer sets SPK at boot
+                            if [[ "$BOARD" == "powkiddy-rgb30" ]] || grep -qs "HEADPHONE=1" /sys/class/extcon/*/state; then
                                 amixer -c 0 sset "Playback Path" "HP"
+                                # RG DS: its speaker amps would pick up the HP stage
+                                if grep -qs "HEADPHONE=1" /sys/class/extcon/*/state; then
+                                    /etc/init.d/S04audioamp stop >/dev/null 2>&1
+                                fi
+                            else
+                                amixer -c 0 sset "Playback Path" "SPK"
                             fi
 
                             # Sets DAC volume to max (for some reason it rejects 100%/255)
