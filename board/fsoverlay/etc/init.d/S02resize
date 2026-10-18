@@ -12,6 +12,27 @@ CURRENT_ARCH=$(cat "$ARCH_FILE" 2>/dev/null)
 # only at start
 test "$1" != "start" && exit 0
 
+# Allwinner BSP images put the GPT entry array at sector 160 (genimage
+# gpt-location = 81920).  parted rewrites it at sector 2, and vendor U-Boot
+# rewrites boot0 at 8 KiB on every boot, which lands on top of it: the primary
+# GPT then fails its CRC and only the backup keeps the card bootable.  Move the
+# array back.  Runs every boot, so cards already resized heal themselves.
+pin_gpt_entry_array() {
+    local disk="$1" lba
+    case "${CURRENT_ARCH}" in
+        h700|a133|a527) ;;
+        *) return 0 ;;
+    esac
+    [ -b "${disk}" ] || return 0
+    [ "$(dd if="${disk}" bs=1 skip=512 count=8 2>/dev/null | tr -d '\0')" = "EFI PART" ] || return 0
+    lba=$(dd if="${disk}" bs=1 skip=584 count=8 2>/dev/null | od -An -tu8 | tr -d ' ')
+    { [ -z "${lba}" ] || [ "${lba}" = "160" ]; } && return 0
+    echo "GPT entry array at LBA ${lba}, moving it back to 160" >> "$LOG"
+    sgdisk -j 160 "${disk}" >> "$LOG" 2>&1
+}
+
+pin_gpt_entry_array "$(knulli-part prefix "$(knulli-part share_internal)")"
+
 # true if triggers are not available or not set to do so
 if ! grep -qE '^[ ]*autoresize[ ]*=[ ]*true[ ]*$' "${BOOTCONF}" && ! grep -qE '^[ ]*format-internal[ ]*=' "${BOOTCONF}"; then
     exit 0
@@ -51,7 +72,7 @@ function format_internal() {
 
     case "${FORMAT_INTERNAL_TYPE}" in
 	    "ext4")
-            mkfs.ext4 -L SHARE -q -F -F ${PART} # what to do in case of error ? nothing.
+            mkfs.ext4 -E nodiscard -L SHARE -q -F -F ${PART} # what to do in case of error ? nothing.
             if [ "${TABLETYPE}" = "gpt" ]; then
                 echo -e "t\n${PARTNUM}\n8300\nw\nY\n" | gdisk ${DISK}
                 sync
@@ -62,7 +83,9 @@ function format_internal() {
             fi
 		    ;;
 	    "exfat")
-            mkfs.exfat -n SHARE ${PART} # what to do in case of error ? nothing.
+            # 32 KB clusters: exfat reads a whole cluster per directory, and ES
+            # opens ~200 system folders at every start (128 KB default: 4-5 s)
+            mkfs.exfat -s 64 -n SHARE ${PART} # what to do in case of error ? nothing.
             if [ "${TABLETYPE}" = "gpt" ]; then
                 echo -e "t\n${PARTNUM}\n0700\nw\nY\n" | gdisk ${DISK}
                 sync
@@ -137,7 +160,7 @@ if grep -qE '^[ ]*autoresize[ ]*=[ ]*true[ ]*$' "${BOOTCONF}"; then
     
     if [ "${PARTTYPE}" = "ext4" ] && [ "$FORMAT_ALLOWED" = true ]; then
         echo "Step $i: Formatting ext4" >> "$LOG"
-        mkfs.ext4 -L SHARE -q -F -F ${PART}
+        mkfs.ext4 -E nodiscard -L SHARE -q -F -F ${PART}
     else
         echo "Step $i: Skipping filesystem create (type=${PARTTYPE})" >> "$LOG"
     fi
@@ -150,7 +173,7 @@ if grep -qE '^[ ]*autoresize[ ]*=[ ]*true[ ]*$' "${BOOTCONF}"; then
         echo "Step $i: Checking vfat" >> "$LOG"
         fsck.vfat -a ${PART}
         echo "Step $i: Resizing vfat to fill partition" >> "$LOG"
-        mkfs.exfat -n SHARE ${PART} # what to do in case of error ? nothing.
+        mkfs.exfat -s 64 -n SHARE ${PART} # what to do in case of error ? nothing.
         echo -e "t\n${PARTNUM}\n0700\nw\nY\n" | gdisk ${DISK}
     fi
     
@@ -176,5 +199,9 @@ else
     # remove the trigger
     mount -o remount,rw /boot && sed -i -e s+'^[ ]*format-internal'+'#format-internal'+ "${BOOTCONF}" && mount -o remount,ro /boot
 fi
+
+# parted just moved the entry array again; fix it before the next boot, when
+# U-Boot's boot0 write would land on it
+pin_gpt_entry_array "${DISK}"
 
 exit 0

@@ -2,6 +2,12 @@
 
 case "$1" in
   start)
+    # Wait for ES so python does not compete with its load
+    i=0
+    while [ ! -e /tmp/emulationstation.ready ] && [ "$i" -lt 300 ]; do
+      i=$((i + 1))
+      sleep 0.1
+    done
     for f in /usr/lib/python*/site-packages/configgen/emulatorlauncher.py; do
       [ -f "$f" ] || continue
       python3 -m compileall -q "$f" >/dev/null 2>&1

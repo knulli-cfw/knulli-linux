@@ -35,25 +35,25 @@ declare -A BOARD_CAPABILITIES
 case "$ARCH" in
     h700)
         BOARD_CAPABILITIES[rgb]="rg40xx-h rg40xx-v rg-cubexx"
-        BOARD_CAPABILITIES[hdmi]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
-        BOARD_CAPABILITIES[lid]="rg35xx-sp rg34xx-sp"
-        BOARD_CAPABILITIES[wifi]="rg35xx-plus rg35xx-h rg35xx-sp rg34xx-sp rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
-        BOARD_CAPABILITIES[bluetooth]="rg35xx-plus rg35xx-h rg35xx-sp rg34xx-sp rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[hdmi]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[lid]="rg35xx-sp rg34xx-sp rg-sp"
+        BOARD_CAPABILITIES[wifi]="rg35xx-plus rg35xx-h rg35xx-sp rg34xx-sp rg-sp rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[bluetooth]="rg35xx-plus rg35xx-h rg35xx-sp rg34xx-sp rg-sp rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
         BOARD_CAPABILITIES[analogstick]="rg35xx-h rg40xx-h rg40xx-v rg-cubexx rg34xx-sp rg35xx-pro"
-        BOARD_CAPABILITIES[rumble]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
-        BOARD_CAPABILITIES[adb]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
-        BOARD_CAPABILITIES[hud]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
-        BOARD_CAPABILITIES[pwrled]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[rumble]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[adb]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[hud]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
+        BOARD_CAPABILITIES[pwrled]="rg35xx-plus rg35xx-h rg35xx-2024 rg35xx-sp rg34xx-sp rg-sp rg28xx rg40xx-h rg40xx-v rg-cubexx rg34xx rg35xx-pro"
         ;;
     a133)
         BOARD_CAPABILITIES[rgb]="trimui-smart-pro trimui-brick trimui-brick-pro"
         BOARD_CAPABILITIES[lid]="powkiddy-v90s"
-        BOARD_CAPABILITIES[wifi]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
-        BOARD_CAPABILITIES[bluetooth]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
-        BOARD_CAPABILITIES[analogstick]="trimui-smart-pro trimui-brick-pro magicx-zero-28"
-        BOARD_CAPABILITIES[rumble]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
-        BOARD_CAPABILITIES[adb]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
-        BOARD_CAPABILITIES[hud]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40"
+        BOARD_CAPABILITIES[wifi]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v20 magicx-zero-28 magicx-zero-40 xu20-v32"
+        BOARD_CAPABILITIES[bluetooth]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v20 magicx-zero-40"
+        BOARD_CAPABILITIES[analogstick]="trimui-smart-pro trimui-brick-pro magicx-zero-28 magicx-zero-40 powkiddy-v20"
+        BOARD_CAPABILITIES[rumble]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-40 xu20-v32"
+        BOARD_CAPABILITIES[adb]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40 xu20-v32"
+        BOARD_CAPABILITIES[hud]="trimui-smart-pro trimui-brick trimui-brick-pro powkiddy-v90s powkiddy-v20 magicx-zero-28 magicx-zero-40 xu20-v32"
         BOARD_CAPABILITIES[toggleswitch]="trimui-smart-pro trimui-brick trimui-brick-pro"
         ;;
     rk3128)
@@ -75,17 +75,17 @@ case "$ARCH" in
     rk3568)
         # miyoo-flip lid hall now emits KEY_F12 via a gpio-keys node (decoupled from
         # the power button), so the lid works independently like rg-ds.
-        BOARD_CAPABILITIES[lid]="rg-ds miyoo-flip"
+        BOARD_CAPABILITIES[lid]="rg-ds rg-ds-plus miyoo-flip"
         BOARD_CAPABILITIES[rgb]="miniloong"
         BOARD_CAPABILITIES[hdmi]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip miniloong"
-        BOARD_CAPABILITIES[wifi]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds miniloong"
-        BOARD_CAPABILITIES[bluetooth]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds miniloong"
-        BOARD_CAPABILITIES[analogstick]="powkiddy-x55 powkiddy-rgb30 rg-ds miniloong"
-        BOARD_CAPABILITIES[rumble]="rg-arc-s powkiddy-x55 powkiddy-rgb30 rg-ds miniloong"
-        BOARD_CAPABILITIES[adb]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds miniloong"
-        BOARD_CAPABILITIES[hud]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds miniloong"
+        BOARD_CAPABILITIES[wifi]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds rg-ds-plus miniloong"
+        BOARD_CAPABILITIES[bluetooth]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds rg-ds-plus miniloong"
+        BOARD_CAPABILITIES[analogstick]="powkiddy-x55 powkiddy-rgb30 rg-ds rg-ds-plus miniloong"
+        BOARD_CAPABILITIES[rumble]="rg-arc-s powkiddy-x55 powkiddy-rgb30 rg-ds rg-ds-plus miniloong"
+        BOARD_CAPABILITIES[adb]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds rg-ds-plus miniloong"
+        BOARD_CAPABILITIES[hud]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds rg-ds-plus miniloong"
         BOARD_CAPABILITIES[rotatedpanel]="miniloong powkiddy-x55 rg-arc-s"
-	BOARD_CAPABILITIES[pwrled]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds"
+	BOARD_CAPABILITIES[pwrled]="rg-arc-s powkiddy-x55 powkiddy-rgb30 miyoo-flip rg-ds rg-ds-plus"
         ;;
     rk3576)
         BOARD_CAPABILITIES[rgb]="rg-vita-pro"
@@ -98,29 +98,37 @@ case "$ARCH" in
         BOARD_CAPABILITIES[hud]="rg-vita-pro"
         BOARD_CAPABILITIES[fan]="rg-vita-pro"
         ;;
-    sm8550)
-        # knulli.board holds KNULLI_SUBTARGET, and sm8550 ships one image for all
-        # its devices (unlike sm8250, which builds per device), so the board name
-        # is the SoC itself.  Split this list per device if that ever changes.
-        BOARD_CAPABILITIES[hdmi]="sm8550"
-        BOARD_CAPABILITIES[wifi]="sm8550"
-        BOARD_CAPABILITIES[bluetooth]="sm8550"
-        BOARD_CAPABILITIES[analogstick]="sm8550"
-        BOARD_CAPABILITIES[rumble]="sm8550"
-        BOARD_CAPABILITIES[adb]="sm8550"
-        BOARD_CAPABILITIES[hud]="sm8550"
-        BOARD_CAPABILITIES[fan]="sm8550"
+    sm6115)
+        # One image for the three Air X variants (they differ only by panel),
+        # so the board name is the SoC.  hdmi is absent until DP-altmode over
+        # the USB-C connector is confirmed on hardware.
+        BOARD_CAPABILITIES[rgb]="sm6115"
+        BOARD_CAPABILITIES[wifi]="sm6115"
+        BOARD_CAPABILITIES[bluetooth]="sm6115"
+        BOARD_CAPABILITIES[analogstick]="sm6115"
+        BOARD_CAPABILITIES[rumble]="sm6115"
+        BOARD_CAPABILITIES[adb]="sm6115"
+        BOARD_CAPABILITIES[hud]="sm6115"
+        BOARD_CAPABILITIES[fan]="sm6115"
         ;;
-    sm8250)
-        BOARD_CAPABILITIES[rgb]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[hdmi]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[wifi]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[bluetooth]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[analogstick]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[rumble]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[adb]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[hud]="rp5 rpflip2 rpmini rpminiv2"
-        BOARD_CAPABILITIES[fan]="rp5 rpflip2 rpmini rpminiv2"
+    smgen)
+        # One image for every Qualcomm SM device; rcS writes the device name
+        # (from the DT model, see knulli-qcom-board) into knulli.board.
+        # hdmi is absent on the sm4450/sm6450 devices until DP-altmode is
+        # confirmed on hardware.
+        SM8250="rp5 rpflip2 rpmini rpminiv2 thorlite mangmi-air-y-pro mangmi-pocket-max"
+        SM8550="rp6 rpnova odin2 odin2mini odin2portal thor pocketace pocketdmg pocketds pocketevo pockets1k pockets2k pocketsmini"
+        SM4450="rg55g1 rpclassic hammerprou"
+        ALL="$SM8250 $SM8550 $SM4450"
+        BOARD_CAPABILITIES[rgb]="${ALL/rpclassic/}"
+        BOARD_CAPABILITIES[hdmi]="$SM8250 $SM8550"
+        BOARD_CAPABILITIES[wifi]="$ALL"
+        BOARD_CAPABILITIES[bluetooth]="$ALL"
+        BOARD_CAPABILITIES[analogstick]="$ALL"
+        BOARD_CAPABILITIES[rumble]="$ALL"
+        BOARD_CAPABILITIES[adb]="$ALL"
+        BOARD_CAPABILITIES[hud]="$ALL"
+        BOARD_CAPABILITIES[fan]="$ALL"
         ;;
     a527)
         BOARD_CAPABILITIES[rgb]="trimui-smart-pro-s"

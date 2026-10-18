@@ -1,5 +1,13 @@
 #!/bin/sh
 
+# Boot progress bar straight to /dev/fb0, for boards that opt in by shipping
+# /etc/progressbar_rk.conf (it sets PB_RK_ARGS, per DT model if needed).
+if [ -f /etc/progressbar_rk.conf ] && [ -x /usr/bin/progressbar_rk ]; then
+    PB_RK_ARGS=""
+    . /etc/progressbar_rk.conf
+    /usr/bin/progressbar_rk $PB_RK_ARGS &
+fi
+
 #
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
@@ -8,6 +16,9 @@ for i in /etc/init.d/S??* ;do
 
      # Ignore dangling symlinks (if any).
     [ ! -f "$i" ] && continue
+
+    # Update status for progress bar
+    echo "$i" > /tmp/status.txt
 
 	mkdir -p /var/run/
     echo $(date +"%F %T,%3N")": ${i} - starting" >> /var/run/boot.log
@@ -29,3 +40,5 @@ for i in /etc/init.d/S??* ;do
 
      echo $(date +"%F %T,%3N")": ${i} - started" >> /var/run/boot.log
 done
+
+echo QUIT > /tmp/status.txt

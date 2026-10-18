@@ -46,18 +46,24 @@ for DIR in roms roms/mame/mame2003
 do
     if mkdir -p "$OUT""/""$DIR"
     then
-	find "$IN""/""$DIR" -mindepth 1 -maxdepth 1 -type d |
-	    while read SUBDIR
+	# one listing per side, not a basename and a stat per system
+	find "$IN""/""$DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort > /tmp/populateshare.in
+	ls -1A "$OUT""/""$DIR" | LC_ALL=C sort > /tmp/populateshare.out
+	LC_ALL=C comm -23 /tmp/populateshare.in /tmp/populateshare.out |
+	    while read BNAME
 	    do
-		BNAME=$(basename "$SUBDIR")
 		TDIR="$OUT""/""$DIR""/""$BNAME"
-		if test ! -e "$TDIR" # ASSUME THAT PARENTS ARE LISTED BEFORE CHILDREN
+		if test ! -e "$TDIR" # exfat is case-insensitive, comm is not
 		then
-		    cp -r "$SUBDIR" "$TDIR"
+		    cp -r "$IN""/""$DIR""/""$BNAME" "$TDIR"
 		fi
 	    done
+	rm -f /tmp/populateshare.in /tmp/populateshare.out
     fi
 done
+
+# Prefetch the system folders ES lists on start
+ls -f /userdata/roms/*/ >/dev/null 2>&1 &
 
 # sometimes we update _info.txt files.
 # add a loop to update newer files if necessary
