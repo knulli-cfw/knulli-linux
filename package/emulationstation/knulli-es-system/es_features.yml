@@ -12015,8 +12015,12 @@ dsperate:
             prompt:      SCREEN LAYOUT
             description: Arrange the two DS screens.
             choices:
-                "Vertical (Default)": vertical
-                "Horizontal":         horizontal
+                "Vertical (Default)":   vertical
+                "Horizontal":           horizontal
+                "Single screen":        single
+                "Picture in picture":   pip
+                "Dominant (vertical)":  dominant_v
+                "Dominant (horizontal)": dominant_h
         dsperate_dual_window:
             prompt:      DUAL PANEL MODE
             description: One fullscreen window per display, one DS screen each. For dual panel handhelds only.
@@ -12024,10 +12028,6 @@ dsperate:
         dsperate_linear:
             prompt:      BILINEAR FILTERING
             description: Smooths the image when scaling. May reduce sharpness.
-            preset: switchauto
-        dsperate_accel:
-            prompt:      GPU RENDERER
-            description: Present through GLES instead of the software renderer. On low core count devices the driver's own threads usually cost more than they save.
             preset: switchauto
         dsperate_jit:
             group:       ADVANCED OPTIONS
@@ -14191,7 +14191,7 @@ azahar:
         "9x (3600x2160)":  9
         "10x (4000x2400)": 10
     azahar_graphics_api:
-      archs_include: [x86, x86_64, x86-64-v3, bcm2711, bcm2712, a3gen2, sm8250, sm8550, rk3588, rk3588-sdio]
+      archs_include: [x86, x86_64, x86-64-v3, bcm2711, bcm2712, a3gen2, sm8250, sm8550, smgen, rk3588, rk3588-sdio]
       submenu: GRAPHICS
       prompt: GRAPHICS API
       description: Choose which graphics API library to use.

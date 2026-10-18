@@ -1,0 +1,36 @@
+Subject: [PATCH] Skip empty system folders with one directory listing
+
+---
+--- a/es-app/src/SystemData.cpp	2026-10-17 15:57:06.691798834 +0000
++++ b/es-app/src/SystemData.cpp	2026-10-17 15:57:06.703798825 +0000
+@@ -1205,6 +1205,30 @@
+ 		return nullptr;
+ 	}
+ 
++	// Every system has a folder (S12populateshare creates them all, holding
++	// only _info.txt), and the constructor drops an empty one only after the
++	// emulators, the features and a full populateFolder.  One listing is
++	// enough to tell: no file with one of the extensions and no subfolder
++	// means populateFolder could not find a game either.
++	if (fullMode && !UIModeController::LoadEmptySystems() && !Settings::ParseGamelistOnly())
++	{
++		bool candidate = false;
++		for (auto& fileInfo : Utils::FileSystem::getDirectoryFiles(path))
++		{
++			if (fileInfo.directory || extensions.find(Utils::String::toLower(Utils::FileSystem::getExtension(fileInfo.path))) != extensions.cend())
++			{
++				candidate = true;
++				break;
++			}
++		}
++
++		if (!candidate)
++		{
++			LOG(LogWarning) << "System \"" << md.name << "\" has no games! Ignoring it.";
++			return nullptr;
++		}
++	}
++
+ 	//create the system runtime environment data
+ 	SystemEnvironmentData* envData = new SystemEnvironmentData;
+ 	envData->mStartPath = path;

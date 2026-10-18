@@ -17,7 +17,11 @@ touch "${REBOOT_FLAG}" || exit 1
 # environment
 export HOME=/userdata/system
 
-knulli-switch-screen-checker --init
+# only DRM connectors can hotplug; fbdev boards have none
+if ls /sys/class/drm/card*-* >/dev/null 2>&1
+then
+    knulli-switch-screen-checker --init
+fi
 
 GAMELAUNCH=1
 while test -e "${REBOOT_FLAG}"
