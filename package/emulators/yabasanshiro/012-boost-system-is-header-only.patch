@@ -1,0 +1,14 @@
+Boost.System is header-only since 1.69 and 1.89 dropped the stub library and
+its CMake package, so asking for the component fails the configure.
+
+--- a/yabause/src/retro_arena/CMakeLists.txt
++++ b/yabause/src/retro_arena/CMakeLists.txt
+@@ -11,7 +11,7 @@
+ find_package(OpenGLES)
+ find_package(PkgConfig REQUIRED)
+ 
+-find_package(Boost REQUIRED COMPONENTS system filesystem date_time locale)
++find_package(Boost REQUIRED COMPONENTS filesystem date_time locale)
+ 
+ if (NOT OPENGLES2_FOUND)
+ 	return()

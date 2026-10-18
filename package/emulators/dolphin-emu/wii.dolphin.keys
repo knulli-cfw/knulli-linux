@@ -2,8 +2,9 @@
     "actions_player1": [
         {
             "trigger": [ "hotkey", "start" ],
-            "type": "key",
-            "target": [ "KEY_LEFTALT", "KEY_F4" ]
+            "type": "exec",
+            "target": "pkill -TERM -f dolphin-emu",
+            "description": "Exit emulator"
         },
         {
             "trigger": [ "hotkey", "up" ],

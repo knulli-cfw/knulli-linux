@@ -121,7 +121,7 @@ index 682f59f0..2b5f1532 100644
 -target_link_libraries( yabause-retro-arena ${zlib_STATIC_LIBRARIES} )
 -add_dependencies(yabause-retro-arena Json png zlib libchd )
 +target_link_libraries( yabause-retro-arena ${ZLIB_LIBRARIES} )
-+target_link_libraries( yabause-retro-arena mali )
++target_link_libraries( yabause-retro-arena EGL )
 +#add_dependencies(yabause-retro-arena Json png zlib libchd )
  yab_port_success(yabause-retro-arena)
  set_target_properties(yabause-retro-arena PROPERTIES OUTPUT_NAME yabasanshiro)

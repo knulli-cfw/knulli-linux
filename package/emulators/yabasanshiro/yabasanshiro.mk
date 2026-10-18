@@ -12,10 +12,13 @@ YABASANSHIRO_LICENSE_FILE = LICENSE
 YABASANSHIRO_SUBDIR = yabause
 YABASANSHIRO_CMAKE_BACKEND = make
 
-YABASANSHIRO_DEPENDENCIES = sdl2 libcurl boost libglfw zlib libpng
+# retro_arena links neither libcurl nor libglfw (glfw/vulkan ports only); OpenAL
+# is auto-detected, so it must be built first or the audio core silently drops.
+YABASANSHIRO_DEPENDENCIES = sdl2 boost zlib libpng openal
 
 # gcc-14 / custom compile flags (keep original - append other flags via CONF_ENV for cross builds)
-YABASANSHIRO_TARGET_CFLAGS = -Wno-implicit-function-declaration -Wno-incompatible-pointer-types -Wno-int-conversion
+YABASANSHIRO_TARGET_CFLAGS = -Wno-implicit-function-declaration -Wno-incompatible-pointer-types -Wno-int-conversion \
+	-Wno-return-mismatch -Wno-implicit-int -Wno-declaration-missing-parameter-type
 
 # Remove any global LTO flags before applying a consistent package-local
 # configuration to compilation and linking.
@@ -30,6 +33,12 @@ YABASANSHIRO_LTO_FLAGS = -flto=auto -fuse-linker-plugin -ffat-lto-objects
 # Extra linker flags from the custom script
 # include -lstdc++fs as the script used
 YABASANSHIRO_CONF_ENV += LDFLAGS="$(YABASANSHIRO_LDFLAGS) $(YABASANSHIRO_LTO_FLAGS) -L$(STAGING_DIR)/usr/lib -lpthread -ludev -lstdc++fs"
+
+# Every CMakeLists here asks for CMake < 3.5, which CMake 4 refuses.  The
+# environment rather than -D, because the ExternalProject sub-builds (musashi,
+# libchdr) run their own cmake at build time and only inherit the environment.
+YABASANSHIRO_CONF_ENV += CMAKE_POLICY_VERSION_MINIMUM=3.5
+YABASANSHIRO_MAKE_ENV += CMAKE_POLICY_VERSION_MINIMUM=3.5
 
 # Provide CMake install prefix (use /usr for library/binary layout)
 YABASANSHIRO_CONF_OPTS += -DCMAKE_INSTALL_PREFIX="/usr"
