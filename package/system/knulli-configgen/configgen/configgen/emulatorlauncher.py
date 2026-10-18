@@ -84,6 +84,8 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
     systemName = args.system
     eslog.debug(f"Running system: {systemName}")
     system = Emulator(systemName, romConfiguration)
+    if system.getOptBoolean("configgen.debug"):
+        logging.getLogger(__name__.split('.')[0]).setLevel(logging.DEBUG)
 
     if args.emulator is not None:
         system.config["emulator"] = args.emulator

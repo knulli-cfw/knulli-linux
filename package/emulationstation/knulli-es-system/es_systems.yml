@@ -2178,7 +2178,7 @@ saturn:
   extensions: [cue, ccd, m3u, chd, iso, zip, mds]
   emulators:
     yabasanshiro:
-      yabasanshiro: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_YABASANSHIRO] }
+      yabasanshiro: { requireAnyOf: [BR2_PACKAGE_YABASANSHIRO] }
     libretro:
       beetle-saturn: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BEETLE_SATURN], incompatible_extensions: [zip] }
       kronos:        { requireAnyOf: [BR2_PACKAGE_LIBRETRO_KRONOS] }

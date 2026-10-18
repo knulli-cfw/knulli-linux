@@ -101,10 +101,10 @@ else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3588),y)
 	KNULLI_CONFIGGEN_SYSTEM=rk3588
 else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RISCV),y)
 	KNULLI_CONFIGGEN_SYSTEM=riscv
-else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM8250),y)
-	KNULLI_CONFIGGEN_SYSTEM=sm8250
-else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM8550),y)
-	KNULLI_CONFIGGEN_SYSTEM=sm8550
+else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM6115),y)
+	KNULLI_CONFIGGEN_SYSTEM=sm6115
+else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SMGEN),y)
+	KNULLI_CONFIGGEN_SYSTEM=smgen
 else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_RK3576),y)
 	KNULLI_CONFIGGEN_SYSTEM=rk3576
 else ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_T618),y)
@@ -142,6 +142,9 @@ define KNULLI_CONFIGGEN_CONFIGS
 endef
 
 define KNULLI_CONFIGGEN_ES_HOOKS
+    install -D -m 0755 $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-configgen/scripts/S30configgen-daemon \
+        $(TARGET_DIR)/etc/init.d/S30configgen-daemon
+
     install -D -m 0755 $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-configgen/scripts/powermode_launch_hooks.sh \
         $(TARGET_DIR)/usr/share/knulli/configgen/scripts/powermode_launch_hooks.sh
 

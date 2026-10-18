@@ -12,6 +12,7 @@ from .input import Input, InputDict, InputMapping
 if TYPE_CHECKING:
     from argparse import Namespace
 
+_system_controllers: list[Controller] | None = None
 
 """Default mapping of Batocera keys to SDL_GAMECONTROLLERCONFIG keys."""
 _DEFAULT_SDL_MAPPING: Final = {
@@ -171,15 +172,26 @@ class Controller:
             inputs_=Input.from_parent_element(element)
         )
 
+    @classmethod
+    def _load_file(cls, conffile: Path, /) -> list[Self]:
+        if not conffile.exists():
+            return []
+        return [cls.from_element(controller) for controller in ET.parse(conffile).getroot().findall(".//inputConfig")]
+
+    # The system es_input.cfg is image data; configgend parses it once and its
+    # launch workers inherit the result.
+    @classmethod
+    def prewarm(cls) -> None:
+        global _system_controllers
+        if _system_controllers is None:
+            _system_controllers = cls._load_file(BATOCERA_ES_DIR / "es_input.cfg")
+
     # Load all controllers from the es_input.cfg
     @classmethod
     def load_all(cls) -> list[Self]:
-        return [
-            cls.from_element(controller)
-            # Parse the user's es_input.cfg first so those items are found before the system items when iterating
-            for conffile in [USER_ES_DIR / 'es_input.cfg', BATOCERA_ES_DIR / "es_input.cfg"] if conffile.exists()
-            for controller in ET.parse(conffile).getroot().findall(".//inputConfig")
-        ]
+        cls.prewarm()
+        # Parse the user's es_input.cfg first so those items are found before the system items when iterating
+        return [*cls._load_file(USER_ES_DIR / 'es_input.cfg'), *cast('list[Self]', _system_controllers)]
 
     # Create a controller array with the player id as a key
     @classmethod

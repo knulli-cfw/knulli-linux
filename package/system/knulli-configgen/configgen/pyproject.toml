@@ -7,7 +7,8 @@ dependencies = [
 ]
 
 [project.scripts]
-emulatorlauncher = "configgen.emulatorlauncher:launch"
+emulatorlauncher = "configgen.stub:main"
+configgend = "configgen.daemon:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -6,8 +6,6 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
-from PIL import Image, ImageOps
-
 from ..batoceraPaths import KNULLI_SHARE_DIR, SYSTEM_DECORATIONS, USER_DECORATIONS
 from .videoMode import getAltDecoration, getCurrentResolution
 
@@ -155,6 +153,8 @@ def fast_image_size(image_file: str | Path) -> tuple[int, int]:
         return struct.unpack('>ii', head[16:24]) #image width, height
 
 def resizeImage(input_png: str | Path, output_png: str | Path, screen_width: int, screen_height: int, bezel_stretch: bool = False) -> None:
+    from PIL import Image, ImageOps
+
     imgin = Image.open(input_png)
     fillcolor = 'black'
     eslog.debug(f"Resizing bezel: image mode {imgin.mode}")
@@ -165,6 +165,8 @@ def resizeImage(input_png: str | Path, output_png: str | Path, screen_width: int
         imgout.save(output_png, mode="RGBA", format="PNG")
 
 def padImage(input_png: str | Path, output_png: str | Path, screen_width: int, screen_height: int, bezel_width: int, bezel_height: int, bezel_stretch: bool = False) -> None:
+    from PIL import Image, ImageOps
+
     imgin = Image.open(input_png)
     fillcolor = 'black'
     eslog.debug(f"Padding bezel: image mode {imgin.mode}")
@@ -178,6 +180,8 @@ def padImage(input_png: str | Path, output_png: str | Path, screen_width: int, s
         imgout.save(output_png, mode="RGBA", format="PNG")
 
 def tatooImage(input_png: str | Path, output_png: str | Path, system: Emulator) -> None:
+    from PIL import Image, ImageOps
+
     if system.config['bezel.tattoo'] == 'system':
         try:
             tattoo_file = KNULLI_SHARE_DIR / 'controller-overlays' / f'{system.name}.png'
@@ -244,6 +248,8 @@ def tatooImage(input_png: str | Path, output_png: str | Path, system: Emulator) 
     imgnew.save(output_png, mode="RGBA", format="PNG")
 
 def alphaPaste(input_png: str | Path, output_png: str | Path, imgin: ImageFile, fillcolor: str, screensize: tuple[int, int], bezel_stretch: bool) -> None:
+    from PIL import Image, ImageOps
+
     # screensize=(screen_width, screen_height)
     imgin = Image.open(input_png)
     # TheBezelProject have Palette + alpha, not RGBA. PIL can't convert from P+A to RGBA.
@@ -283,6 +289,8 @@ def gunBordersSize(bordersSize: str) -> tuple[int, int]:
     return 0, 0
 
 def gunBorderImage(input_png: str | Path, output_png: str | Path, aspect_ratio: str | None, innerBorderSizePer: int = 2, outerBorderSizePer: int = 3, innerBorderColor: str = "#ffffff", outerBorderColor: str = "#000000") -> int:
+    from PIL import Image, ImageOps
+
     # good default border that works in most circumstances is:
     #
     # 2% of the screen width in white.  Surrounded by 3% screen width of
@@ -363,6 +371,8 @@ def gunsBordersColorFomConfig(config: Mapping[str, object]) -> str:
     return "#ffffff"
 
 def createTransparentBezel(output_png: Path, width: int, height: int) -> None:
+    from PIL import Image, ImageOps
+
     from PIL import ImageDraw
     imgnew = Image.new("RGBA", (width,height), (0,0,0,0))
     imgnewdraw = ImageDraw.Draw(imgnew)

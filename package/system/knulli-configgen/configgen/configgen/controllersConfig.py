@@ -5,10 +5,9 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
-import evdev
-import pyudev
-
 if TYPE_CHECKING:
+    import evdev
+
     from collections.abc import Mapping
 
     from .types import DeviceInfoDict, DeviceInfoMapping, GunDict, GunMapping
@@ -56,6 +55,8 @@ def gunsBorderRatioType(guns: GunMapping, config: dict[str, str]) -> str | None:
     return None
 
 def getMouseButtons(device: evdev.InputDevice) -> list[str]:
+    import evdev
+
     caps = device.capabilities()
     caps_keys = caps[evdev.ecodes.EV_KEY]
     caps_filter = [evdev.ecodes.BTN_LEFT, evdev.ecodes.BTN_RIGHT, evdev.ecodes.BTN_MIDDLE, evdev.ecodes.BTN_1, evdev.ecodes.BTN_2, evdev.ecodes.BTN_3, evdev.ecodes.BTN_4, evdev.ecodes.BTN_5, evdev.ecodes.BTN_6, evdev.ecodes.BTN_7, evdev.ecodes.BTN_8]
@@ -86,6 +87,8 @@ def getMouseButtons(device: evdev.InputDevice) -> list[str]:
     return buttons
 
 def mouseButtonToCode(button: str) -> int | None:
+    import evdev
+
     if button == "left":
         return evdev.ecodes.BTN_LEFT
     if button == "right":
@@ -113,6 +116,7 @@ def mouseButtonToCode(button: str) -> int | None:
 def getGuns() -> GunDict:
     import re
 
+    import evdev
     import pyudev
 
     guns: GunDict = {}
@@ -170,6 +174,8 @@ class _Device(TypedDict):
     wheel_rotation: NotRequired[int]
 
 def getDevicesInformation() -> DeviceInfoDict:
+    import pyudev
+
     groups: dict[str | None, list[str]] = {}
     devices: dict[int, _Device] = {}
     context   = pyudev.Context()

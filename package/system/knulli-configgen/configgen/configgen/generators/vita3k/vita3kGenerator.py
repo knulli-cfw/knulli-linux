@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import ruamel.yaml
@@ -15,6 +17,8 @@ from ..Generator import Generator
 
 if TYPE_CHECKING:
     from ...types import HotkeysContext
+
+eslog = logging.getLogger(__name__)
 
 vitaConfig = CONFIGS / 'vita3k'
 vitaSaves = SAVES / 'psvita'
@@ -198,9 +202,13 @@ class Vita3kGenerator(Generator):
         with vitaConfigFile.open('w') as fp:
             yaml.dump(vita3kymlconfig, fp)
 
-        # Simplify the rom name (strip the directory & extension)
-        begin, end = rom.find('['), rom.rfind(']')
-        smplromname = rom[begin+1: end]
+        # Title ID from the rom name, e.g. "FEZ [PCSB00456] [EUR] [NoNpDrm].zip"
+        titleid = re.search(r'\[([A-Z]{4}\d{5})\]', Path(rom).name)
+        if titleid:
+            smplromname = titleid.group(1)
+        else:
+            begin, end = rom.find('['), rom.rfind(']')
+            smplromname = rom[begin+1: end]
         # because of the yml formatting, we don't allow Vita3k to modify it
         # using the -w & -f options prevents Vita3k from re-writing & prompting the user in GUI
         # we want to avoid that so roms load straight away
@@ -208,7 +216,9 @@ class Vita3kGenerator(Generator):
             commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, "-r", smplromname]
         else:
             # Game not installed yet, let's open the menu
-            commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, rom]
+            # "--": Vita3K allows Windows-style options, so a path starting
+            # with "/" is otherwise parsed as an option and silently dropped
+            commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, "--", rom]
 
         return Command.Command(
             array=commandArray,

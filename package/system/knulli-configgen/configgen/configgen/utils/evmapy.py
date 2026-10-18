@@ -8,8 +8,6 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import evdev
-
 from ..controllersConfig import mouseButtonToCode
 
 if TYPE_CHECKING:
@@ -27,6 +25,7 @@ eslog = logging.getLogger(__name__)
 class evmapy(AbstractContextManager[None, None]):
     # evmapy is a process that map pads to keyboards (for pygame for example)
     __started: bool = field(init=False, default=False)
+    __start_proc: subprocess.Popen[bytes] | None = field(init=False, default=None)
 
     system: str
     emulator: str
@@ -38,7 +37,9 @@ class evmapy(AbstractContextManager[None, None]):
     def __enter__(self) -> None:
         if self.__prepare():
             self.__started = True
-            subprocess.call(["batocera-evmapy", "start"])
+            # Don't wait the ~1 s for evmapy's ready flag: it grabs the pads on
+            # its own and is up long before the emulator has finished starting.
+            self.__start_proc = subprocess.Popen(["batocera-evmapy", "start"])
 
     def __exit__(
         self,
@@ -49,6 +50,9 @@ class evmapy(AbstractContextManager[None, None]):
     ) -> None:
         if self.__started:
             self.__started = False
+            # a start still in flight would bring evmapy up after the stop
+            if self.__start_proc is not None:
+                self.__start_proc.wait()
             subprocess.call(["batocera-evmapy", "stop"])
 
     def __build_merged_keys_file(self) -> str | None:
@@ -425,6 +429,8 @@ class evmapy(AbstractContextManager[None, None]):
             return trigger
 
     def __get_pad_min_max_axis(self, devicePath: str, axisCode: int) -> tuple[int, int]:
+        import evdev
+
         device = evdev.InputDevice(devicePath)
         capabilities = device.capabilities(False)
 

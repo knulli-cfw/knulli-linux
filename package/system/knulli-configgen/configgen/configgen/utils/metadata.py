@@ -54,10 +54,18 @@ def _update_metadata_from_element(md: dict[str, str], element: ET.Element, /, ex
             md[key] = attrib_value
             _logger.info("found game metadata %s=%s%s", key, attrib_value, extra_log_text)
 
+# The games database is image data; configgend parses it once and its launch
+# workers inherit the result.
+_db_roots: dict[str, ET.Element] = {}
+
+def prewarm(db_xml: str | Path) -> ET.Element:
+    if (root := _db_roots.get(str(db_xml))) is None:
+        root = _db_roots[str(db_xml)] = ET.parse(db_xml).getroot()
+    return root
+
 def get_games_meta_data(db_xml: str | Path, system: str, rom: str | Path) -> dict[str, str]:
     # load the database
-    tree = ET.parse(db_xml)
-    root: ET.Element = tree.getroot()
+    root = prewarm(db_xml)
     game = _short_name_from_path(rom)
     md: dict[str, str] = {}
 
