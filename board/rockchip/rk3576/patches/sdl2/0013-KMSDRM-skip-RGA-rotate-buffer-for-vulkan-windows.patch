@@ -1,0 +1,67 @@
+KMSDRM: skip RGA rotate buffer for Vulkan windows.
+
+The librga framebuffer-rotation path (patches 0003/0005) rotates the GBM
+front buffer inside KMSDRM_GLES_SwapWindow() and is only meaningful for
+OpenGL/GLES windows. KMSDRM_CreateWindow() only calls KMSDRM_GBMInit()
+(which creates viddata->gbm_dev) in its non-Vulkan block; a Vulkan window
+presents through VK_KHR_display and never initializes GBM.
+
+However KMSDRM_InitRotateBuffer() was called unconditionally, so for a
+Vulkan window (e.g. PPSSPP built with -DVULKAN=ON -DUSE_VULKAN_DISPLAY_KHR=ON)
+gbm_dev is NULL, KMSDRM_gbm_bo_create() returns NULL and the
+assert(viddata->rga_buffers[i]) aborts:
+
+    KMSDRM_InitRotateBuffer: Assertion `viddata->rga_buffers[i]' failed.
+
+Guard both the init in KMSDRM_CreateWindow() and the matching cleanup in
+KMSDRM_DestroyWindow() with !is_vulkan. The cleanup also closed the still
+zero-initialized prime fds (i.e. close(0)/stdin) and called c_RkRgaDeInit()
+without a matching init for Vulkan windows.
+
+diff --git a/src/video/kmsdrm/SDL_kmsdrmvideo.c b/src/video/kmsdrm/SDL_kmsdrmvideo.c
+index 59a7579..4cb730a 100644
+--- a/src/video/kmsdrm/SDL_kmsdrmvideo.c
++++ b/src/video/kmsdrm/SDL_kmsdrmvideo.c
+@@ -1719,6 +1719,10 @@ void KMSDRM_DestroyWindow(_THIS, SDL_Window *window)
+     /*********************************************************************/
+     SDL_free(window->driverdata);
+     window->driverdata = NULL;
++    /* RGA rotate buffers are only set up for non-Vulkan windows (see
++       KMSDRM_CreateWindow). For a Vulkan window the prime fds are still 0, so
++       close() would target stdin and c_RkRgaDeInit() would run without init. */
++    if (!is_vulkan) {
+         for (int i = 0; i < RGA_BUFFERS_MAX; ++i) {
+             close(viddata->rga_buffer_prime_fds[i]);
+         }
+@@ -1726,6 +1730,7 @@ void KMSDRM_DestroyWindow(_THIS, SDL_Window *window)
+             close(src_info.fd);
+         }
+         c_RkRgaDeInit();
++    }
+ }
+ 
+ /**********************************************************************/
+@@ -1866,11 +1871,18 @@ int KMSDRM_CreateWindow(_THIS, SDL_Window *window)
+     SDL_SetMouseFocus(window);
+     SDL_SetKeyboardFocus(window);
+ 
+-    data = (SDL_DisplayData *) SDL_GetDisplayForWindow(window)->driverdata;
+-    if (dispdata->orientation & 1) {
+-        KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.vdisplay, data->mode.hdisplay);
+-    } else {
+-        KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.hdisplay, data->mode.vdisplay);
++    /* The RGA framebuffer-rotation path rotates the GBM front buffer during
++       KMSDRM_GLES_SwapWindow(). It requires a GBM device, which is only created
++       in the non-Vulkan block above. Vulkan windows present through
++       VK_KHR_display and never init GBM, so skip it or gbm_bo_create() returns
++       NULL and the assert() in KMSDRM_InitRotateBuffer() aborts. */
++    if (!is_vulkan) {
++        data = (SDL_DisplayData *) SDL_GetDisplayForWindow(window)->driverdata;
++        if (dispdata->orientation & 1) {
++            KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.vdisplay, data->mode.hdisplay);
++        } else {
++            KMSDRM_InitRotateBuffer(_this, dispdata->orientation, data->mode.hdisplay, data->mode.vdisplay);
++        }
+     }
+   
+     /* Tell the app that the window has moved to top-left. */
