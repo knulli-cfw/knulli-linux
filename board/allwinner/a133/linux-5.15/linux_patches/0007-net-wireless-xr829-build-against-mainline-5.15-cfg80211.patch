@@ -1,0 +1,284 @@
+Subject: [PATCH] net: wireless: xr829: build against mainline 5.15 cfg80211
+
+The driver keys Android GKI backports (link_id, MLO station params,
+assoc_failure, ch_switch arguments) on 5.15.x versions; a plain 5.15
+kernel has none of them.  Gate those on 6.1 instead.
+---
+--- a/bsp/drivers/net/wireless/xr829/umac/cfg.c
++++ b/bsp/drivers/net/wireless/xr829/umac/cfg.c
+@@ -383,7 +383,7 @@
+ }
+ 
+ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 			     int link_id,
+ #endif
+ 			     u8 key_idx, bool pairwise, const u8 *mac_addr,
+@@ -502,7 +502,7 @@
+ }
+ 
+ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 			     int link_id,
+ #endif
+ 			     u8 key_idx, bool pairwise, const u8 *mac_addr)
+@@ -546,7 +546,7 @@
+ }
+ 
+ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 			     int link_id,
+ #endif
+ 			     u8 key_idx, bool pairwise, const u8 *mac_addr,
+@@ -668,7 +668,7 @@
+ 
+ static int ieee80211_config_default_key(struct wiphy *wiphy,
+ 					struct net_device *dev,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 					int link_id,
+ #endif
+ 					u8 key_idx, bool uni,
+@@ -683,7 +683,7 @@
+ 
+ static int ieee80211_config_default_mgmt_key(struct wiphy *wiphy,
+ 					     struct net_device *dev,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 					     int link_id,
+ #endif
+ 					     u8 key_idx)
+@@ -1283,7 +1283,7 @@
+ 	return 0;
+ }
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev, unsigned int link_id)
+ #else
+ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
+@@ -1504,7 +1504,7 @@
+ 	struct ieee80211_supported_band *sband;
+ 	struct ieee80211_sub_if_data *sdata = sta->sdata;
+ 	u32 mask, set;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+ 	struct link_station_parameters *link_sta_params = &params->link_sta_params;
+ #else
+ 	struct station_parameters *link_sta_params = params;
+@@ -1641,7 +1641,7 @@
+ 	if (params->listen_interval >= 0)
+ 		sta->listen_interval = params->listen_interval;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 41)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
+ 	if (params->sta_modify_mask & STATION_PARAM_APPLY_STA_TXPOWER) {
+ 		sta->sta.txpwr.type = params->txpwr.type;
+ 		if (params->txpwr.type == NL80211_TX_POWER_LIMITED)
+@@ -3036,7 +3036,7 @@
+ 
+ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
+ 				      struct net_device *dev,
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 				      unsigned int link_id,
+ #endif
+ 				      const u8 *peer,
+@@ -3328,9 +3328,9 @@
+ 	if (err)
+ 		return err;
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->csa_chandef, 0, 0);
+-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->csa_chandef, 0);
+ #else
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->csa_chandef);
+@@ -3583,15 +3583,15 @@
+ 		ieee80211_stop_vif_queues(local, sdata,
+ 					  IEEE80211_QUEUE_STOP_REASON_CSA);
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &sdata->csa_chandef, 0,
+ 					  params->count, 0, 0);
+-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &sdata->csa_chandef, 0,
+ 					  params->count, 0);
+ #else
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &sdata->csa_chandef,
+-					  params->count);
++					  params->count, false);
+ #endif
+ 
+ 	if (changed) {
+@@ -3828,7 +3828,7 @@
+ 
+ static int ieee80211_cfg_get_channel(struct wiphy *wiphy,
+ 				     struct wireless_dev *wdev,
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 				     unsigned int link_id,
+ #endif
+ 				     struct cfg80211_chan_def *chandef)
+@@ -3891,7 +3891,7 @@
+ 
+ static int ieee80211_set_ap_chanwidth(struct wiphy *wiphy,
+ 				      struct net_device *dev,
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 				      unsigned int link_id,
+ #endif
+ 				      struct cfg80211_chan_def *chandef)
+--- a/bsp/drivers/net/wireless/xr829/umac/ieee80211_i.h
++++ b/bsp/drivers/net/wireless/xr829/umac/ieee80211_i.h
+@@ -1807,7 +1807,7 @@
+ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
+ 			      const u8 *buf, size_t len,
+ 			      const u8 *dest, __be16 proto, bool unencrypted,
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 				  int link_id,
+ #endif
+ 				  u64 *cookie);
+--- a/bsp/drivers/net/wireless/xr829/umac/mlme.c
++++ b/bsp/drivers/net/wireless/xr829/umac/mlme.c
+@@ -1228,9 +1228,9 @@
+ 		return;
+ 	}
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->reserved_chandef, 0, 0);
+-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->reserved_chandef, 0);
+ #else
+ 	cfg80211_ch_switch_notify(sdata->dev, &sdata->reserved_chandef);
+@@ -1420,15 +1420,15 @@
+ 					  IEEE80211_QUEUE_STOP_REASON_CSA);
+ 	mutex_unlock(&local->mtx);
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &csa_ie.chandef, 0,
+ 					  csa_ie.count, 0, 0);
+-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &csa_ie.chandef, 0,
+ 					  csa_ie.count, 0);
+ #else
+ 	cfg80211_ch_switch_started_notify(sdata->dev, &csa_ie.chandef,
+-					  csa_ie.count);
++					  csa_ie.count, false);
+ #endif
+ 
+ 	if (local->ops->channel_switch) {
+@@ -2906,7 +2906,7 @@
+ 		mutex_unlock(&sdata->local->mtx);
+ 
+ 		if (abandon) {
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 			struct cfg80211_assoc_failure data = {
+ 				.bss[0] = assoc_data->bss,
+ 			};
+@@ -3635,7 +3635,7 @@
+ 		.type = MLME_EVENT,
+ 		.u.mlme.data = ASSOC_EVENT,
+ 	};
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	struct cfg80211_rx_assoc_resp resp = {
+ 		.uapsd_queues = -1,
+ 	};
+@@ -3703,7 +3703,7 @@
+ 	} else {
+ 		if (!ieee80211_assoc_success(sdata, bss, mgmt, len)) {
+ 			/* oops -- internal error -- send timeout for now */
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 			struct cfg80211_assoc_failure data = {
+ 				.timeout = true,
+ 				.bss[0] = bss,
+@@ -3734,7 +3734,7 @@
+ 				uapsd_queues |= ieee80211_ac_to_qos_mask[ac];
+ 	}
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	resp.links[0].bss = bss;
+ 	resp.buf = (u8 *)mgmt;
+ 	resp.len = len;
+@@ -4498,7 +4498,7 @@
+ 				.u.mlme.status = MLME_TIMEOUT,
+ 			};
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 			struct cfg80211_assoc_failure data = {
+ 				.timeout = true,
+ 				.bss[0] = bss,
+@@ -5743,7 +5743,7 @@
+ 	u8 bssid[ETH_ALEN];
+ 	u8 frame_buf[IEEE80211_DEAUTH_FRAME_LEN];
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	if (!ifmgd->associated ||
+ 	    memcmp(ifmgd->associated->bssid, req->ap_addr, ETH_ALEN))
+ 		return -ENOTCONN;
+@@ -5760,14 +5760,14 @@
+ 
+ 	sdata_info(sdata,
+ 		   "disassociating from %pM by local choice (Reason: %u=%s)\n",
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 		   req->ap_addr,
+ #else
+ 		   req->bss->bssid,
+ #endif
+ 		   req->reason_code, ieee80211_get_reason_code_string(req->reason_code));
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 	memcpy(bssid, req->ap_addr, ETH_ALEN);
+ #else
+ 	memcpy(bssid, req->bss->bssid, ETH_ALEN);
+@@ -5801,7 +5801,7 @@
+ 	sdata_lock(sdata);
+ 	if (ifmgd->assoc_data) {
+ 		struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 			struct cfg80211_assoc_failure data = {
+ 				.timeout = true,
+ 				.bss[0] = bss,
+--- a/bsp/drivers/net/wireless/xr829/umac/rx.c
++++ b/bsp/drivers/net/wireless/xr829/umac/rx.c
+@@ -2473,7 +2473,7 @@
+ 		bool noencrypt = !(status->flag & RX_FLAG_DECRYPTED);
+ 
+ 		cfg80211_rx_control_port(dev, skb, noencrypt
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 104))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 					 , -1
+ #endif
+ 					);
+--- a/bsp/drivers/net/wireless/xr829/umac/tx.c
++++ b/bsp/drivers/net/wireless/xr829/umac/tx.c
+@@ -5324,7 +5324,7 @@
+ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
+ 			      const u8 *buf, size_t len,
+ 			      const u8 *dest, __be16 proto, bool unencrypted,
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 78))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+ 				  int link_id,
+ #endif
+ 				  u64 *cookie)

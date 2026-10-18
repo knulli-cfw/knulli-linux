@@ -368,14 +368,11 @@ class KnulliUpgrader:
                     "dd", f"if={partition_file}", "of=/dev/mmcblk0",
                     "seek=16400", "bs=1024", "conv=fsync"
                 ], check=True)
-            elif partition_name == "boot.img":
-                subprocess.run([
-                    "dd", f"if={partition_file}", "of=/dev/mmcblk0p1", "conv=fsync"
-                ], check=True)
-            elif partition_name == "env.img":
-                subprocess.run([
-                    "dd", f"if={partition_file}", "of=/dev/mmcblk0p2", "conv=fsync"
-                ], check=True)
+            elif partition_name in ("boot.img", "env.img"):
+                # extlinux layout: the kernel is a file on /boot, U-Boot's
+                # environment is compiled in
+                print(f"  {partition_name} is not used by this layout, skipped")
+                return True
             else:
                 print(f"ERROR: Unknown partition type: {partition_name}")
                 return False

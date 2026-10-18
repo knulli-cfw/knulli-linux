@@ -1,0 +1,68 @@
+Subject: [PATCH] hciattach_xradio: rfkill lookup and checksum fixes
+
+Find the bluetooth rfkill among non-contiguous ids (a module reload
+renumbers them), and read the checksummed buffer bytewise: the 16-bit
+pointer walk over data written through packed structs is undefined, and
+gcc 14 -O2 sends every firmware chunk with a bad command checksum.
+---
+--- a/tools/hciattach_xradio.c
++++ b/tools/hciattach_xradio.c
+@@ -27,6 +27,7 @@
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <unistd.h>
+ #include <termios.h>
+ #include <fcntl.h>
+@@ -408,14 +409,17 @@
+ static unsigned short check_sum16(unsigned char *data, unsigned int len)
+ {
+     unsigned short cs = 0;
+-    unsigned short *p = (unsigned short*)data;
++    unsigned short w;
+ 
++    /* byte copies: the callers fill the buffer through packed structs */
+     while(len > 1) {
+-        cs += *p++;
++        memcpy(&w, data, sizeof(w));
++        cs += w;
++        data += 2;
+         len -= 2;
+     }
+     if (len) {
+-        cs += *(unsigned char*)p;
++        cs += *data;
+     }
+ 
+     return cs;
+@@ -916,16 +920,12 @@
+ 	char buf[16];
+ 	int fd, sz, id;
+ 
+-	for (id = 0; ; id++)
++	for (id = 0; id < 32; id++)
+ 	{
+ 		snprintf(path, sizeof(path), "/sys/class/rfkill/rfkill%d/type", id);
+ 		fd = open(path, O_RDONLY);
+ 		if (fd < 0)
+-		{
+-			printf("init_rfkill : open(%s) failed: %s (%d).\n", \
+-					path, strerror(errno), errno);
+-			return -1;
+-		}
++			continue;	/* ids are not contiguous after a module reload */
+ 
+ 		sz = read(fd, &buf, sizeof(buf));
+ 		close(fd);
+@@ -937,6 +937,10 @@
+ 		}
+ 	}
+ 
++	if (rfkill_id < 0) {
++		printf("init_rfkill : no bluetooth rfkill\n");
++		return -1;
++	}
+ 	asprintf(&rfkill_state_path, "/sys/class/rfkill/rfkill%d/state", rfkill_id);
+ 	return 0;
+ }

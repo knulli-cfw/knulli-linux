@@ -1,0 +1,161 @@
+Subject: [PATCH] input: touchscreen: add AXS15xxx driver
+
+Reporting-only driver for the MagicX Zero 40 axs15205, after the vendor
+axs15260 driver.
+---
+--- /dev/null
++++ b/drivers/input/touchscreen/axs15xxx.c
+@@ -0,0 +1,127 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * AXS15xxx touch controller (MagicX Zero 40: axs15205 at 0x3b).
++ *
++ * Reporting only, after the vendor "axs15260" driver (MagicX A133 SDK):
++ * on interrupt, a plain 32-byte read.  buf[1] low nibble is the point
++ * count (a non-zero high nibble is a status frame), then 6 bytes per
++ * point: event (2 MSBs of byte 0: 0 down, 1 up, 2 contact) and X in bytes
++ * 0-1, ID (high nibble of byte 2) and Y in bytes 2-3.  The panel driver
++ * pulses the controller's reset with the panel; firmware download, gestures
++ * and the proximity sensor are left out.
++ */
++#include <linux/i2c.h>
++#include <linux/input.h>
++#include <linux/input/mt.h>
++#include <linux/input/touchscreen.h>
++#include <linux/interrupt.h>
++#include <linux/module.h>
++#include <linux/of.h>
++
++#define AXS_MAX_POINTS	5
++#define AXS_POINT_LEN	6
++#define AXS_BUF_LEN	(AXS_MAX_POINTS * AXS_POINT_LEN + 2)
++#define AXS_EVENT_UP	1
++
++struct axs_ts {
++	struct i2c_client *client;
++	struct input_dev *input;
++	struct touchscreen_properties prop;
++};
++
++static irqreturn_t axs_ts_irq(int irq, void *dev_id)
++{
++	struct axs_ts *ts = dev_id;
++	u8 buf[AXS_BUF_LEN];
++	int i, n, ret;
++
++	ret = i2c_master_recv(ts->client, buf, sizeof(buf));
++	if (ret != sizeof(buf))
++		return IRQ_HANDLED;
++	if (buf[1] >> 4)		/* status frame, no touch data */
++		return IRQ_HANDLED;
++
++	n = min_t(int, buf[1] & 0x0f, AXS_MAX_POINTS);
++	for (i = 0; i < n; i++) {
++		const u8 *p = &buf[2 + i * AXS_POINT_LEN];
++		unsigned int x = ((p[0] & 0x0f) << 8) | p[1];
++		unsigned int y = ((p[2] & 0x0f) << 8) | p[3];
++		int id = p[2] >> 4;
++		bool down = (p[0] >> 6) != AXS_EVENT_UP;
++
++		if (id >= AXS_MAX_POINTS)
++			continue;
++		input_mt_slot(ts->input, id);
++		if (input_mt_report_slot_state(ts->input, MT_TOOL_FINGER, down))
++			touchscreen_report_pos(ts->input, &ts->prop, x, y, true);
++	}
++	input_mt_sync_frame(ts->input);
++	input_sync(ts->input);
++
++	return IRQ_HANDLED;
++}
++
++static int axs_ts_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct axs_ts *ts;
++	int ret;
++
++	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
++	if (!ts)
++		return -ENOMEM;
++	ts->client = client;
++	/*
++	 * No presence check: the controller only answers once the panel has
++	 * powered it and released its reset, well after this probe.
++	 */
++
++	ts->input = devm_input_allocate_device(dev);
++	if (!ts->input)
++		return -ENOMEM;
++	ts->input->name = "AXS15xxx Touchscreen";
++	ts->input->id.bustype = BUS_I2C;
++
++	input_set_capability(ts->input, EV_ABS, ABS_MT_POSITION_X);
++	input_set_capability(ts->input, EV_ABS, ABS_MT_POSITION_Y);
++	touchscreen_parse_properties(ts->input, true, &ts->prop);
++	if (!ts->prop.max_x || !ts->prop.max_y)
++		return dev_err_probe(dev, -EINVAL, "touchscreen-size-x/y missing\n");
++
++	ret = input_mt_init_slots(ts->input, AXS_MAX_POINTS,
++				  INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
++	if (ret)
++		return ret;
++
++	ret = input_register_device(ts->input);
++	if (ret)
++		return ret;
++
++	return devm_request_threaded_irq(dev, client->irq, NULL, axs_ts_irq,
++					 IRQF_ONESHOT, "axs15xxx", ts);
++}
++
++static const struct of_device_id axs_ts_of_match[] = {
++	{ .compatible = "axs,axs15205" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, axs_ts_of_match);
++
++static const struct i2c_device_id axs_ts_id[] = {
++	{ "axs15205" },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, axs_ts_id);
++
++static struct i2c_driver axs_ts_driver = {
++	.driver = {
++		.name = "axs15xxx",
++		.of_match_table = axs_ts_of_match,
++	},
++	.id_table = axs_ts_id,
++	.probe_new = axs_ts_probe,
++};
++module_i2c_driver(axs_ts_driver);
++
++MODULE_DESCRIPTION("AXS15xxx touchscreen (reporting only)");
++MODULE_LICENSE("GPL");
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -422,6 +422,13 @@
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called hycon-hy46xx.
+ 
++config TOUCHSCREEN_AXS15XXX
++	tristate "AXS15xxx touchscreen (MagicX Zero 40)"
++	depends on I2C
++	help
++	  Touch reporting for the AXS15xxx controllers, as the axs15205 in
++	  the MagicX Zero 40.
++
+ config TOUCHSCREEN_HYNITRON_CSTXXX
+ 	tristate "Hynitron touchscreen support"
+ 	depends on I2C
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -46,6 +46,7 @@
+ obj-$(CONFIG_TOUCHSCREEN_FUJITSU)	+= fujitsu_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix.o
+ obj-$(CONFIG_TOUCHSCREEN_HIDEEP)	+= hideep.o
++obj-$(CONFIG_TOUCHSCREEN_AXS15XXX)	+= axs15xxx.o
+ obj-$(CONFIG_TOUCHSCREEN_HYNITRON_CSTXXX)	+= hynitron_cstxxx.o
+ obj-$(CONFIG_TOUCHSCREEN_ILI210X)	+= ili210x.o
+ obj-$(CONFIG_TOUCHSCREEN_ILITEK)	+= ilitek_ts_i2c.o

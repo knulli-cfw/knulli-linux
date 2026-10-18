@@ -42,12 +42,14 @@ case "$BOARD" in
     echo -n 1 > "$RUMBLE_FILE" && sleep "$DURATION" && echo -n 0 > "$RUMBLE_FILE"
     ;;
 
-  powkiddy-v90s|powkiddy-v20)
+  powkiddy-v90s|powkiddy-v20|magicx-zero-40|xu20-v32)
     RUMBLE_FILE="/usr/bin/ff-rumble"
 
     case "$BOARD" in
-      powkiddy-v90s) DEVICE_NAME="Powkiddy V90s Controller" ;;
-      powkiddy-v20)  DEVICE_NAME="Powkiddy V20 Controller" ;;
+      powkiddy-v90s)  DEVICE_NAME="Powkiddy V90s Controller" ;;
+      powkiddy-v20)   DEVICE_NAME="Powkiddy V20 Controller" ;;
+      magicx-zero-40) DEVICE_NAME="MagicX Zero 40 Controller" ;;
+      xu20-v32)       DEVICE_NAME="XU20 Controller" ;;
     esac
 
     MAG=60

@@ -1,0 +1,164 @@
+Subject: [PATCH] arm64: dts: allwinner: add Powkiddy V90s
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-powkiddy-v90s.dts
+@@ -0,0 +1,148 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Powkiddy V90s (A133P), from the vendor 4.9 boot_package DT; the Brick's
++ * PMU, SD slot and codec match.
++ */
++#include "sun50i-a133-trimui-brick.dts"
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/pwm/pwm.h>
++
++/ {
++	model = "Powkiddy V90s";
++	compatible = "powkiddy,v90s", "arm,sun50iw10p1";
++	knulli,device = "powkiddy-v90s";
++
++	joypad: gamepad {
++		compatible = "knulli,gpio-gamepad";
++		label = "Powkiddy V90s Controller";
++		product-id = <0x9090>;
++		sticks = <0>;
++		pwms = <&pwm 2 200000 0>;
++
++		up { linux,code = <BTN_DPAD_UP>; gpios = <&pio PH 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		down { linux,code = <BTN_DPAD_DOWN>; gpios = <&pio PH 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		left { linux,code = <BTN_DPAD_LEFT>; gpios = <&pio PH 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		right { linux,code = <BTN_DPAD_RIGHT>; gpios = <&pio PH 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		a { linux,code = <BTN_SOUTH>; gpios = <&pio PH 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		b { linux,code = <BTN_EAST>; gpios = <&pio PH 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		x { linux,code = <BTN_NORTH>; gpios = <&pio PD 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		y { linux,code = <BTN_WEST>; gpios = <&pio PH 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		l1 { linux,code = <BTN_TL>; gpios = <&pio PG 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		r1 { linux,code = <BTN_TR>; gpios = <&pio PG 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		l2 { linux,code = <BTN_TL2>; gpios = <&pio PG 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		r2 { linux,code = <BTN_TR2>; gpios = <&pio PG 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		select { linux,code = <BTN_SELECT>; gpios = <&pio PD 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		start { linux,code = <BTN_START>; gpios = <&pio PD 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++		mode { linux,code = <BTN_MODE>; gpios = <&pio PD 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++	};
++};
++
++&axp2202_parameter {
++	battery-model {
++		parameter = <0x1f54000 0x1b1e280f 0xc1e3202 0x14050a04 0x74fbc80d 0xa71037fb 0x4601ea06 0x72063706 0x1c0afb0f 0xc00f8a0a 0x530f140f 0x904f504 0xe109cd0e 0xb40eaa09 0x990e7f0e 0x79046e04 0x6309580e 0x4b0e4909 0x42512724 0x1c0b1207 0xc5987e66 0x4e44381a 0x120af600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6>;
++	};
++};
++
++/* port G: shoulder buttons and the second SD slot */
++&reg_bldo1 {
++	regulator-always-on;
++};
++
++/* no wifi or bluetooth */
++&uart1 {
++	status = "disabled";
++};
++
++&rfkill {
++	status = "disabled";
++};
++
++&btlpm {
++	status = "disabled";
++};
++
++&twi2 {
++	status = "disabled";
++};
++
++/* second SD slot */
++&sdc1 {
++	/delete-property/ no-sd;
++	/delete-property/ sdio-used-1v8;
++	/delete-property/ cap-sdio-irq;
++	/delete-property/ ignore-pm-notify;
++	cd-gpios = <&pio PG 6 GPIO_ACTIVE_LOW>;
++	cd-used-24M;
++	no-sdio;
++	vmmc-supply = <&reg_cldo3>;
++};
++
++&usbc0 {
++	usb_port_type = <0x0>;
++	/delete-property/ usb_id_gpio;
++};
++
++&keyboard {
++	key_cnt = <2>;
++	key0 = <720 KEY_VOLUMEUP>;
++	key1 = <1080 KEY_VOLUMEDOWN>;
++	status = "okay";
++};
++
++&pio {
++	pwm2_pin_a: pwm2@0 {
++		pins = "PD20";
++		function = "pwm2";
++		drive-strength = <10>;
++	};
++
++	pwm2_pin_b: pwm2@1 {
++		pins = "PD20";
++		function = "gpio_in";
++	};
++};
++
++/* rumble motor */
++&pwm2 {
++	pinctrl-names = "active", "sleep";
++	pinctrl-0 = <&pwm2_pin_a>;
++	pinctrl-1 = <&pwm2_pin_b>;
++};
++
++&disp {
++	fb0_width = <640>;
++	fb0_height = <480>;
++
++	/delete-property/ cldo4-supply;
++	bldo3-supply = <&reg_bldo3>;
++};
++
++&lcd0 {
++	lcd_driver_name = "RGP35_NV3051";
++	lcd_backlight = <50>;
++
++	lcd_x = <640>;
++	lcd_y = <480>;
++	lcd_width = <70>;
++	lcd_height = <53>;
++	lcd_dclk_freq = <25>;
++
++	lcd_pwm_max_limit = <255>;
++
++	lcd_hbp = <100>;
++	lcd_ht = <825>;
++	lcd_hspw = <20>;
++	lcd_vbp = <16>;
++	lcd_vt = <514>;
++	lcd_vspw = <4>;
++
++	lcd_power0 = "cldo1";
++	lcd_power1 = "bldo3";
++
++	lcd_gpio_1 = <&pio PE 0 GPIO_ACTIVE_HIGH>;
++	lcd_bl_en = <&pio PB 8 GPIO_ACTIVE_HIGH>;
++};
++
++&ledc {
++	status = "disabled";
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -22,6 +22,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero28.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero40.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-xu20.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-powkiddy-v90s.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

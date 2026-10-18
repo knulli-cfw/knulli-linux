@@ -1,6 +1,6 @@
 default:
   options:
-    gfxbackend: vulkan
+    gfxbackend: gl
     video_threaded: true
     # menu retroarch
     retroarch.menu_driver: ozone

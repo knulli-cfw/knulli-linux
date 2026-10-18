@@ -1,0 +1,701 @@
+Subject: [PATCH] arm64: dts: allwinner: add TrimUI Brick
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-trimui-brick.dts
+@@ -0,0 +1,685 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * TrimUI Brick (A133P), translated from the vendor 4.9 boot_package DT.
++ */
++/dts-v1/;
++#include "sun50i-r818.dtsi"
++
++/ {
++	model = "TrimUI Brick";
++	compatible = "trimui,brick", "arm,sun50iw10p1";
++	knulli,device = "trimui-brick";
++
++	aliases {
++		pmu0 = &pmu0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++	axp2202_parameter: axp2202-parameter {
++		select = "battery-model";
++
++		battery-model {
++			parameter = <0x1f54000 0x1b1e280f 0xc1e3202 0x14050a04 0x74fbc80d 0x431036fb 0x4601ea0d 0x2a063605 0xf40ab50f 0x420ee609 0x9a0e420e 0x3b042d04 0x2309180e 0x90e0408 0xf70dda0d 0xd003bb03 0x9d087f0d 0x6a0d5507 0xc2572b27 0x1e0d1408 0xc5987e66 0x4e44381a 0x120af600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6>;
++		};
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&reg_tcs0>;
++};
++
++&uart0 {
++	uart-supply = <&reg_cldo3>;
++	status = "okay";
++};
++
++/* XR829 bluetooth */
++&uart1 {
++	status = "okay";
++};
++
++/* XR829 wifi (sdc1) + bluetooth (uart1): power, enables and clocks */
++&rfkill {
++	status = "okay";
++
++	wlan {
++		compatible = "allwinner,sunxi-wlan";
++		clocks = <&rtc_ccu CLK_OSC32K_OUT>, <&rtc_ccu CLK_DCXO24M_OUT>;
++		clock-names = "osc32k-out", "dcxo24M-out";
++		wlan_power = "axp2202-bldo1";
++		wlan_busnum = <0x1>;
++		wlan_regon = <&r_pio PL 5 GPIO_ACTIVE_HIGH>;
++		wlan_hostwake = <&r_pio PL 6 GPIO_ACTIVE_HIGH>;
++		wakeup-source;
++	};
++
++	bt {
++		compatible = "allwinner,sunxi-bt";
++		clocks = <&rtc_ccu CLK_OSC32K_OUT>, <&rtc_ccu CLK_DCXO24M_OUT>;
++		clock-names = "osc32k-out", "dcxo24M-out";
++		bt_power = "axp2202-bldo1";
++		bt_rst_n = <&r_pio PL 2 GPIO_ACTIVE_LOW>;
++	};
++};
++
++&btlpm {
++	uart_index = <0x1>;
++	bt_wake = <&r_pio PL 4 GPIO_ACTIVE_HIGH>;
++	bt_hostwake = <&r_pio PL 3 GPIO_ACTIVE_HIGH>;
++	wakeup-source;
++	status = "okay";
++};
++
++&addr_mgt {
++	type_addr_wifi = <0x0>;
++	type_addr_bt = <0x0>;
++	type_addr_eth = <0x0>;
++	status = "okay";
++};
++
++&twi2 {
++	clock-frequency = <200000>;
++	pinctrl-0 = <&twi2_pins_a>;
++	pinctrl-1 = <&twi2_pins_b>;
++	twi-supply = <&reg_aldo2>;
++	twi_vol = <3500000>;
++	status = "okay";
++};
++
++&twi6 {
++	clock-frequency = <200000>;
++	pinctrl-0 = <&s_twi0_pins_a>;
++	pinctrl-1 = <&s_twi0_pins_b>;
++	no_suspend = <1>;
++	twi_drv_used = <1>;
++	status = "okay";
++
++	tcs0: tcs@41 {
++		compatible = "ext,tcs4838";
++		reg = <0x41>;
++		status = "okay";
++		tcs4838_delay = <0>;
++
++		regulators@1 {
++			reg_tcs0: dcdc0 {
++				regulator-name = "tcs4838-dcdc0";
++				regulator-min-microvolt = <712500>;
++				regulator-max-microvolt = <1500000>;
++				regulator-ramp-delay = <520>;
++				regulator-enable-ramp-delay = <1000>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			reg_tcs1: dcdc1 {
++				regulator-name = "tcs4838-dcdc1";
++				regulator-min-microvolt = <712500>;
++				regulator-max-microvolt = <1500000>;
++				regulator-ramp-delay = <520>;
++				regulator-enable-ramp-delay = <1000>;
++			};
++		};
++	};
++
++	pmu0: pmu@34 {
++		compatible = "x-powers,axp2202";
++		reg = <0x34>;
++		status = "okay";
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-parent = <&nmi_intc>;
++		x-powers,drive-vbus-en;
++		pmu_reset = <0x00>;
++		pmu_irq_wakeup = <0x01>;
++		pmu_hot_shutdown = <0x01>;
++		wakeup-source;
++
++		usb_power_supply: usb_power_supply {
++			compatible = "x-powers,axp2202-usb-power-supply";
++			status = "okay";
++			pmu_usbpc_vol = <0x11f8>;
++			pmu_usbpc_cur = <0x1f4>;
++			pmu_usbad_vol = <0xfa0>;
++			pmu_usbad_cur = <0x9c4>;
++			pmu_usb_typec_used = <0x01>;
++			det_acin_supply = <&gpio_power_supply>;
++			pmu_acin_usbid_drv = <0x45 0x07 0x0c 0x00 0xffffffff 0xffffffff 0xffffffff>;
++			pmu_vbus_det_gpio = <0x45 0x07 0x0d 0x00 0xffffffff 0xffffffff 0xffffffff>;
++		};
++
++		gpio_power_supply: gpio_power_supply {
++			compatible = "x-powers,gpio-supply";
++			status = "disabled";
++			pmu_acin_det_gpio = <0x45 0x07 0x0e 0x00 0xffffffff 0xffffffff 0xffffffff>;
++			det_usb_supply = <&usb_power_supply>;
++		};
++
++		bat_power_supply: bat-power-supply {
++			compatible = "x-powers,axp2202-bat-power-supply";
++			param = <&axp2202_parameter>;
++			status = "okay";
++			pmu_chg_ic_temp = <0x00>;
++			pmu_battery_rdc = <0x93>;
++			pmu_battery_cap = <0xbb8>;
++			pmu_runtime_chgcur = <0x3e8>;
++			pmu_suspend_chgcur = <0x79e>;
++			pmu_shutdown_chgcur = <0x79e>;
++			pmu_init_chgvol = <0x1068>;
++			pmu_battery_warning_level1 = <0x05>;
++			pmu_battery_warning_level2 = <0x00>;
++			pmu_chgled_func = <0x00>;
++			pmu_chgled_type = <0x00>;
++			pmu_bat_para1 = <0x00>;
++			pmu_bat_para2 = <0x00>;
++			pmu_bat_para3 = <0x00>;
++			pmu_bat_para4 = <0x00>;
++			pmu_bat_para5 = <0x00>;
++			pmu_bat_para6 = <0x00>;
++			pmu_bat_para7 = <0x02>;
++			pmu_bat_para8 = <0x03>;
++			pmu_bat_para9 = <0x04>;
++			pmu_bat_para10 = <0x06>;
++			pmu_bat_para11 = <0x09>;
++			pmu_bat_para12 = <0x0e>;
++			pmu_bat_para13 = <0x1a>;
++			pmu_bat_para14 = <0x26>;
++			pmu_bat_para15 = <0x31>;
++			pmu_bat_para16 = <0x34>;
++			pmu_bat_para17 = <0x38>;
++			pmu_bat_para18 = <0x3c>;
++			pmu_bat_para19 = <0x40>;
++			pmu_bat_para20 = <0x46>;
++			pmu_bat_para21 = <0x4d>;
++			pmu_bat_para22 = <0x53>;
++			pmu_bat_para23 = <0x57>;
++			pmu_bat_para24 = <0x5a>;
++			pmu_bat_para25 = <0x5f>;
++			pmu_bat_para26 = <0x63>;
++			pmu_bat_para27 = <0x63>;
++			pmu_bat_para28 = <0x64>;
++			pmu_bat_para29 = <0x64>;
++			pmu_bat_para30 = <0x64>;
++			pmu_bat_para31 = <0x64>;
++			pmu_bat_para32 = <0x64>;
++			pmu_bat_temp_enable = <0x01>;
++			pmu_jetia_en = <0x01>;
++			pmu_bat_charge_ltf = <0x56e>;
++			pmu_bat_charge_htf = <0xce>;
++			pmu_bat_shutdown_ltf = <0x88e>;
++			pmu_bat_shutdown_htf = <0x96>;
++			pmu_jetia_cool = <0x2d2>;
++			pmu_jetia_warm = <0xc4>;
++			pmu_jcool_ifall = <0x01>;
++			pmu_jwarm_ifall = <0x01>;
++			pmu_bat_temp_para1 = <0x11ef>;
++			pmu_bat_temp_para2 = <0xadd>;
++			pmu_bat_temp_para3 = <0x88e>;
++			pmu_bat_temp_para4 = <0x6ca>;
++			pmu_bat_temp_para5 = <0x56e>;
++			pmu_bat_temp_para6 = <0x45e>;
++			pmu_bat_temp_para7 = <0x38a>;
++			pmu_bat_temp_para8 = <0x25e>;
++			pmu_bat_temp_para9 = <0x19f>;
++			pmu_bat_temp_para10 = <0x122>;
++			pmu_bat_temp_para11 = <0xf4>;
++			pmu_bat_temp_para12 = <0xce>;
++			pmu_bat_temp_para13 = <0xaf>;
++			pmu_bat_temp_para14 = <0x96>;
++			pmu_bat_temp_para15 = <0x6e>;
++			pmu_bat_temp_para16 = <0x53>;
++			wakeup_bat_out;
++			wakeup_low_warning1;
++			wakeup_low_warning2;
++		};
++
++		powerkey@0 {
++			status = "okay";
++			compatible = "x-powers,axp2101-pek";
++			pmu_powkey_off_time = <0x2710>;
++			pmu_powkey_off_func = <0x00>;
++			pmu_powkey_off_en = <0x01>;
++			pmu_powkey_long_time = <0x5dc>;
++			pmu_powkey_on_time = <0x200>;
++			wakeup_rising;
++			wakeup_falling;
++		};
++
++		regulators@0 {
++
++			reg_dcdc1: dcdc1 {
++				regulator-name = "axp2202-dcdc1";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x177fa0>;
++				regulator-ramp-delay = <0xfa>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-name = "axp2202-dcdc2";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x33e140>;
++				regulator-ramp-delay = <0xfa>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-name = "axp2202-dcdc3";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x1c1380>;
++				regulator-ramp-delay = <0xfa>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-always-on;
++			};
++
++			reg_dcdc4: dcdc4 {
++				regulator-name = "axp2202-dcdc4";
++				regulator-min-microvolt = <0xf4240>;
++				regulator-max-microvolt = <0x387520>;
++				regulator-ramp-delay = <0xfa>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_rtcldo: rtcldo {
++				regulator-name = "axp2202-rtcldo";
++				regulator-min-microvolt = <0x1b7740>;
++				regulator-max-microvolt = <0x1b7740>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_aldo1: aldo1 {
++				regulator-name = "axp2202-aldo1";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_aldo2: aldo2 {
++				regulator-name = "axp2202-aldo2";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_aldo3: aldo3 {
++				regulator-name = "axp2202-aldo3";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			reg_aldo4: aldo4 {
++				regulator-name = "axp2202-aldo4";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-always-on;
++				regulator-boot-on;
++			};
++
++			/* XR829 wifi/bt supply, 3.3 V as U-Boot's power_sply */
++			reg_bldo1: bldo1 {
++				regulator-name = "axp2202-bldo1";
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-name = "axp2202-bldo2";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_bldo3: bldo3 {
++				regulator-name = "axp2202-bldo3";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++				regulator-always-on;
++				regulator-off-in-suspend;
++			};
++
++			reg_bldo4: bldo4 {
++				regulator-name = "axp2202-bldo4";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-name = "axp2202-cldo1";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_cldo2: cldo2 {
++				regulator-name = "axp2202-cldo2";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_cldo3: cldo3 {
++				regulator-name = "axp2202-cldo3";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-ramp-delay = <0x9c4>;
++				regulator-enable-ramp-delay = <0x3e8>;
++				regulator-boot-on;
++			};
++
++			reg_cldo4: cldo4 {
++				regulator-name = "axp2202-cldo4";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x3567e0>;
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_cpusldo: cpusldo {
++				regulator-name = "axp2202-cpusldo";
++				regulator-min-microvolt = <0x7a120>;
++				regulator-max-microvolt = <0x155cc0>;
++				regulator-boot-on;
++				regulator-always-on;
++			};
++
++			reg_vmid: vmid {
++				regulator-name = "axp2202-vmid";
++				regulator-enable-ramp-delay = <0x3e8>;
++			};
++
++			reg_drivevbus: drivevbus {
++				regulator-name = "axp2202-drivevbus";
++				regulator-enable-ramp-delay = <0x3e8>;
++				drivevbusin-supply = <&reg_vmid>;
++			};
++		};
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++		axp_gpio@0 {
++			gpio-controller;
++			#size-cells = <0x00>;
++			#gpio-cells = <0x06>;
++			status = "okay";
++		};
++	};
++};
++
++&sdc0 {
++	bus-width = <4>;
++	cd-gpios = <&pio PF 6 GPIO_ACTIVE_LOW>;
++	cd-used-24M;
++	cap-sd-highspeed;
++	cap-wait-while-busy;
++	sd-uhs-sdr50;
++	sd-uhs-ddr50;
++	sd-uhs-sdr104;
++	no-sdio;
++	no-mmc;
++	sunxi-power-save-mode;
++	max-frequency = <150000000>;
++	ctl-spec-caps = <0x8>;
++	vmmc-supply = <&reg_cldo3>;
++	vqmmc33sw-supply = <&reg_cldo3>;
++	vdmmc33sw-supply = <&reg_cldo3>;
++	vqmmc18sw-supply = <&reg_cldo1>;
++	vdmmc18sw-supply = <&reg_cldo1>;
++	status = "okay";
++};
++
++/* wifi */
++&sdc1 {
++	bus-width = <4>;
++	no-mmc;
++	no-sd;
++	cap-sd-highspeed;
++	sd-uhs-sdr50;
++	sd-uhs-ddr50;
++	sd-uhs-sdr104;
++	sdio-used-1v8;
++	cap-sdio-irq;
++	keep-power-in-suspend;
++	ignore-pm-notify;
++	max-frequency = <150000000>;
++	ctl-spec-caps = <0x8>;
++	status = "okay";
++};
++
++&usbc0 {
++	usb_port_type = <0x2>;
++	usb_detect_type = <0x1>;
++	usb_detect_mode = <0>;
++	usb_id_gpio = <&pio PH 8 GPIO_ACTIVE_HIGH>;
++	usb_det_vbus_gpio = "axp_ctrl";
++	det_vbus_supply = <&usb_power_supply>;
++	usbc-supply = <&reg_cldo3>;
++	usb_wakeup_suspend = <0>;
++	status = "okay";
++};
++
++&udc {
++	/* sun50iw10 udc also maps the common phy and ccmu */
++	reg = <0x0 0x05100000 0x0 0x1000>,
++	      <0x0 0x00000000 0x0 0x100>,
++	      <0x0 0x05200000 0x0 0x1000>,
++	      <0x0 0x03001000 0x0 0x20>;
++	det_vbus_supply = <&usb_power_supply>;
++	udc-supply = <&reg_cldo3>;
++	status = "okay";
++};
++
++&ehci0 {
++	drvvbus-supply = <&reg_drivevbus>;
++	hci-supply = <&reg_cldo3>;
++	status = "okay";
++};
++
++&ohci0 {
++	drvvbus-supply = <&reg_drivevbus>;
++	hci-supply = <&reg_cldo3>;
++	status = "okay";
++};
++
++&pio {
++	pwm0_pin_a: pwm0@0 {
++		pins = "PD23";
++		function = "pwm0";
++		drive-strength = <20>;
++	};
++
++	pwm0_pin_b: pwm0@1 {
++		pins = "PD23";
++		function = "gpio_in";
++	};
++};
++
++&pwm0 {
++	pinctrl-names = "active", "sleep";
++	pinctrl-0 = <&pwm0_pin_a>;
++	pinctrl-1 = <&pwm0_pin_b>;
++};
++
++&disp {
++	disp_init_enable = <1>;
++	disp_mode = <0>;
++
++	screen0_output_type = <1>;
++	screen0_output_mode = <4>;
++
++	screen1_output_type = <1>;
++	screen1_output_mode = <4>;
++
++	dev0_output_type = <1>;
++	dev0_output_mode = <4>;
++	dev0_screen_id = <0>;
++	dev0_do_hpd = <0>;
++
++	def_output_dev = <0>;
++
++	fb_format = <0>;
++	fb_num = <1>;
++	/* <disp channel layer zorder> */
++	fb0_map = <0 1 0 16>;
++	fb0_width = <1024>;
++	fb0_height = <768>;
++	chn_cfg_mode = <1>;
++	disp_para_zone = <1>;
++
++	cldo1-supply = <&reg_cldo1>;
++	cldo4-supply = <&reg_cldo4>;
++};
++
++&lcd0 {
++	lcd_used = <1>;
++	lcd_driver_name = "otm1289a";
++	lcd_backlight = <4>;
++	lcd_if = <4>;
++
++	lcd_x = <1024>;
++	lcd_y = <768>;
++	lcd_width = <135>;
++	lcd_height = <216>;
++	lcd_dclk_freq = <53>;
++
++	lcd_pwm_used = <1>;
++	lcd_pwm_ch = <0>;
++	lcd_pwm_freq = <50000>;
++	lcd_pwm_pol = <0>;
++	lcd_pwm_max_limit = <200>;
++
++	lcd_hbp = <20>;
++	lcd_ht = <1100>;
++	lcd_hspw = <4>;
++	lcd_vbp = <9>;
++	lcd_vt = <800>;
++	lcd_vspw = <4>;
++
++	lcd_dsi_if = <0>;
++	lcd_dsi_lane = <4>;
++	lcd_dsi_format = <0>;
++	lcd_dsi_te = <0>;
++	lcd_dsi_eotp = <0>;
++
++	lcd_frm = <0>;
++	lcd_gamma_en = <0>;
++	lcd_bright_curve_en = <0>;
++	lcd_cmap_en = <0>;
++
++	deu_mode = <0>;
++	lcdgamma4iep = <22>;
++	smart_color = <90>;
++
++	lcd_pin_power = "cldo1";
++	lcd_power0 = "cldo1";
++	lcd_power1 = "cldo4";
++
++	lcd_gpio_0 = <&pio PD 22 GPIO_ACTIVE_HIGH>;
++	lcd_bl_en = <&pio PH 18 GPIO_ACTIVE_HIGH>;
++
++	pinctrl-0 = <&dsi4lane_pins_a>;
++	pinctrl-1 = <&dsi4lane_pins_b>;
++	status = "okay";
++};
++
++&ledc {
++	led-power-gpios = <&pio PD 11 GPIO_ACTIVE_HIGH>;
++	led_count = <23>;
++	output_mode = "GRB";
++	reset_ns = <84>;
++	t1h_ns = <800>;
++	t1l_ns = <450>;
++	t0h_ns = <400>;
++	t0l_ns = <850>;
++	wait_time0_ns = <84>;
++	wait_time1_ns = <84>;
++	wait_data_time_ns = <600000>;
++	status = "okay";
++};
++
++&gpu {
++	gpu_idle = <1>;
++	dvfs_status = <1>;
++	pll_rate = <700000>;
++	independent_power = <0>;
++	operating-points = <
++		/* KHz   uV */
++		720000 1100000
++		400000 950000
++		228000 950000
++	>;
++};
++
++&codec {
++	avcc-external;
++	avcc-supply = <&reg_aldo4>;
++	avcc-vol = <1800000>;
++	dvcc-external;
++	dvcc-supply = <&reg_cldo1>;
++	dvcc-vol = <1800000>;
++	adc-dig-vol-l = <160>;
++	adc-dig-vol-r = <160>;
++	mic1-vol = <31>;
++	mic2-vol = <31>;
++	dac-dig-vol = <63>;
++	dac-dig-vol-l = <160>;
++	dac-dig-vol-r = <160>;
++	lineout-vol = <26>;
++	hp-vol = <0>;
++	pa-pin-max = <1>;
++	pa-pin-0 = <&pio PH 6 GPIO_ACTIVE_HIGH>;
++	pa-pin-level-0 = <1>;
++	pa-pin-msleep-0 = <40>;
++	jack-det-level = <1>;
++	jack-det-threshold = <8>;
++	jack-det-debouce-time = <250>;
++	adc-delay-time = <20>;
++	status = "okay";
++};
++
++&codec_plat {
++	status = "okay";
++};
++
++&codec_mach {
++	soundcard-mach,jack-support = <1>;	/* codec HP detect */
++	status = "okay";
++	soundcard-mach,cpu {
++		sound-dai = <&codec_plat>;
++	};
++	soundcard-mach,codec {
++		sound-dai = <&codec>;
++	};
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -17,6 +17,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-sopine-baseboard.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-teres-i.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a100-allwinner-perf1.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

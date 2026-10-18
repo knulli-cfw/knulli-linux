@@ -13,14 +13,22 @@ BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_K
 BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
 
 BR2_PACKAGE_MPV=y
+# lvm tools: S11share runs vgscan every boot; nfs-utils only needs libdevmapper
+# BR2_PACKAGE_LVM2_STANDARD_INSTALL is not set
 
 ######
-# Linux headers same as kernel, a 4.9 series
+# Kernel: orangepi 5.15 BSP (as a527) + board/allwinner/a133/linux-5.15
+# Headers stay 4.9 (toolchain unchanged)
 BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CUSTOM_GIT=y
+BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/orangepi-xunlong/linux-orangepi"
+BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="orange-pi-5.15-sun55iw3"
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/a133/linux-5.15/linux_patches"
 BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/a133/trimui-smart-pro/linux-sunxi64-legacy.config"
-BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="4.9.191"
-BR2_LINUX_KERNEL_VERSION="4.9.191"
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/a133/linux-5.15/linux-a133-5.15.config"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="allwinner/sun50i-a133-trimui-brick allwinner/sun50i-a133-trimui-brick-pro allwinner/sun50i-a133-magicx-zero28 allwinner/sun50i-a133-magicx-zero40 allwinner/sun50i-a133-xu20 allwinner/sun50i-a133-powkiddy-v90s allwinner/sun50i-a133-powkiddy-v20 allwinner/sun50i-a133-trimui-smart-pro"
 BR2_KERNEL_HEADERS_VERSION=y
 BR2_DEFAULT_KERNEL_VERSION="4.9.191"
 BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_4_9=y
@@ -39,6 +47,9 @@ BR2_PACKAGE_HOST_MTOOLS=y
 BR2_PACKAGE_HOST_UBOOT_TOOLS=y
 
 BR2_PACKAGE_POWERVR_GE8300_DRIVER=y
+BR2_PACKAGE_POWERVR_GE8300_KM=y
+# MagicX wifi
+BR2_PACKAGE_RTL8189ES=y
 BR2_PACKAGE_POWERVR_PRESENT_LAYER=y
 
 

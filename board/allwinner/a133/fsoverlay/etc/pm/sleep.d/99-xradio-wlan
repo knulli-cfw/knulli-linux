@@ -18,7 +18,11 @@ case "${1}" in
 
       # Disable xradio Wi-Fi drivers
       rfkill block wifi 2>/dev/null
-      rmmod xradio_wlan 2>/dev/null
+      if [ "$(uname -r)" = "4.9.191" ]; then
+          rmmod xradio_wlan 2>/dev/null
+      else
+          modprobe -r xr829 2>/dev/null
+      fi
       ;;
    thaw|resume)
     (
@@ -26,7 +30,9 @@ case "${1}" in
         echo 'usb1' > /sys/bus/usb/drivers/usb/bind 2>/dev/null
 
         # Re-enable xradio Wi-Fi driver
-        if [ "$BOARD" = "trimui-smart-pro" ]; then
+        if [ "$(uname -r)" != "4.9.191" ]; then
+            modprobe xr829 2>/dev/null
+        elif [ "$BOARD" = "trimui-smart-pro" ]; then
             insmod /lib/modules/4.9.191/xradio_wlan_tsp.ko 2>/dev/null
         else
             insmod /lib/modules/4.9.191/xradio_wlan.ko 2>/dev/null

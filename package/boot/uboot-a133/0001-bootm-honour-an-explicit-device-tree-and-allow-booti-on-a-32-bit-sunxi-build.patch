@@ -1,0 +1,71 @@
+From: knulli
+Subject: [PATCH] bootm: honour an explicit device tree; allow booti on the 32-bit sun50iw9 build
+
+The sunxi bootm always booted the boot-package device tree, so one boot
+package could only ever boot one board.  A tree given explicitly (bootm/booti
+addr initrd fdt, the "fdt" line of an extlinux entry) now replaces it and gets
+the same fixups the boot-package tree got at board init.  booti is only gated
+to 64-bit builds by Kconfig: the Image header handling is generic and the
+sunxi jump goes through the secure monitor with the AArch64 flag anyway.
+
+diff --git a/cmd/Kconfig b/cmd/Kconfig
+index 4fad182dca..709e179543 100644
+--- a/cmd/Kconfig
++++ b/cmd/Kconfig
+@@ -215,7 +215,7 @@ config CMD_BOOTZ
+ 
+ config CMD_BOOTI
+ 	bool "booti"
+-	depends on ARM64 || RISCV
++	depends on ARM64 || RISCV || SUNXI_ARM64
+ 	default y
+ 	help
+ 	  Boot an AArch64 Linux Kernel image from memory.
+diff --git a/common/bootm.c b/common/bootm.c
+index e2dd9fbf8c..a394f03654 100644
+--- a/common/bootm.c
++++ b/common/bootm.c
+@@ -288,6 +288,35 @@ int bootm_find_images(int flag, int argc, char * const argv[])
+ 
+ #if IMAGE_ENABLE_OF_LIBFDT
+ #ifdef CONFIG_ARCH_SUNXI
++	/*
++	 * A device tree given explicitly (bootm/booti addr initrd fdt, or the
++	 * "fdt" line of an extlinux entry) replaces the boot package one, so a
++	 * single boot package can boot several boards.  It gets the same
++	 * fixups the boot package tree got at board init; leave it room for
++	 * them and boot it in place.
++	 */
++	images.ft_addr = NULL;
++	if (argc > 2 && argv[2] && strcmp(argv[2], "-")) {
++		ret = boot_get_fdt(flag, argc, argv, IH_ARCH_DEFAULT, &images,
++				   &images.ft_addr, &images.ft_len);
++		if (ret || !images.ft_addr) {
++			puts("Could not find a valid device tree\n");
++			return 1;
++		}
++	}
++	if (images.ft_addr && images.ft_addr != (char *)gd->fdt_blob) {
++		if (fdt_open_into(images.ft_addr, images.ft_addr,
++				  fdt_totalsize(images.ft_addr) + 0x10000)) {
++			puts("Could not grow the device tree\n");
++			return 1;
++		}
++		images.ft_len = fdt_totalsize(images.ft_addr);
++		set_working_fdt_addr((ulong)images.ft_addr);
++		env_set("fdt_high", "0xffffffff");
++		sunxi_update_fdt_para_for_kernel();
++		printf("Using device tree at %p (%u bytes)\n", images.ft_addr,
++		       images.ft_len);
++	} else {
+ #ifdef CONFIG_OF_SEPARATE
+ 	if (use_android_image_dtb()) {
+ 		puts("Use android image dtb fail!\n");
+@@ -305,6 +334,7 @@ int bootm_find_images(int flag, int argc, char * const argv[])
+ #ifdef CONFIG_OF_SEPARATE
+ 	sunxi_update_fdt_para_for_kernel();
+ #endif
++	}
+ #else
+ 	/* find flattened device tree */
+ 	ret = boot_get_fdt(flag, argc, argv, IH_ARCH_DEFAULT, &images,

@@ -2,6 +2,59 @@
 
 BOARD=$(cat /boot/boot/knulli.board)
 
+# later kernels: wifi/bt power (rfkill, no modalias) then the wifi driver,
+# which powers the module up itself; everything else autoloads
+if [ "$(uname -r)" != "4.9.191" ]; then
+    case "$BOARD" in
+        magicx-zero-28|xu20-v32) WIFI=8189es ;;
+        powkiddy-v90s)           WIFI= ;;
+        *)        WIFI=xr829 ;;
+    esac
+    [ -n "$WIFI" ] && case $1 in
+        start) modprobe sunxi_rfkill && modprobe $WIFI ;;
+        stop)  modprobe -r $WIFI ;;
+    esac
+
+    # U-Boot cannot tell the MagicX-style boards apart (all boot from
+    # mmc 2), so they come up on the Zero 28 tree; then: an XR829 (the wifi
+    # driver has powered the module) means a Zero 40, a Realtek without the
+    # stick MCU talking on uart3 means an XU20.  Make that the extlinux
+    # default and boot it.  Once only.
+    TARGET=
+    if [ "$1" = start ] && [ "$BOARD" = magicx-zero-28 ]; then
+        for i in $(seq 30); do
+            VENDOR=$(cat /sys/bus/sdio/devices/*/vendor 2>/dev/null)
+            [ -n "$VENDOR" ] && break
+            sleep 0.1
+        done
+        if [ "$VENDOR" = 0x0a9e ]; then
+            TARGET=magicx-zero40
+        elif [ "$VENDOR" = 0x024c ]; then
+            for i in $(seq 20); do
+                dmesg | grep -q "stick MCU frames received" && break
+                sleep 0.1
+            done
+            dmesg | grep -q "stick MCU frames received" || TARGET=xu20
+        fi
+    fi
+    # The Powkiddy V90s and V20 share the stock DT; the image boots the V90s
+    # tree and the V20 shows up on the hw_version strap PE3 (V90s low, V20 high)
+    if [ "$1" = start ] && [ "$BOARD" = powkiddy-v90s ]; then
+        echo 131 > /sys/class/gpio/export
+        echo in > /sys/class/gpio/gpio131/direction
+        [ "$(cat /sys/class/gpio/gpio131/value)" = 1 ] && TARGET=powkiddy-v20
+        echo 131 > /sys/class/gpio/unexport
+    fi
+    if [ -n "$TARGET" ]; then
+        mount -o remount,rw /boot
+        sed -i "s/^default .*/default $TARGET/" /boot/extlinux/extlinux.conf
+        sync
+        mount -o remount,ro /boot
+        reboot
+    fi
+    exit 0
+fi
+
 case $1 in
     start)
       if [ "$BOARD" = "trimui-smart-pro" ]; then

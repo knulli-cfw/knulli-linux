@@ -1,0 +1,64 @@
+Subject: [PATCH] video: sunxi: disp2: wait for G2D before rotating fb0
+
+With fb0_rot_used the boot logo is already drawn through G2D in
+disp_probe; when disp probes first, g2d_bsp_blit_h() resumes a device
+that is not there yet and the kernel oopses.  Let G2D report the end of
+its probe and defer disp until then.
+---
+--- a/bsp/drivers/g2d/g2d_legacy/g2d_driver.c
++++ b/bsp/drivers/g2d/g2d_legacy/g2d_driver.c
+@@ -1148,6 +1148,16 @@
+  * eg: Framebuffer rotation driver.
+  *
+  */
++/* for drivers that blit before the G2D device may have probed (disp's
++ * rotated boot logo): para.dev is set early in probe, the hardware later */
++static bool g2d_probed;
++
++bool g2d_bsp_ready(void)
++{
++	return READ_ONCE(g2d_probed);
++}
++EXPORT_SYMBOL(g2d_bsp_ready);
++
+ int g2d_bsp_blit_h(g2d_blt_h *info)
+ {
+ 	__s32 ret = 0;
+@@ -1954,6 +1964,7 @@
+ 	pm_runtime_get_sync(para.dev);
+ #endif
+ 
++	WRITE_ONCE(g2d_probed, true);
+ 	return 0;
+ 
+ out_dispose_mapping:
+--- a/bsp/drivers/video/sunxi/disp2/disp/dev_disp.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/dev_disp.c
+@@ -3457,12 +3457,27 @@
+ }
+ 
+ static u64 disp_dmamask = DMA_BIT_MASK(32);
++#if IS_ENABLED(CONFIG_AW_DISP2_FB_HW_ROTATION_SUPPORT)
++extern bool g2d_bsp_ready(void);
++#endif
++
+ static int disp_probe(struct platform_device *pdev)
+ {
+ 	int i;
+ 	int ret;
+ 	int counter = 0;
+ 
++#if IS_ENABLED(CONFIG_AW_DISP2_FB_HW_ROTATION_SUPPORT)
++	{
++		u32 rot_used = 0;
++
++		/* fb0 is rotated by G2D, starting with the boot logo */
++		if (!of_property_read_u32(pdev->dev.of_node, "fb0_rot_used", &rot_used) &&
++		    rot_used && !g2d_bsp_ready())
++			return -EPROBE_DEFER;
++	}
++#endif
++
+ #if IS_ENABLED(CONFIG_AW_IOMMU)
+ #if defined(IOMMU_DE0_MASTOR_ID)
+ 	sunxi_iommu_register_fault_cb(iommu_error_cb, IOMMU_DE0_MASTOR_ID);

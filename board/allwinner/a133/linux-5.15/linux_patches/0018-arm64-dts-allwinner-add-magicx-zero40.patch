@@ -1,0 +1,188 @@
+Subject: [PATCH] arm64: dts: allwinner: add MagicX Zero 40
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-magicx-zero40.dts
+@@ -0,0 +1,172 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * MagicX Zero 40: the Zero 28 board, upright, with a 480x800 panel (touch on
++ * twi1, not wired up yet), one stick, a vibration motor on PH3 and the
++ * wifi module without its own power switch.  Values from the vendor device
++ * tree.
++ */
++
++#include "sun50i-a133-magicx-zero28.dts"
++
++/ {
++	model = "MagicX Zero 40";
++	compatible = "magicx,zero40", "arm,sun50iw10p1";
++	knulli,device = "magicx-zero-40";
++};
++
++&rfkill {
++	/delete-property/ power_en;
++};
++
++/* also powers the touch controller */
++&reg_cldo2 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++	regulator-always-on;
++};
++
++/* held upright: the portrait panel is used as it is, no rotation */
++&disp {
++	fb0_width = <480>;
++	fb0_height = <800>;
++	/delete-property/ fb0_rot_used;
++	/delete-property/ fb0_rot_degree;
++	cldo2-supply = <&reg_cldo2>;
++};
++
++&lcd0 {
++	lcd_driver_name = "RTP40WV101B";
++	lcd_x = <480>;
++	lcd_y = <800>;
++	lcd_dclk_freq = <36>;
++	lcd_hbp = <80>;
++	lcd_ht = <630>;
++	lcd_vbp = <22>;
++	lcd_vt = <947>;
++	lcd_vspw = <2>;
++	lcd_power0 = "cldo2";
++	/* touch controller reset, sequenced with the panel */
++	lcd_gpio_2 = <&pio PB 7 GPIO_ACTIVE_HIGH>;
++};
++
++&pio {
++	twi1_pb_pins_a: twi1-pb@0 {
++		pins = "PB4", "PB5";
++		function = "twi1";
++		drive-strength = <10>;
++	};
++
++	twi1_pb_pins_b: twi1-pb@1 {
++		pins = "PB4", "PB5";
++		function = "io_disabled";
++	};
++};
++
++&twi1 {
++	pinctrl-0 = <&twi1_pb_pins_a>;
++	pinctrl-1 = <&twi1_pb_pins_b>;
++	status = "okay";
++
++	/* reset (PB7) is pulsed by the panel driver, lcd_gpio_2 */
++	touchscreen@3b {
++		compatible = "axs,axs15205";
++		reg = <0x3b>;
++		interrupt-parent = <&pio>;
++		interrupts = <1 6 IRQ_TYPE_EDGE_FALLING>;	/* PB6 */
++		touchscreen-size-x = <480>;
++		touchscreen-size-y = <800>;
++	};
++};
++
++&codec {
++	dac-dig-vol = <63>;
++};
++
++&uart3 {
++	/delete-node/ joypad;
++
++	joypad {
++		compatible = "magicx,simplepad";
++		label = "MagicX Zero 40 Controller";
++		product-id = <0x6667>;
++		sticks = <1>;
++		rumble-gpios = <&pio PH 3 GPIO_ACTIVE_HIGH>;
++		left-stick-center = <2100 2100>;
++		left-stick-range = <525 525>;
++		invert-left-y;
++		swap-left-xy;
++
++		dpad-up {
++			linux,code = <BTN_DPAD_UP>;
++			gpios = <&pio PD 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-down {
++			linux,code = <BTN_DPAD_DOWN>;
++			gpios = <&pio PD 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-left {
++			linux,code = <BTN_DPAD_LEFT>;
++			gpios = <&pio PD 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-right {
++			linux,code = <BTN_DPAD_RIGHT>;
++			gpios = <&pio PD 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		a {
++			linux,code = <BTN_SOUTH>;
++			gpios = <&pio PD 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		b {
++			linux,code = <BTN_EAST>;
++			gpios = <&pio PD 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		x {
++			linux,code = <BTN_NORTH>;
++			gpios = <&pio PD 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		y {
++			linux,code = <BTN_WEST>;
++			gpios = <&pio PD 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		start {
++			linux,code = <BTN_START>;
++			gpios = <&pio PH 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		select {
++			linux,code = <BTN_SELECT>;
++			gpios = <&pio PH 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		g {
++			linux,code = <BTN_MODE>;
++			gpios = <&pio PH 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		l1 {
++			linux,code = <BTN_TL>;
++			gpios = <&pio PH 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		l2 {
++			linux,code = <BTN_TL2>;
++			gpios = <&pio PH 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		r1 {
++			linux,code = <BTN_TR>;
++			gpios = <&pio PH 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		r2 {
++			linux,code = <BTN_TR2>;
++			gpios = <&pio PH 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		thumb-l {
++			linux,code = <BTN_THUMBL>;
++			gpios = <&pio PH 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		volume-up {
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&pio PD 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		volume-down {
++			linux,code = <KEY_VOLUMEDOWN>;
++			gpios = <&pio PD 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++	};
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -20,6 +20,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick-pro.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero28.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero40.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

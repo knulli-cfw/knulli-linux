@@ -1,0 +1,92 @@
+Subject: [PATCH] arm64: dts: allwinner: add TrimUI Brick Pro
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-trimui-brick-pro.dts
+@@ -0,0 +1,76 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * TrimUI Brick Pro: the Brick board with another panel timing, the
++ * backlight enable on PH11, the controller on twi3 (read from userspace by
++ * trimui_inputd) and its own battery.  Values from the vendor device tree.
++ */
++
++#include "sun50i-a133-trimui-brick.dts"
++
++/ {
++	model = "TrimUI Brick Pro";
++	compatible = "trimui,brick-pro", "arm,sun50iw10p1";
++	knulli,device = "trimui-brick-pro";
++};
++
++&pmu0 {
++	pmu_reset = <0x01>;
++};
++
++&bat_power_supply {
++	pmu_pre_chg = <0x1c2>;
++	pmu_bat_para3 = <0x01>;
++	pmu_bat_para4 = <0x0c>;
++	pmu_bat_para5 = <0x18>;
++	pmu_bat_para6 = <0x21>;
++	pmu_bat_para7 = <0x27>;
++	pmu_bat_para8 = <0x2b>;
++	pmu_bat_para9 = <0x2e>;
++	pmu_bat_para10 = <0x30>;
++	pmu_bat_para11 = <0x32>;
++	pmu_bat_para12 = <0x34>;
++	pmu_bat_para13 = <0x37>;
++	pmu_bat_para14 = <0x3b>;
++	pmu_bat_para15 = <0x3f>;
++	pmu_bat_para16 = <0x44>;
++	pmu_bat_para17 = <0x46>;
++	pmu_bat_para18 = <0x48>;
++	pmu_bat_para19 = <0x4b>;
++	pmu_bat_para20 = <0x4d>;
++	pmu_bat_para21 = <0x4f>;
++	pmu_bat_para22 = <0x51>;
++	pmu_bat_para23 = <0x55>;
++	pmu_bat_para24 = <0x57>;
++	pmu_bat_para25 = <0x5e>;
++	pmu_bat_para26 = <0x60>;
++	pmu_bat_para27 = <0x62>;
++	pmu_bat_para28 = <0x63>;
++};
++
++&reg_aldo2 {
++	regulator-off-in-suspend;
++};
++
++&twi2 {
++	twi_vol = <3400000>;
++};
++
++&twi3_pins_a {
++	bias-pull-up;
++};
++
++&twi3 {
++	clock-frequency = <200000>;
++	twi-supply = <&reg_aldo2>;
++	twi_vol = <3300000>;
++	status = "okay";
++};
++
++&lcd0 {
++	lcd_dclk_freq = <57>;
++	lcd_hbp = <40>;
++	lcd_ht = <1184>;
++	lcd_hspw = <10>;
++	lcd_vbp = <11>;
++	lcd_bl_en = <&pio PH 11 GPIO_ACTIVE_HIGH>;
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -18,6 +18,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a64-teres-i.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a100-allwinner-perf1.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick-pro.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

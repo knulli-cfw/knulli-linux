@@ -1,0 +1,236 @@
+Subject: [PATCH] arm64: dts: allwinner: add MagicX Zero 28
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-magicx-zero28.dts
+@@ -0,0 +1,220 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * MagicX Zero 28: the Brick's A133P board design (AXP2202, TCS4838, XR829)
++ * with a 480x640 2-lane panel, 9 LEDs and its own battery.  Values from the
++ * vendor device tree.  Buttons on GPIOs, sticks from an MCU on uart3.
++ */
++
++#include <dt-bindings/input/input.h>
++#include "sun50i-a133-trimui-brick.dts"
++
++/ {
++	model = "MagicX Zero 28";
++	compatible = "magicx,zero28", "arm,sun50iw10p1";
++	knulli,device = "magicx-zero-28";
++};
++
++/* RTL8189ES: the module has its own power switch on PL7 */
++&rfkill {
++	power_en = <&r_pio PL 7 GPIO_ACTIVE_HIGH>;
++};
++
++&usb_power_supply {
++	pmu_usb_typec_used = <0x00>;
++	/delete-property/ pmu_acin_usbid_drv;
++};
++
++&bat_power_supply {
++	pmu_battery_rdc = <0xcb>;
++	pmu_battery_cap = <0xa28>;
++	pmu_suspend_chgcur = <0x5dc>;
++	pmu_shutdown_chgcur = <0x5dc>;
++	pmu_init_chgvol = <0x10fe>;
++	pmu_battery_warning_level1 = <0x0f>;
++	pmu_bat_temp_enable = <0x00>;
++	pmu_jetia_en = <0x00>;
++	pmu_bat_charge_ltf = <0x451>;
++	pmu_bat_charge_htf = <0x8d>;
++	pmu_bat_shutdown_ltf = <0x565>;
++	pmu_bat_shutdown_htf = <0x59>;
++	pmu_bat_temp_para1 = <0xafe>;
++	pmu_bat_temp_para2 = <0x89a>;
++	pmu_bat_temp_para3 = <0x6c9>;
++	pmu_bat_temp_para4 = <0x565>;
++	pmu_bat_temp_para5 = <0x451>;
++	pmu_bat_temp_para6 = <0x37a>;
++	pmu_bat_temp_para7 = <0x2d2>;
++	pmu_bat_temp_para8 = <0x1e4>;
++	pmu_bat_temp_para9 = <0x14c>;
++	pmu_bat_temp_para10 = <0xe9>;
++	pmu_bat_temp_para11 = <0xc4>;
++	pmu_bat_temp_para12 = <0xa6>;
++	pmu_bat_temp_para13 = <0x8d>;
++	pmu_bat_temp_para14 = <0x79>;
++	pmu_bat_temp_para15 = <0x59>;
++	pmu_bat_temp_para16 = <0x42>;
++};
++
++&reg_bldo3 {
++	/delete-property/ regulator-off-in-suspend;
++};
++
++&reg_cldo4 {
++	regulator-min-microvolt = <3300000>;
++	regulator-max-microvolt = <3300000>;
++};
++
++/* two card slots: the boot one is on SMHC2, SMHC0 (card detect PF6) is the
++ * second; describe SMHC2 as an SD slot, not the base tree's eMMC */
++&sdc2 {
++	bus-width = <4>;
++	/delete-property/ cap-mmc-highspeed;
++	/delete-property/ cap-cmd23;
++	/delete-property/ mmc-cache-ctrl;
++	/delete-property/ cap-erase;
++	/delete-property/ mmc-high-capacity-erase-size;
++	cap-sd-highspeed;
++	no-sdio;
++	no-mmc;
++	ctl-spec-caps = <0x8>;
++	vmmc-supply = <&reg_cldo3>;
++	status = "okay";
++};
++
++&codec {
++	pa-pin-msleep-0 = <120>;
++};
++
++/* the panel is portrait: userspace gets a landscape fb, G2D rotates it */
++&disp {
++	fb0_width = <640>;
++	fb0_height = <480>;
++	fb0_rot_used = <1>;
++	fb0_rot_degree = <1>;
++};
++
++&lcd0 {
++	lcd_driver_name = "h028b23";
++	lcd_x = <480>;
++	lcd_y = <640>;
++	lcd_dclk_freq = <25>;
++	lcd_pwm_pol = <1>;
++	lcd_hbp = <64>;
++	lcd_ht = <604>;
++	lcd_hspw = <10>;
++	lcd_vbp = <30>;
++	lcd_vt = <690>;
++	lcd_vspw = <10>;
++	lcd_dsi_lane = <2>;
++	lcd_gpio_1 = <&pio PB 2 GPIO_ACTIVE_HIGH>;
++	/delete-property/ lcd_bl_en;
++};
++
++/* no RGB LEDs */
++&ledc {
++	status = "disabled";
++};
++
++&pio {
++	uart3_ph_pins_a: uart3-ph@0 {
++		pins = "PH4", "PH5";
++		function = "uart3";
++		drive-strength = <10>;
++		bias-pull-up;
++	};
++
++	uart3_ph_pins_b: uart3-ph@1 {
++		pins = "PH4", "PH5";
++		function = "gpio_in";
++	};
++
++};
++
++/* PH6 of the default uart3 group is the speaker amplifier enable */
++&uart3 {
++	pinctrl-0 = <&uart3_ph_pins_a>;
++	pinctrl-1 = <&uart3_ph_pins_b>;
++	status = "okay";
++
++	joypad {
++		compatible = "magicx,simplepad";
++		invert-left-stick;
++
++		dpad-up {
++			linux,code = <BTN_DPAD_UP>;
++			gpios = <&pio PD 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-down {
++			linux,code = <BTN_DPAD_DOWN>;
++			gpios = <&pio PD 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-left {
++			linux,code = <BTN_DPAD_LEFT>;
++			gpios = <&pio PD 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		dpad-right {
++			linux,code = <BTN_DPAD_RIGHT>;
++			gpios = <&pio PD 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		a {
++			linux,code = <BTN_SOUTH>;
++			gpios = <&pio PD 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		b {
++			linux,code = <BTN_EAST>;
++			gpios = <&pio PD 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		x {
++			linux,code = <BTN_NORTH>;
++			gpios = <&pio PD 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		y {
++			linux,code = <BTN_WEST>;
++			gpios = <&pio PD 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		start {
++			linux,code = <BTN_START>;
++			gpios = <&pio PH 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		select {
++			linux,code = <BTN_SELECT>;
++			gpios = <&pio PH 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		g {
++			linux,code = <BTN_MODE>;
++			gpios = <&pio PH 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		l1 {
++			linux,code = <BTN_TL>;
++			gpios = <&pio PH 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		l2 {
++			linux,code = <BTN_TL2>;
++			gpios = <&pio PH 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		r1 {
++			linux,code = <BTN_TR>;
++			gpios = <&pio PH 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		r2 {
++			linux,code = <BTN_TR2>;
++			gpios = <&pio PH 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		thumb-l {
++			linux,code = <BTN_THUMBL>;
++			gpios = <&pio PH 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		thumb-r {
++			linux,code = <BTN_THUMBR>;
++			gpios = <&pio PH 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		volume-up {
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&pio PD 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++		volume-down {
++			linux,code = <KEY_VOLUMEDOWN>;
++			gpios = <&pio PD 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		};
++	};
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -19,6 +19,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a100-allwinner-perf1.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-brick-pro.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero28.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

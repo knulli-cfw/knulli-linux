@@ -1,0 +1,256 @@
+Subject: [PATCH] video: sunxi: disp2: add RTP32HD016A panel (XU20)
+
+No source was released for this panel; rebuilt from the stock XU20 4.9
+kernel: the RTP40WV101B power sequence without the touch reset and the
+JD9168 init table, with its two mis-marked delays as real delays.
+---
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/RTP32HD016A.c
+@@ -0,0 +1,175 @@
++/* drivers/video/sunxi/disp2/disp/lcd/RTP32HD016A.c
++ *
++ * RTP32HD016A panel driver: the 1024x768 2-lane JD9168 module of the
++ * XU20 (MagicX A133P).  No source was released; rebuilt from the stock
++ * XU20 4.9 kernel, where it sits next to h028b23 and RTP40WV101B
++ * (Copyright (c) 2024 gurobot Co., Ltd.): the same power sequence without
++ * a touch reset, and its init table.  The table's two delays were stored
++ * with the wrong marker and sent as DCS 0xfe writes; they are delays here.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#include "RTP32HD016A.h"
++
++static void lcd_power_on(u32 sel);
++static void lcd_power_off(u32 sel);
++static void lcd_bl_open(u32 sel);
++static void lcd_bl_close(u32 sel);
++
++static void lcd_panel_init(u32 sel);
++static void lcd_panel_exit(u32 sel);
++
++#define panel_reset(sel, val) sunxi_lcd_gpio_set_value(sel, 0, val)
++#define LED_SET(sel, val) sunxi_lcd_gpio_set_value(sel, 1, val)
++
++static void lcd_cfg_panel_info(struct panel_extend_para *info)
++{
++}
++
++static s32 lcd_open_flow(u32 sel)
++{
++	LCD_OPEN_FUNC(sel, lcd_power_on, 0);
++	LCD_OPEN_FUNC(sel, lcd_panel_init, 100);
++	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 100);
++	LCD_OPEN_FUNC(sel, lcd_bl_open, 0);
++
++	return 0;
++}
++
++static s32 lcd_close_flow(u32 sel)
++{
++	LCD_CLOSE_FUNC(sel, lcd_bl_close, 0);
++	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 0);
++	LCD_CLOSE_FUNC(sel, lcd_panel_exit, 0);
++	LCD_CLOSE_FUNC(sel, lcd_power_off, 0);
++
++	return 0;
++}
++
++static void lcd_power_on(u32 sel)
++{
++	/* LED off first: the LED gpio is active low after a resume */
++	LED_SET(sel, 1);
++	sunxi_lcd_power_enable(sel, 0);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_power_enable(sel, 1);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_pin_cfg(sel, 1);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(20);
++}
++
++static void lcd_power_off(u32 sel)
++{
++	sunxi_lcd_pin_cfg(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 1);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 0);
++	LED_SET(sel, 1);
++}
++
++static void lcd_bl_open(u32 sel)
++{
++	sunxi_lcd_pwm_enable(sel);
++	sunxi_lcd_backlight_enable(sel);
++}
++
++static void lcd_bl_close(u32 sel)
++{
++	sunxi_lcd_backlight_disable(sel);
++	sunxi_lcd_pwm_disable(sel);
++}
++
++#define REGFLAG_DELAY		0xfe
++#define REGFLAG_END_OF_TABLE	0xfd
++
++struct lcm_setting_table {
++	u8 cmd;
++	u32 count;
++	u8 para_list[48];
++};
++
++static struct lcm_setting_table rtp32hd016a_init[] = {
++	{ 0xdf, 3, {0x91, 0x68, 0xf9} },
++	{ 0xde, 1, {0x00} },
++	{ 0xb2, 2, {0x00, 0x7e} },
++	{ 0xb3, 2, {0x00, 0x7e} },
++	{ 0xc1, 6, {0x00, 0x08, 0x00, 0x00, 0x00, 0x00} },
++	{ 0xbb, 7, {0x02, 0x24, 0x07, 0x61, 0x19, 0x44, 0x44} },
++	{ 0xbe, 2, {0x1a, 0xf2} },
++	{ 0xc3, 14, {0x10, 0x17, 0x5a, 0x17, 0x5a, 0x05, 0x05, 0x05, 0x05, 0x15, 0x15, 0x31, 0x05, 0xdf} },
++	{ 0xc4, 7, {0x11, 0x80, 0x00, 0xdf, 0x09, 0x06, 0x14} },
++	{ 0xce, 23, {0x00, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x0f, 0x03} },
++	{ 0xcf, 9, {0x00, 0x01, 0x40, 0x01, 0xca, 0x01, 0xca, 0x01, 0xca} },
++	{ 0xd0, 23, {0x00, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x03, 0x01, 0x05, 0x07, 0x09, 0x0b, 0x1e, 0x15, 0x1f, 0x1f, 0x15, 0x1f} },
++	{ 0xd1, 23, {0x00, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x02, 0x00, 0x04, 0x06, 0x08, 0x0a, 0x1e, 0x15, 0x1f, 0x1f, 0x15, 0x1f} },
++	{ 0xd2, 23, {0x00, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x00, 0x02, 0x0a, 0x08, 0x06, 0x04, 0x1f, 0x15, 0x1f, 0x1f, 0x15, 0x1e} },
++	{ 0xd3, 23, {0x00, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x01, 0x03, 0x0b, 0x09, 0x07, 0x05, 0x1f, 0x15, 0x1f, 0x1f, 0x15, 0x1e} },
++	{ 0xd4, 37, {0x30, 0x00, 0x00, 0x04, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x03, 0x00, 0x11, 0x00, 0x01, 0xc0, 0x04, 0x01, 0x01, 0x11, 0x80, 0x01, 0xc0, 0x05, 0x01, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x06, 0x18, 0x02, 0xe3} },
++	{ 0xd5, 8, {0x68, 0x73, 0x00, 0x08, 0x08, 0x00, 0x03, 0x00} },
++	{ 0xb7, 6, {0x00, 0xd8, 0x00, 0x00, 0xd8, 0x00} },
++	{ 0xc8, 38, {0x7f, 0x69, 0x5a, 0x4e, 0x4a, 0x3b, 0x40, 0x2a, 0x44, 0x43, 0x44, 0x63, 0x51, 0x59, 0x4c, 0x48, 0x3a, 0x28, 0x0f, 0x7f, 0x69, 0x5a, 0x4e, 0x4a, 0x3b, 0x40, 0x2a, 0x44, 0x43, 0x44, 0x63, 0x51, 0x59, 0x4c, 0x48, 0x3a, 0x28, 0x0f} },
++	{ 0xde, 1, {0x02} },
++	{ 0xbb, 4, {0x00, 0x5b, 0x5c, 0x41} },
++	{ 0xc6, 1, {0x22} },
++	{ 0xd7, 1, {0x12} },
++	{ 0xde, 1, {0x04} },
++	{ 0xcc, 1, {0x35} },
++	{ 0xe7, 1, {0x01} },
++	{ 0xde, 1, {0x00} },
++	{ 0x11, 0, {} },
++	{ REGFLAG_DELAY, REGFLAG_DELAY, {120} },
++	{ 0x29, 0, {} },
++	{ REGFLAG_DELAY, REGFLAG_DELAY, {20} },
++	{ REGFLAG_END_OF_TABLE, REGFLAG_END_OF_TABLE, {} }
++};
++
++static void lcd_panel_init(u32 sel)
++{
++	struct lcm_setting_table *t;
++
++	sunxi_lcd_dsi_clk_enable(sel);
++	for (t = rtp32hd016a_init; t->count != REGFLAG_END_OF_TABLE; t++) {
++		if (t->count == REGFLAG_DELAY)
++			sunxi_lcd_delay_ms(t->para_list[0]);
++		else
++			sunxi_lcd_dsi_dcs_write(sel, t->cmd, t->para_list, t->count);
++	}
++}
++
++static void lcd_panel_exit(u32 sel)
++{
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x10);
++	sunxi_lcd_delay_ms(20);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x28);
++	sunxi_lcd_delay_ms(20);
++}
++
++/*sel: 0:lcd0; 1:lcd1*/
++static s32 lcd_user_defined_func(u32 sel, u32 para1, u32 para2, u32 para3)
++{
++	return 0;
++}
++
++struct __lcd_panel RTP32HD016A_panel = {
++	/* panel driver name, must mach the name of
++	 * lcd_drv_name in sys_config.fex
++	 */
++	.name = "RTP32HD016A",
++	.func = {
++		.cfg_panel_info = lcd_cfg_panel_info,
++		.cfg_open_flow = lcd_open_flow,
++		.cfg_close_flow = lcd_close_flow,
++		.lcd_user_defined_func = lcd_user_defined_func,
++	},
++};
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/RTP32HD016A.h
+@@ -0,0 +1,22 @@
++/* drivers/video/sunxi/disp2/disp/lcd/RTP32HD016A.h
++ *
++ * Copyright (c) 2024 gurobot Co., Ltd.
++ * Author: denghaijian <denghaijian@gurobot.com>
++ *
++ * RTP32HD016A panel driver
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#ifndef _RTP32HD016A_H
++#define _RTP32HD016A_H
++
++#include "panels.h"
++
++extern struct __lcd_panel RTP32HD016A_panel;
++
++extern s32 bsp_disp_get_panel_info(u32 screen_id, struct disp_panel_para *info);
++
++#endif /*End of file*/
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
+@@ -64,6 +64,9 @@
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_RTP40WV101B)
+ 	&RTP40WV101B_panel,
+ #endif
++#if IS_ENABLED(CONFIG_LCD_SUPPORT_RTP32HD016A)
++	&RTP32HD016A_panel,
++#endif
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_HE0801A068)
+ 	&he0801a068_panel,
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
+@@ -91,6 +91,7 @@
+ extern struct __lcd_panel trimui_brick_panel;
+ extern struct __lcd_panel h028b23_panel;
+ extern struct __lcd_panel RTP40WV101B_panel;
++extern struct __lcd_panel RTP32HD016A_panel;
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_INET_DSI_PANEL)
+ extern struct __lcd_panel inet_dsi_panel;
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
+@@ -44,6 +44,12 @@
+ 	help
+ 		The MagicX Zero 40 480x800 2-lane MIPI panel.
+ 
++config LCD_SUPPORT_RTP32HD016A
++	bool "LCD support RTP32HD016A panel"
++	default n
++	help
++		The XU20 1024x768 2-lane MIPI panel (JD9168).
++
+ config LCD_SUPPORT_HE0801A068
+ 	bool "LCD support he0801a068 panel"
+ 	default y
+--- a/bsp/drivers/video/sunxi/disp2/disp/Makefile
++++ b/bsp/drivers/video/sunxi/disp2/disp/Makefile
+@@ -32,6 +32,7 @@
+ disp-$(CONFIG_LCD_SUPPORT_TRIMUI_BRICK) += lcd/trimui_brick.o
+ disp-$(CONFIG_LCD_SUPPORT_H028B23) += lcd/h028b23.o
+ disp-$(CONFIG_LCD_SUPPORT_RTP40WV101B) += lcd/RTP40WV101B.o
++disp-$(CONFIG_LCD_SUPPORT_RTP32HD016A) += lcd/RTP32HD016A.o
+ disp-$(CONFIG_LCD_SUPPORT_HE0801A068) += lcd/he0801a068.o
+ disp-$(CONFIG_EINK_PANEL_USED) += lcd/default_eink.o
+ disp-$(CONFIG_LCD_SUPPORT_LT070ME05000) += lcd/lt070me05000.o

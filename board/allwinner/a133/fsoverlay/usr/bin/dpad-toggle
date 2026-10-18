@@ -27,7 +27,6 @@ announce_state() {
     case "$1" in
       on)
         knulli-rumble 0.1
-        echo 1 > "$DPAD_STATE_FILE"
 
         do_notification "Virtual Joystick ON"
         ;;
@@ -35,7 +34,6 @@ announce_state() {
         knulli-rumble 0.1
         sleep 0.2
         knulli-rumble 0.1
-        echo 0 > "$DPAD_STATE_FILE"
 
         do_notification "Virtual Joystick OFF"
         ;;
@@ -43,7 +41,7 @@ announce_state() {
 }
 
 case "$BOARD" in
-  trimui-smart-pro|trimui-brick/trimui-brick-pro)
+  trimui-smart-pro|trimui-brick|trimui-brick-pro)
     DPAD_DIR="/tmp/trimui_inputd"
     DPAD_DISABLED_FILE="$DPAD_DIR/input_no_dpad"
     DPAD_AS_ANALOG_FILE="$DPAD_DIR/input_dpad_to_joystick"

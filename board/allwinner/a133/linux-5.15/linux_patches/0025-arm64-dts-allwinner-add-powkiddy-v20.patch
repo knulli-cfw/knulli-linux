@@ -1,0 +1,85 @@
+Subject: [PATCH] arm64: dts: allwinner: add Powkiddy V20
+
+The stock V20 ships the V90s DT unchanged; this one adds its two sticks
+(an analog multiplexer on the GPADC, which the A133 dtsi lacks), L3 and
+R3 on the V90s rumble pin and its neighbour, and its own names.
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-powkiddy-v20.dts
+@@ -0,0 +1,66 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Powkiddy V20 (A133P): the stock firmware ships the V90s DT unchanged.
++ */
++#include "sun50i-a133-powkiddy-v90s.dts"
++
++/ {
++	model = "Powkiddy V20";
++	compatible = "powkiddy,v20", "arm,sun50iw10p1";
++	knulli,device = "powkiddy-v20";
++};
++
++/* two sticks, the left one mounted rotated; PD20 is R3, not a rumble pwm */
++&joypad {
++	/delete-property/ pwms;
++	label = "Powkiddy V20 Controller";
++	product-id = <0x9020>;
++	sticks = <2>;
++	mux-gpios = <&pio PH 0 GPIO_ACTIVE_HIGH>, <&pio PH 1 GPIO_ACTIVE_HIGH>;
++	mux-enable-gpios = <&pio PH 5 GPIO_ACTIVE_LOW>;
++	mux-axes = <3 2 0 1>;
++	invert-left-x;
++	invert-left-y;
++	left-stick-center = <870 889>;
++	right-stick-center = <875 886>;
++	left-stick-range = <850 850>;
++	right-stick-range = <850 850>;
++	deadzone = <60>;
++
++	l3 { linux,code = <BTN_THUMBL>; gpios = <&pio PD 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++	r3 { linux,code = <BTN_THUMBR>; gpios = <&pio PD 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++};
++
++&pwm2 {
++	/delete-property/ pinctrl-0;
++	/delete-property/ pinctrl-1;
++	/delete-property/ pinctrl-names;
++};
++
++/* the stick multiplexer (PH0/PH1 select, PH5 enable) feeds channel 0 */
++&soc {
++	gpadc: gpadc@5070000 {
++		compatible = "allwinner,sunxi-gpadc";
++		reg = <0x0 0x05070000 0x0 0x400>;
++		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&ccu CLK_BUS_GPADC>;
++		clock-names = "bus";
++		resets = <&ccu RST_BUS_GPADC>;
++		gpadc_sample_rate = <50000>;
++		channel_num = <1>;
++		channel_select = <0x1>;
++		channel_data_select = <0>;
++		channel_compare_select = <0>;
++		channel_cld_select = <0>;
++		channel_chd_select = <0>;
++		channel0_compare_lowdata = <1700000>;
++		channel0_compare_higdata = <1200000>;
++		status = "okay";
++	};
++};
++
++/ {
++	aliases {
++		gpadc0 = &gpadc;
++	};
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -23,6 +23,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-magicx-zero40.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-xu20.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-powkiddy-v90s.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-powkiddy-v20.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

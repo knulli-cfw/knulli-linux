@@ -1,19 +1,37 @@
 #!/bin/sh
 
+# One image for every board: the device tree says which one booted, and
+# knulli.board follows it for the scripts that read the file
+BOARD=$(tr -d '\0' < /proc/device-tree/knulli,device 2>/dev/null)
+if [ -n "$BOARD" ]; then
+	if [ "$(cat /boot/boot/knulli.board 2>/dev/null)" != "$BOARD" ]; then
+		mount -o remount,rw /boot
+		echo "$BOARD" > /boot/boot/knulli.board
+		sync
+		mount -o remount,ro /boot
+	fi
+else
+	BOARD=$(cat /boot/boot/knulli.board)
+fi
+
 # The Powkiddy V90s uses a different set of kernel modules
 # If we are booting one up, mount bind its modules over the regular 4.9.191
-BOARD=$(cat /boot/boot/knulli.board)
 if [ "$BOARD" = "powkiddy-v90s" ] || [ "$BOARD" = "powkiddy-v20" ] ; then
 	mount -o bind /lib/modules/4.9.191_v90s /lib/modules/4.9.191
 fi
 
 # We need the graphics module in order to use SDL since we are
-# using the sdl-compat/SDL2 for rendering
-cd /lib/modules/4.9.191
+# using the sdl-compat/SDL2 for rendering; pvrsrvctl loads pvrsrvkm.ko and
+# dc_sunxi.ko from the current directory
+cd /lib/modules/$(uname -r)
 pvrsrvctl --start
 
-# Start the progress bar
-/usr/bin/progressbar &
+# Start the progress bar; a portrait fb is taken for a rotated panel, but
+# the Zero 40 is held upright
+case "$BOARD" in
+    magicx-zero-40) /usr/bin/progressbar_rk --rotate 270 & ;;
+    *)              /usr/bin/progressbar_rk & ;;
+esac
 
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
@@ -37,7 +55,7 @@ for i in /etc/init.d/S??* ; do
             ;;
         *)
             case "$i" in
-                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06audio | *S06modprobe | *S11share | *S12populateshare) # Don't run these in background
+                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06modprobe | *S11share | *S12populateshare) # Don't run these in background
                     $i start
                     ;;
                 *)

@@ -1,0 +1,29 @@
+Subject: [PATCH] sound: sunxi: sun50iw10 codec: no half-insert detection
+
+With no plug the Brick's mic detect input fires continuously; the
+half-insert path then keeps the speaker and headphone amps off.
+---
+--- a/bsp/drivers/sound/platform/snd_sun50iw10_codec.c
++++ b/bsp/drivers/sound/platform/snd_sun50iw10_codec.c
+@@ -1061,16 +1061,12 @@
+ 			reg_val |= 0x1 << MIC_DET_ST;
+ 			regmap_write(regmap, SUNXI_HMIC_STS, reg_val);
+ 
+-			/* half-insert: The jack is plug ing, status updated. another,
+-			 * all playback is turned off to optimize the user's listening experience
+-			 * (for the case where the SPK signal source is consistent with HPOUT).
++			/* half-insert detection is left disarmed: on boards whose
++			 * mic detect input reads high with no plug (TrimUI Brick)
++			 * it fires continuously and keeps hpout & spk off.  Plug
++			 * in/out still switch the outputs through the jack irqs.
+ 			 */
+-			SND_LOG_DEBUG("close hpout & spk\n");
+-			sunxi_spk_global_switch(codec, false);
+-			sunxi_hpout_global_switch(codec, false);
+-			jack_codec_priv->insert_sta = JACK_INSERT_ING;
+-			schedule_delayed_work(&jack_codec_priv->plug_process_check_work,
+-					      msecs_to_jiffies(300));
++			SND_LOG_DEBUG("mic det without jack, disarmed\n");
+ 		} else {
+ 			regmap_read(regmap, SUNXI_HMIC_STS, &reg_val);
+ 			reg_val &= ~(0x1 << JACK_DET_IIN_ST);

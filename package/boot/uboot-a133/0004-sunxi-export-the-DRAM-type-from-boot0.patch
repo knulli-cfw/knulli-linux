@@ -1,0 +1,19 @@
+Subject: [PATCH] sunxi: export the DRAM type from boot0 as ${dram_type}
+
+The A133 boards share one image and differ in boot0, which trains their
+DRAM; its type is what the boot command can tell them apart by.
+---
+--- a/board/sunxi/board_common.c	2026-10-06 19:30:21.324303756 +0000
++++ b/board/sunxi/board_common.c	2026-10-06 19:30:21.336303755 +0000
+@@ -641,6 +641,11 @@
+ 			sunxi_board_shutdown();
+ 		}
+ #endif
++		/*
++		 * boot0's DRAM type tells the A133 board families apart
++		 * (3 DDR3, 4 DDR4, 7 LPDDR3, 8 LPDDR4): bootcmd picks the DT
++		 */
++		env_set_ulong("dram_type", uboot_spare_head.boot_data.dram_para[1] & 0xff);
+ 
+ #ifdef CONFIG_BOOT_GUI
+ 		void board_bootlogo_display(void);
