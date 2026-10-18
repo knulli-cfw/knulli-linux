@@ -75,7 +75,7 @@ set_output() {
                 rg-cubexx)
                     set_fb 720 720 720 1440 32
                     ;;
-                rg34xx|rg34xx-sp)
+                rg34xx|rg34xx-sp|rg-sp)
                     set_fb 720 480 720 960 32
                     ;;
                 *)
