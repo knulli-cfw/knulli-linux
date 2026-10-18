@@ -49,6 +49,45 @@ ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_T527),y)
 BATOCERA_INITRAMFS_INITRDA=arm
 endif
 
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM4450),y)
+KNULLI_INITRAMFS_DEPENDENCIES += alllinuxfirmwares
+define KNULLI_INITRAMFS_SM4450_EARLY_FIRMWARE
+	mkdir -p $(INITRAMFS_DIR)/lib/firmware/qcom/sm4450
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/a630_sqe.fw \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/
+	cp $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/sm4450/fsoverlay/lib/firmware/qcom/sm4450/a613_zap.mbn \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm4450/
+endef
+KNULLI_INITRAMFS_PRE_INSTALL_TARGET_HOOKS += KNULLI_INITRAMFS_SM4450_EARLY_FIRMWARE
+endif
+
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM6115),y)
+KNULLI_INITRAMFS_DEPENDENCIES += alllinuxfirmwares
+define KNULLI_INITRAMFS_SM6115_EARLY_FIRMWARE
+	mkdir -p $(INITRAMFS_DIR)/lib/firmware/qcom/qrb4210
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/a630_sqe.fw \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/
+	cp -R $(ALLLINUXFIRMWARES_DIR)/qcom/qrb4210/* \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/qrb4210/
+endef
+KNULLI_INITRAMFS_PRE_INSTALL_TARGET_HOOKS += KNULLI_INITRAMFS_SM6115_EARLY_FIRMWARE
+endif
+
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM8250),y)
+KNULLI_INITRAMFS_DEPENDENCIES += alllinuxfirmwares
+define KNULLI_INITRAMFS_SM8250_EARLY_FIRMWARE
+	mkdir -p $(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/
+	cp -R $(ALLLINUXFIRMWARES_DIR)/qcom/sm8250/* \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/
+	mv $(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/Thundercomm/RB5/* \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/
+	rm -rf $(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/Thundercomm
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/a650_sqe.fw \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/
+endef
+KNULLI_INITRAMFS_PRE_INSTALL_TARGET_HOOKS += KNULLI_INITRAMFS_SM8250_EARLY_FIRMWARE
+endif
+
 ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM8550),y)
 KNULLI_INITRAMFS_DEPENDENCIES += firmware-armbian
 define KNULLI_INITRAMFS_SM8550_EARLY_FIRMWARE
@@ -57,6 +96,31 @@ define KNULLI_INITRAMFS_SM8550_EARLY_FIRMWARE
         $(INITRAMFS_DIR)/lib/firmware/qcom/sm8550/
 endef
 KNULLI_INITRAMFS_PRE_INSTALL_TARGET_HOOKS += KNULLI_INITRAMFS_SM8550_EARLY_FIRMWARE
+endif
+
+# SMGEN: one initrd for every SM board, so only what the built-in GPU driver
+# needs before the rootfs is up (SQE/GMU microcode and the zap shader); the
+# rest of the firmware comes from the rootfs.
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SMGEN),y)
+KNULLI_INITRAMFS_DEPENDENCIES += alllinuxfirmwares
+define KNULLI_INITRAMFS_SMGEN_EARLY_FIRMWARE
+	mkdir -p $(INITRAMFS_DIR)/lib/firmware/qcom/sm8250 \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm8550 \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm4450
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/a650_sqe.fw $(ALLLINUXFIRMWARES_DIR)/qcom/a650_gmu.bin \
+		$(ALLLINUXFIRMWARES_DIR)/qcom/a740_sqe.fw $(ALLLINUXFIRMWARES_DIR)/qcom/gmu_gen70200.bin \
+		$(ALLLINUXFIRMWARES_DIR)/qcom/a630_sqe.fw $(ALLLINUXFIRMWARES_DIR)/qcom/a630_gmu.bin \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/sm8250/a650_zap.mbn $(INITRAMFS_DIR)/lib/firmware/qcom/sm8250/
+	cp $(ALLLINUXFIRMWARES_DIR)/qcom/sm8550/a740_zap.mbn $(INITRAMFS_DIR)/lib/firmware/qcom/sm8550/
+	cp $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay/lib/firmware/qcom/sm4450/a613_zap.mbn \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/sm4450/
+	cp $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay/lib/firmware/qcom/a710_sqe.fw \
+		$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay/lib/firmware/qcom/sm6450/TG4070/a710_zap.mbn \
+		$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay/lib/firmware/qcom/gmu_gen70000.bin \
+		$(INITRAMFS_DIR)/lib/firmware/qcom/
+endef
+KNULLI_INITRAMFS_PRE_INSTALL_TARGET_HOOKS += KNULLI_INITRAMFS_SMGEN_EARLY_FIRMWARE
 endif
 
 define KNULLI_INITRAMFS_INSTALL_TARGET_CMDS
