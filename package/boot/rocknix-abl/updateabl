@@ -8,6 +8,16 @@
 
 set -euo pipefail
 
+# Fallback to interactive mode (0) if not defined
+NON_INTERACTIVE="${NON_INTERACTIVE:-0}"
+
+# Normalize non-interactive value to a strict integer (0 or 1)
+if [ "$NON_INTERACTIVE" = "true" ] || [ "$NON_INTERACTIVE" = "yes" ] || [ "$NON_INTERACTIVE" = "1" ]; then
+    NON_INTERACTIVE=1
+else
+    NON_INTERACTIVE=0
+fi
+
 # ---- Get Device Architecture ----
 ARCH_FILE="/usr/share/knulli/knulli.arch"
 if [ -f "$ARCH_FILE" ]; then
@@ -16,10 +26,17 @@ else
     echo "Error: Architecture file $ARCH_FILE not found!"
     exit 1
 fi
+# the SMGEN image serves several SoCs: take the one we are running on
+if [ "$HW_DEVICE" = "SMGEN" ] && [ -x /usr/bin/knulli-qcom-soc ]; then
+    case "$(/usr/bin/knulli-qcom-soc)" in
+        sm6450) HW_DEVICE=SM4450 ;;
+        *)      HW_DEVICE=$(/usr/bin/knulli-qcom-soc | tr '[:lower:]' '[:upper:]') ;;
+    esac
+fi
 
 # add SM6115 & SM8650 for future device support
 case "$HW_DEVICE" in
-  SM6115|SM8250|SM8550|SM8650)
+  SM4450|SM6115|SM8250|SM8550|SM8650|SM8750)
     ;;
   *)
     echo "This script is not compatible with device: $HW_DEVICE"
@@ -41,47 +58,89 @@ mkdir -p "$ABL_DIR"
 if [[ "${1:-}" == "--check-online" ]]; then
     echo "Checking GitHub for ABL updates..."
     
-    # URL pointing to the raw files on GitHub 
-    GITHUB_BASE_URL="https://github.com/ROCKNIX/abl/raw/refs/heads/master"
-    REMOTE_SHA_URL="${GITHUB_BASE_URL}/abl_signed-${HW_DEVICE}.elf.sha256"
-    REMOTE_ELF_URL="${GITHUB_BASE_URL}/abl_signed-${HW_DEVICE}.elf"
+    # Try fetching the latest release tag from the GitHub API
+    LATEST_TAG=""
+    if LATEST_RELEASE_JSON=$(curl -sL --fail --max-time 10 "https://api.github.com/repos/ROCKNIX/abl/releases/latest" 2>/dev/null); then
+        LATEST_TAG=$(echo "$LATEST_RELEASE_JSON" | grep -m1 '"tag_name":' | cut -d'"' -f4 || true)
+    fi
 
-    # Fetch remote SHA256 sum, suppress error if unreachable to allow local fallback
-    REMOTE_SHA_CONTENT=$(curl -sL --fail "$REMOTE_SHA_URL" || true)
-    
-    if [ -n "$REMOTE_SHA_CONTENT" ]; then
-        REMOTE_HASH=$(echo "$REMOTE_SHA_CONTENT" | awk '{print $1}')
-        
-        # Determine local hash
-        LOCAL_HASH=""
-        if [ -f "$SHA256SUM" ]; then
-            LOCAL_HASH=$(awk '{print $1}' "$SHA256SUM")
+    # Fallback: Parse redirection from the standard GitHub URL
+    if [ -z "$LATEST_TAG" ]; then
+        LATEST_TAG=$(curl -sL --fail --max-time 10 -o /dev/null -w "%{url_effective}" "https://github.com/ROCKNIX/abl/releases/latest" 2>/dev/null | sed 's|.*/tag/||' || true)
+    fi
+
+    # Validate tag format (must look like a standard version tag)
+    if [[ ! "$LATEST_TAG" =~ ^v[0-9] ]]; then
+        LATEST_TAG=""
+    fi
+
+    if [ -n "$LATEST_TAG" ]; then
+        # Determine local version
+        LOCAL_VERSION=""
+        if [ -f "${ABL_DIR}/version" ]; then
+            LOCAL_VERSION=$(cat "${ABL_DIR}/version" | xargs)
         fi
 
-        if [ "$REMOTE_HASH" != "$LOCAL_HASH" ]; then
-            echo "A newer or different ABL bootloader is available online!"
-            read -p "Do you want to download and flash the new ABL update? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                echo "Downloading new ABL files..."
-                if ! wget -q -O "${SHA256SUM}.tmp" "$REMOTE_SHA_URL" || ! wget -q --show-progress -O "${ELF}.tmp" "$REMOTE_ELF_URL"; then
-                    echo "Error: Failed to download files from GitHub. Aborting update."
-                    rm -f "${SHA256SUM}.tmp" "${ELF}.tmp"
+        # If files don't exist, or local version doesn't match the online release
+        if [ ! -f "$ELF" ] || [ ! -f "$SHA256SUM" ] || [ "$LATEST_TAG" != "$LOCAL_VERSION" ]; then
+            echo "A newer ABL bootloader ($LATEST_TAG) is available online!"
+            
+            proceed_download=0
+            if [ "$NON_INTERACTIVE" -eq 1 ]; then
+                proceed_download=1
+            else
+                read -p "Do you want to download and flash the new ABL update? (y/N): " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    proceed_download=1
+                fi
+            fi
+
+            if [ "$proceed_download" -eq 1 ]; then
+                echo "Downloading ABL release ${LATEST_TAG}..."
+                
+                TMP_DIR=$(mktemp -d)
+                TAR_TMP="${TMP_DIR}/rocknix-abl.tar.gz"
+                TAR_URL="https://github.com/ROCKNIX/abl/releases/download/${LATEST_TAG}/rocknix-abl-${LATEST_TAG}.tar.gz"
+
+                if ! curl -sL --fail -o "$TAR_TMP" "$TAR_URL"; then
+                    echo "Error: Failed to download $TAR_URL. Aborting update."
+                    rm -rf "$TMP_DIR"
                     exit 1
                 fi
                 
-                # Verify the downloaded file matches the remote hash
-                echo "Verifying downloaded file..."
-                DOWNLOADED_HASH=$(sha256sum "${ELF}.tmp" | awk '{print $1}')
-                if [ "$DOWNLOADED_HASH" != "$REMOTE_HASH" ]; then
-                    echo "Error: Downloaded file checksum does not match! Aborting update."
-                    rm -f "${SHA256SUM}.tmp" "${ELF}.tmp"
+                echo "Extracting archive..."
+                if ! tar -xzf "$TAR_TMP" -C "$TMP_DIR"; then
+                    echo "Error: Failed to extract tarball. Aborting update."
+                    rm -rf "$TMP_DIR"
                     exit 1
                 fi
+
+                # Locate the specific device binaries recursively inside the extracted archive
+                FOUND_ELF=$(find "$TMP_DIR" -type f -name "abl_signed-${HW_DEVICE}.elf" | head -n 1)
+                FOUND_SHA=$(find "$TMP_DIR" -type f -name "abl_signed-${HW_DEVICE}.elf.sha256" | head -n 1)
+
+                if [ -z "$FOUND_ELF" ] || [ -z "$FOUND_SHA" ]; then
+                    echo "Error: Could not find ABL files for device ${HW_DEVICE} inside the downloaded archive."
+                    rm -rf "$TMP_DIR"
+                    exit 1
+                fi
+
+                # Verify extracted files match the included SHA256 checksum
+                echo "Verifying downloaded files..."
+                if ! (cd "$(dirname "$FOUND_ELF")" && sha256sum -c "$(basename "$FOUND_SHA")"); then
+                    echo "Error: SHA256 checksum verification failed for the downloaded files! Aborting."
+                    rm -rf "$TMP_DIR"
+                    exit 1
+                fi
+
+                # Copy validated files to their destination
+                mv "$FOUND_ELF" "$ELF"
+                mv "$FOUND_SHA" "$SHA256SUM"
+                echo "$LATEST_TAG" > "${ABL_DIR}/version"
                 
-                # Apply new files
-                mv "${SHA256SUM}.tmp" "$SHA256SUM"
-                mv "${ELF}.tmp" "$ELF"
+                # Cleanup temp directory
+                rm -rf "$TMP_DIR"
                 echo "Download complete and verified."
             else
                 echo "Skipping ABL update download."
@@ -92,10 +151,10 @@ if [[ "${1:-}" == "--check-online" ]]; then
                 fi
             fi
         else
-            echo "The latest ABL is already downloaded locally."
+            echo "The latest ABL ($LATEST_TAG) is already downloaded locally."
         fi
     else
-        echo "Warning: Could not reach GitHub to check for ABL updates. Proceeding with local files if they exist."
+        echo "Warning: Could not reach GitHub or determine the latest version. Proceeding with local files if they exist."
     fi
 fi
 
@@ -129,26 +188,58 @@ get_part_hash() {
 # ---- Power Check ----
 check_power() {
     local power_connected=0
-    # Check all power supplies for a 'Mains' or 'USB' source that is 'online'
+    local max_battery=0
+    local has_battery=0
+
+    # Scan power supplies for AC power or battery capacity
     for supply in /sys/class/power_supply/*; do
+        [ -d "$supply" ] || continue
+
+        # Check for connected AC / USB charger
         if [ -f "$supply/online" ] && [ -f "$supply/type" ]; then
-            type=$(cat "$supply/type")
-            online=$(cat "$supply/online")
+            type=$(cat "$supply/type" 2>/dev/null || true)
+            online=$(cat "$supply/online" 2>/dev/null || true)
             if [[ "$type" == "Mains" || "$type" == "USB" ]] && [ "$online" -eq 1 ]; then
                 power_connected=1
-                break
+            fi
+        fi
+
+        # Check battery capacity percentage
+        if [ -f "$supply/capacity" ]; then
+            has_battery=1
+            cap=$(cat "$supply/capacity" 2>/dev/null || echo 0)
+            if [ "$cap" -gt "$max_battery" ]; then
+                max_battery=$cap
             fi
         fi
     done
 
-    if [ "$power_connected" -eq 0 ]; then
-        echo "------------------------------------------------------------"
-        echo " ERROR: DEVICE IS NOT ON AC POWER "
-        echo " To prevent bricking during the ABL flash, please plug in "
-        echo " your charger/power cable before attempting to flash. "
-        echo "------------------------------------------------------------"
-        exit 1
+    # Allow if plugged into AC/USB power
+    if [ "$power_connected" -eq 1 ]; then
+        return 0
     fi
+
+    # Allow if on battery and capacity is >= 10%
+    if [ "$has_battery" -eq 1 ]; then
+        if [ "$max_battery" -ge 10 ]; then
+            return 0
+        else
+            echo "------------------------------------------------------------"
+            echo " ERROR: BATTERY LEVEL TOO LOW (${max_battery}%) "
+            echo " To prevent bricking during the ABL flash, your battery must "
+            echo " be at least 10% or plugged into AC power. "
+            echo "------------------------------------------------------------"
+            exit 1
+        fi
+    fi
+
+    # Fallback error if power status could not be determined
+    echo "------------------------------------------------------------"
+    echo " ERROR: DEVICE IS NOT ON AC POWER "
+    echo " To prevent bricking during the ABL flash, please plug in "
+    echo " your charger/power cable before attempting to flash. "
+    echo "------------------------------------------------------------"
+    exit 1
 }
 
 # Run the power check
@@ -165,6 +256,10 @@ UP_TO_DATE=true
 
 if [ "$UP_TO_DATE" = true ]; then
     echo "Both ABL partitions are already up to date."
+    if [ "$NON_INTERACTIVE" -eq 1 ]; then
+        echo "No changes needed. Exiting."
+        exit 0
+    fi
     read -p "Do you still wish to re-flash? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -174,7 +269,8 @@ if [ "$UP_TO_DATE" = true ]; then
 fi
 
 # ---- Disclaimer & Prompt ----
-cat << EOF
+if [ "$NON_INTERACTIVE" -ne 1 ]; then
+    cat << EOF
 ------------------------------------------------------------
 Disclaimer
 Flashing a custom ABL carries inherent risk and may result 
@@ -184,18 +280,19 @@ in an unbootable device if used incorrectly.
 - Ensure you have recovery options before flashing
 - This project is provided as-is, with no warranty
 
-This ABL works with a fresh install of v43 only.
+This ABL works with a fresh install of v43 or later only.
 
 Created by the ROCKNIX Team for the emulation community.
 ------------------------------------------------------------
 EOF
 
-echo
-read -p "Do you wish to proceed? (Type Y to continue): " -n 1 -r
-echo # Move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Update aborted by user."
-    exit 1
+    echo
+    read -p "Do you wish to proceed? (Type Y to continue): " -n 1 -r
+    echo # Move to a new line
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Update aborted by user."
+        exit 1
+    fi
 fi
 
 # ---- Check SHA256 ----
@@ -214,11 +311,19 @@ if [ -z "${SS}" ]; then
 fi
 
 # ---- Flash with Progress Bar ----
-echo "Flashing ABL_A..."
-pv -s "$FILE_SIZE" "${ELF}" | dd of="${ABL_A}" bs="${SS}" conv=fsync,notrunc status=none
+if [ "$NON_INTERACTIVE" -eq 1 ]; then
+    # In non-interactive mode, avoid pv progress spamming the logs
+    echo "Flashing ABL_A..."
+    dd if="${ELF}" of="${ABL_A}" bs="${SS}" conv=fsync,notrunc status=none
+    echo "Flashing ABL_B..."
+    dd if="${ELF}" of="${ABL_B}" bs="${SS}" conv=fsync,notrunc status=none
+else
+    echo "Flashing ABL_A..."
+    pv -s "$FILE_SIZE" "${ELF}" | dd of="${ABL_A}" bs="${SS}" conv=fsync,notrunc status=none
 
-echo "Flashing ABL_B..."
-pv -s "$FILE_SIZE" "${ELF}" | dd of="${ABL_B}" bs="${SS}" conv=fsync,notrunc status=none
+    echo "Flashing ABL_B..."
+    pv -s "$FILE_SIZE" "${ELF}" | dd of="${ABL_B}" bs="${SS}" conv=fsync,notrunc status=none
+fi
 
 sync
 
