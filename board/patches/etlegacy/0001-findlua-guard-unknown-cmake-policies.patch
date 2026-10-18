@@ -1,0 +1,29 @@
+FindLua.cmake is vendored from CMake's own module and sets CMP0159, which only
+exists in CMake 3.29 and later.  A board whose config pulls no package demanding
+a newer CMake (no kodi -> no mariadb -> no host-cmake) configures with the
+system cmake, and there cmake_policy(SET) on an unknown policy is a hard error:
+
+  CMake Error at cmake/FindLua.cmake:7 (cmake_policy):
+    Policy "CMP0159" is not known to this version of CMake.
+
+Guard both policy settings.  Neither is load-bearing here: the CMAKE_MATCH_<n>
+uses follow string(REGEX MATCH), not the file(STRINGS ... REGEX) that CMP0159
+governs, and Lua is detected correctly either way.
+
+--- a/cmake/FindLua.cmake
++++ b/cmake/FindLua.cmake
+@@ -3,8 +3,12 @@
+ # https://github.com/Kitware/CMake/blob/master/Modules/FindLua.cmake
+ 
+ cmake_policy(PUSH)	# Policies apply to functions at definition-time
+-cmake_policy(SET CMP0140 NEW)
+-cmake_policy(SET CMP0159 NEW)  # file(STRINGS) with REGEX updates CMAKE_MATCH_<n>
++if (POLICY CMP0140)
++	cmake_policy(SET CMP0140 NEW)
++endif ()
++if (POLICY CMP0159)
++	cmake_policy(SET CMP0159 NEW)  # file(STRINGS) with REGEX updates CMAKE_MATCH_<n>
++endif ()
+ 
+ unset(_lua_include_subdirs)
+ unset(_lua_library_names)
