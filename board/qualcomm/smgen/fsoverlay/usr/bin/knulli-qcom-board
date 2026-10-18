@@ -1,0 +1,30 @@
+#!/bin/sh
+# Device name for the SMGEN image, from the device tree model.
+# Keep the names stable: knulli.board, sysconfigs and the per-device scripts use them.
+MODEL=$(tr -d '\0' < /sys/firmware/devicetree/base/model 2>/dev/null)
+case "$MODEL" in
+    "Retroid Pocket 5"*)              echo rp5 ;;
+    "Retroid Pocket Flip2"*)          echo rpflip2 ;;
+    "Retroid Pocket Mini V2")         echo rpminiv2 ;;
+    "Retroid Pocket Mini")            echo rpmini ;;
+    "AYN Thor Lite")                  echo thorlite ;;
+    "MANGMI Air Y Pro")               echo mangmi-air-y-pro ;;
+    "MANGMI Pocket Max")              echo mangmi-pocket-max ;;
+    "Retroid Pocket 6"*)              echo rp6 ;;
+    "Retroid Pocket Nova")            echo rpnova ;;
+    "AYN Odin 2 Mini")                echo odin2mini ;;
+    "AYN Odin 2 Portal")              echo odin2portal ;;
+    "AYN Odin 2")                     echo odin2 ;;
+    "AYN Thor")                       echo thor ;;
+    "AYANEO Pocket ACE")              echo pocketace ;;
+    "AYANEO Pocket DMG")              echo pocketdmg ;;
+    "AYANEO Pocket DS")               echo pocketds ;;
+    "AYANEO Pocket EVO")              echo pocketevo ;;
+    "AYANEO Pocket S 1K")             echo pockets1k ;;
+    "AYANEO Pocket S 2K")             echo pockets2k ;;
+    "AYANEO Pocket S Mini")           echo pocketsmini ;;
+    "Anbernic RG 55G1")               echo rg55g1 ;;
+    "Retroid Pocket Classic Rev Q")   echo rpclassic ;;
+    "TrimUI Brick Hammer Pro U")      echo hammerprou ;;
+    *)                                echo "" ;;
+esac

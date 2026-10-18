@@ -1,0 +1,10 @@
+#!/bin/sh
+# SoC of the running device: sm8250, sm8550, sm4450 or sm6450 (parrot)
+C=$(tr '\0' '\n' < /sys/firmware/devicetree/base/compatible 2>/dev/null)
+case "$C" in
+    *qcom,qcs8550*|*qcom,sm8550*) echo sm8550 ;;
+    *qcom,sm8250*)               echo sm8250 ;;
+    *qcom,sm6450*)               echo sm6450 ;;
+    *qcom,sm4450*)               echo sm4450 ;;
+    *)                           echo "" ;;
+esac

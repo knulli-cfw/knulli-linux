@@ -1,0 +1,34 @@
+MERGE NOTE (knulli unified series): sm6115 'constrain BE format mask to S16_LE only' merged with sm8250 '0100-revert-force-16bit-audio' (only force S16_LE for compressed streams). The two cards share sound/soc/qcom/sm8250.c, so the behaviour is keyed on card->driver_name: "sm4250" (qcom,qrb4210-rb2-sndcard, used by the sm6115 boards) gets the hard S16_LE constraint, everything else (qcom,sm8250-sndcard) gets the sm8250 behaviour.
+Subject: [PATCH] ASoC: qcom: sm8250: per-card BE format fixup (S16_LE-only on sm4250, compressed-only on sm8250)
+
+diff --git a/sound/soc/qcom/sm8250.c b/sound/soc/qcom/sm8250.c
+index f193d0ba6..07c06b6ee 100644
+--- a/sound/soc/qcom/sm8250.c
++++ b/sound/soc/qcom/sm8250.c
+@@ -4,6 +4,7 @@
+ #include <dt-bindings/sound/qcom,q6afe.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
++#include <linux/string.h>
+ #include <sound/soc.h>
+ #include <sound/soc-dapm.h>
+ #include <sound/pcm.h>
+@@ -66,7 +67,17 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 
+ 	rate->min = rate->max = 48000;
+ 	channels->min = channels->max = 2;
+-	snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S16_LE);
++
++	/*
++	 * sm4250/sm6115 cards (qrb4210-rb2-sndcard): constrain the BE format
++	 * mask to S16_LE only.
++	 * sm8250 cards: only force S16_LE for compressed playback and let the
++	 * format of every other stream be negotiated.
++	 */
++	if (rtd->card->driver_name && !strcmp(rtd->card->driver_name, "sm4250"))
++		params_set_format(params, SNDRV_PCM_FORMAT_S16_LE);
++	else if (rtd->dai_link->compr_ops)
++		snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S16_LE);
+ 
+ 	return 0;
+ }

@@ -1,0 +1,29 @@
+ASoC: q6apm: let a servreg-less SPF finish booting before the first command
+
+Without qcom,protection-domain the APM probes as soon as the ADSP is up.
+The TrimUI parrot ADSP image has no servreg, and a GPR packet in its first
+~0.5 s wedges the SPF for the life of the ADSP (every command times out).
+Measured on the Brick Hammer Pro U: a first command 0.5 s after boot is
+answered (after the usual one lost packet), 6 ms after boot never is.
+
+diff --git a/sound/soc/qcom/qdsp6/q6apm.c b/sound/soc/qcom/qdsp6/q6apm.c
+index f167b9dae..46effa67e 100644
+--- a/sound/soc/qcom/qdsp6/q6apm.c
++++ b/sound/soc/qcom/qdsp6/q6apm.c
+@@ -883,6 +883,16 @@ static int apm_probe(gpr_device_t *gdev)
+ 
+ 	g_apm = apm;
+ 
++	/*
++	 * Without a protection domain to wait on, this probe runs the moment
++	 * the ADSP is up.  Vendor SPF images that have no servreg (TrimUI's
++	 * parrot one) are still initialising then, and a GPR packet in that
++	 * window wedges them: every command afterwards times out, for the
++	 * life of the ADSP.  Sending 0.5 s after boot is fine; give it 1 s.
++	 */
++	if (!of_property_present(dev->of_node, "qcom,protection-domain"))
++		msleep(1000);
++
+ 	q6apm_get_apm_state(apm);
+ 
+ 	ret = snd_soc_register_component(dev, &q6apm_audio_component, NULL, 0);

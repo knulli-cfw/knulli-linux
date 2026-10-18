@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# Start/stop the battery status LED monitor daemon (per-device variant)
+#
+
+export LC_ALL=C
+
+case "$(tr -d '\0' < /sys/firmware/devicetree/base/model 2>/dev/null)" in
+    "AYN Odin 2"|"AYN Odin 2 Mini"|"AYN Odin 2 Portal"|"AYN Thor"|"AYANEO Pocket DS")
+        DAEMON="/usr/bin/battery_led_status_ayn"
+        LED="/sys/class/leds/power-led"
+        [ -d "${LED}" ] || exit 0
+        ;;
+    "Anbernic RG 55G1")
+        DAEMON="/usr/bin/battery_led_status_rg55g1"
+        LED=""
+        [ -d /sys/class/leds/green:indicator ] && [ -d /sys/class/leds/red:indicator ] || exit 0
+        ;;
+    *) exit 0 ;;
+esac
+
+PIDFILE="/var/run/battery-led-status.pid"
+
+start() {
+    echo -n "Starting battery LED monitor: "
+    start-stop-daemon -S -q -b -m -p "$PIDFILE" -x "$DAEMON"
+    echo "OK"
+}
+
+stop() {
+    echo -n "Stopping battery LED monitor: "
+    start-stop-daemon -K -q -p "$PIDFILE"
+    rm -f "$PIDFILE"
+    [ -n "${LED}" ] && echo 0 > "${LED}/brightness"
+    echo "OK"
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; start ;;
+    *) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac
+
+exit 0

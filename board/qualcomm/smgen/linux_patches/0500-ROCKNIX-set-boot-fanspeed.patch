@@ -1,0 +1,31 @@
+MERGE NOTE (knulli unified series): sm8550 (set_pwm 70) and sm8250 (set_pwm 51) boot fan speed hacks folded into one patch keyed on the machine compatible; sm4450/sm6115 keep the upstream initial_pwm.
+Subject: [PATCH] hwmon: pwm-fan: per-SoC boot fan speed (ROCKNIX)
+
+diff --git a/drivers/hwmon/pwm-fan.c b/drivers/hwmon/pwm-fan.c
+index 2983f9fad..16e55ef1a 100644
+--- a/drivers/hwmon/pwm-fan.c
++++ b/drivers/hwmon/pwm-fan.c
+@@ -12,6 +12,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/property.h>
+ #include <linux/pwm.h>
+@@ -567,6 +568,15 @@ static int pwm_fan_probe(struct platform_device *pdev)
+ 	else
+ 		initial_pwm = MAX_PWM;
+ 
++	/*
++	 * ROCKNIX: quieter boot fan speed on the handhelds; the values are the
++	 * ones each per-SoC series used before the series were unified.
++	 */
++	if (of_machine_is_compatible("qcom,sm8250"))
++		initial_pwm = 51;
++	else if (of_machine_is_compatible("qcom,sm8550"))
++		initial_pwm = 70;
++
+ 	/*
+ 	 * Set duty cycle to maximum allowed and enable PWM output as well as
+ 	 * the regulator. In case of error nothing is changed
