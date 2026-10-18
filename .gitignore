@@ -38,6 +38,7 @@ batocera-mok.key
 /cores-cache
 /emulators-cache
 /armhf-cache
+/uboot-cache
 
 # Exclude wiki docs
 /docs
