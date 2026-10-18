@@ -1,0 +1,22 @@
+{
+    "file_format_version": "1.0.0",
+    "settings": {
+        "layers": [
+            {
+                "name": "VK_LAYER_KNULLI_overlay",
+                "path": "/usr/share/vulkan/implicit_layer.d/zz_knulli_overlay.json",
+                "treat_as_implicit_manifest": true,
+                "control": "auto"
+            },
+            {
+                "name": "VK_LAYER_window_system_integration",
+                "path": "/etc/vulkan/implicit_layer.d/VkLayer_window_system_integration.json",
+                "treat_as_implicit_manifest": true,
+                "control": "auto"
+            },
+            {
+                "control": "unordered_layer_location"
+            }
+        ]
+    }
+}

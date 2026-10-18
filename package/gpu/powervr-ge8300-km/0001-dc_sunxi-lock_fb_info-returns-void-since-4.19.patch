@@ -1,0 +1,65 @@
+Subject: [PATCH] dc_sunxi: lock_fb_info() returns void since 4.19
+
+---
+--- a/services/3rdparty/dc_sunxi/dc_sunxi.c
++++ b/services/3rdparty/dc_sunxi/dc_sunxi.c
+@@ -42,6 +42,14 @@
+ #include <linux/console.h>
+ #include <linux/module.h>
+ #include <linux/fb.h>
++#include <linux/version.h>
++
++/* lock_fb_info() returns void since 4.19 */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
++#define DC_LOCK_FB_INFO(info) ({ lock_fb_info(info); 1; })
++#else
++#define DC_LOCK_FB_INFO(info) lock_fb_info(info)
++#endif
+ 
+ #include "kerneldisplay.h"
+ #include "powervr/imgpixfmts.h"
+@@ -127,7 +135,7 @@
+ 	struct fb_var_screeninfo *psVar = &psDeviceData->psLINFBInfo->var;
+ 	struct fb_var_screeninfo sVar = { .pixclock = 0 };
+ 
+-	if(!lock_fb_info(psDeviceData->psLINFBInfo))
++	if(!DC_LOCK_FB_INFO(psDeviceData->psLINFBInfo))
+ 		return PVRSRV_ERROR_RETRY;
+ 
+ 	*pui32NumPanels = 1;
+@@ -204,7 +212,7 @@
+ 	struct fb_var_screeninfo *psVar = &psDeviceData->psLINFBInfo->var;
+ 	int i;
+ 
+-	if(!lock_fb_info(psDeviceData->psLINFBInfo))
++	if(!DC_LOCK_FB_INFO(psDeviceData->psLINFBInfo))
+ 		return PVRSRV_ERROR_RETRY;
+ 
+ 	for(i = 0; i < ui32NumDims; i++)
+@@ -265,7 +273,7 @@
+ 		goto err_out;
+ 	}
+ 
+-	if(!lock_fb_info(psDeviceData->psLINFBInfo))
++	if(!DC_LOCK_FB_INFO(psDeviceData->psLINFBInfo))
+ 	{
+ 		eError = PVRSRV_ERROR_RETRY;
+ 		goto err_out;
+@@ -343,7 +351,7 @@
+ 	DC_FBDEV_Clean(hDisplayContext, ahBuffers);
+ #endif
+ 
+-	if (!lock_fb_info(psDeviceData->psLINFBInfo))
++	if (!DC_LOCK_FB_INFO(psDeviceData->psLINFBInfo))
+ 	{
+ 		return;
+ 	}
+@@ -665,7 +673,7 @@
+ 		goto err_out;
+ 	}
+ 
+-	if(!lock_fb_info(psLINFBInfo))
++	if(!DC_LOCK_FB_INFO(psLINFBInfo))
+ 		goto err_out;
+ 
+ 	console_lock();
