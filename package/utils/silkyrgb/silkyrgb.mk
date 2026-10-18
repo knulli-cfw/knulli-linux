@@ -16,6 +16,8 @@ define SILKYRGB_INSTALL_TARGET_CMDS
 		mkdir -p $(TARGET_DIR)/usr/lib/python$(PYTHON3_VERSION_MAJOR)/site-packages/silkyrgb; \
 	fi && \
 	cp -r $(@D)/* $(TARGET_DIR)/usr/lib/python$(PYTHON3_VERSION_MAJOR)/site-packages/silkyrgb/;
+	# knulli-only drivers and device configs, kept out of the upstream tree
+	cp -r $(SILKYRGB_PKGDIR)/knulli/* $(TARGET_DIR)/usr/lib/python$(PYTHON3_VERSION_MAJOR)/site-packages/silkyrgb/;
 endef
 
 $(eval $(generic-package))

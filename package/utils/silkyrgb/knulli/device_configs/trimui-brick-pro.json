@@ -1,0 +1,75 @@
+{
+    "driver": "trimui_a133p",
+    "driver_extra_params": {
+        "rgb_order": [2, 1, 0],
+        "patchtable": [[55,56],[56,55],[58,59],[59,58],[61,62],[62,61],[64,65],[65,64]]
+    },
+    "leds": 22,
+    "target_fps": 30,
+    "traits": ["knight-rider", "ambient"],
+    "input_device_name": "TRIMUI Brick Pro Controller",
+    "zones": {
+        "top_middle": {
+            "type": "Line",
+            "leds": 8,
+            "pos": [0, 4],
+            "led_indexes": [0, 1, 2, 3, 4, 5, 6, 7]
+        },
+        "start": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [12, 10],
+            "led_indexes": [8]
+        },
+        "select": {
+            "type": "Led",
+            "leds": 1,
+            "pos": [12, 6],
+            "led_indexes": [9]
+        },
+        "left_stick": {
+            "type": "Ring",
+            "leds": 4,
+            "pos": [0, 0],
+            "led_indexes": [10, 13, 12, 11],
+            "input": [0, 1]
+        },
+        "right_stick": {
+            "type": "Ring",
+            "secondary": 1,
+            "leds": 4,
+            "pos": [9, 0],
+            "led_indexes": [14, 17, 16, 15],
+            "input": [3, 4]
+        },
+        "l1": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 2],
+            "led_indexes": [18]
+        },
+        "l2": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 5],
+            "led_indexes": [19]
+        },
+        "r1": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 14],
+            "led_indexes": [20]
+        },
+        "r2": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 11],
+            "led_indexes": [21]
+        }
+    }
+}

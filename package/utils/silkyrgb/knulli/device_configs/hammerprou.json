@@ -1,0 +1,48 @@
+{
+    "driver": "trimui_mcu",
+    "driver_extra_params": {
+        "max_scale": 110
+    },
+    "leds": 18,
+    "target_fps": 30,
+    "traits": ["knight-rider", "ambient"],
+    "input_device_name": "TRIMUI Brick Hammer Pro U Controller",
+    "zones": {
+        "top_middle": {
+            "type": "Line",
+            "leds": 8,
+            "pos": [0, 4],
+            "led_indexes": [7, 6, 5, 4, 3, 2, 1, 0]
+        },
+        "select": {
+            "type": "Led",
+            "leds": 1,
+            "pos": [12, 6],
+            "led_indexes": [12]
+        },
+        "start": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [12, 10],
+            "led_indexes": [13]
+        },
+        "left_stick": {
+            "type": "Ring",
+            "leds": 4,
+            "pos": [0, 0],
+            "led_indexes": [11, 10, 9, 8],
+            "led_angles": [45, 135, 225, 315],
+            "input": [0, 1]
+        },
+        "right_stick": {
+            "type": "Ring",
+            "secondary": 1,
+            "leds": 4,
+            "pos": [9, 0],
+            "led_indexes": [17, 16, 15, 14],
+            "led_angles": [45, 135, 225, 315],
+            "input": [3, 4]
+        }
+    }
+}

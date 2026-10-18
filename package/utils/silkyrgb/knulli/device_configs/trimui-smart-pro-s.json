@@ -1,0 +1,30 @@
+{
+    "driver": "trimui_a133p",
+    "driver_extra_params": {
+        "rgb_order": [2,1,0],
+        "patchtable": []
+    },
+    "leds": 17,
+    "target_fps": 30,
+    "traits": ["ambient"],
+    "input_device_name": "TRIMUI Smart Pro S Controller",
+    "zones": {
+        "left_stick": {
+            "type": "Ring",
+            "leds": 8,
+            "pos": [0,0],
+            "led_indexes": [0, 1, 2, 3, 4, 5, 6, 7],
+            "led_angles": [337.5, 292.5, 247.5, 202.5, 157.5, 112.5, 67.5, 22.5],
+            "input" : [0, 1]
+        },
+        "right_stick": {
+            "type": "Ring",
+            "secondary": 1,
+            "leds": 8,
+            "pos": [9,0],
+            "led_indexes": [9, 10, 11, 12, 13, 14, 15, 16],
+            "led_angles": [337.5, 292.5, 247.5, 202.5, 157.5, 112.5, 67.5, 22.5],
+            "input" : [2, 5]
+        }
+    }
+}
