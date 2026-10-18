@@ -1,0 +1,16 @@
+# Device: Qualcomm SM family image (sm8250, sm8550, sm4450/parrot) -- the SMGEN
+# target.  One rootfs for all of them: ARMv8.2-A is the common baseline
+# (Cortex-A76/A55 on sm8250, A78/A55 on sm4450; sm8550 is ARMv9-A and runs
+# v8.2a code unchanged).
+#
+# A .device is an INTEGRATION unit, not a build unit: it names the ABI profile
+# whose dist/ this device consumes.  Cores are built once per profile
+# (gen-recipe.sh <profile>), never once per device.
+
+PROFILE aarch64-v8.2a
+
+# GPU stack.  The emulators drop is keyed on PROFILE *and* this: emulators link
+# the vendor GL stack, so a Mali payload cannot run on an Adreno board (it needs
+# libmali.so.0, which such a board does not ship).  Cores are keyed on PROFILE
+# alone -- they link only libGLESv2/libEGL, which both stacks provide.
+GPU adreno

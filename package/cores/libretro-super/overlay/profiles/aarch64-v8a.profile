@@ -9,7 +9,7 @@
 #   a133    Cortex-A53
 #   rk3326  Cortex-A35
 #   rk3576  Cortex-A72 + Cortex-A53   <- A72 is ARMv8.0-A, NOT v8.2
-#   sd6115  Cortex-A73 + Cortex-A53   <- planned; A73 is also ARMv8.0-A
+#   sm6115  Cortex-A73 + Cortex-A53   <- Snapdragon 662; A73 is also ARMv8.0-A
 #
 # -mcpu=cortex-a53 is the tuning choice, not an ISA gate: A53 is the most common
 # core here and the one whose in-order pipeline benefits most from scheduling.
@@ -56,6 +56,11 @@ SYSROOT_BOARD h700
 # Mali like most of the profile and the only member with real Vulkan.
 EMULATORS_BOARD rk3576
 EMULATORS_BOARD_POWERVR a133
+# sm6115 is the only Adreno board on this profile, so it harvests its own drop:
+# a Mali or PowerVR payload records libmali.so.0 / PowerVR sonames it does not
+# ship.  One board is still worth a drop -- it moves ~53 packages out of every
+# image build and into a refresh that only runs when an emulator changes.
+EMULATORS_BOARD_ADRENO sm6115
 # Fallback for running the generators standalone in this tree; the knulli
 # build passes --sysroot-bin instead, from SYSROOT_BOARD above.
 SYSROOT_BIN /opt/fdata/knulli/knulli-linux/output/h700/host/bin

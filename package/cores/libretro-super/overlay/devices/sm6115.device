@@ -1,0 +1,17 @@
+# Device: Qualcomm SM6115 (Snapdragon 662)  Cortex-A73 + A53
+#
+# A .device is an INTEGRATION unit, not a build unit: it names the ABI profile
+# whose dist/ this device consumes.  Cores are built once per profile
+# (gen-recipe.sh <profile>), never once per device.
+#
+# aarch64-v8a, NOT the aarch64-v8.2a the other two Qualcomm boards use: the A73
+# is ARMv8.0-A, so LSE atomics, fp16 arithmetic and dotprod are UNDEFINED
+# instructions here, not merely slower.  Serving it the v8.2a drop is a SIGILL.
+
+PROFILE aarch64-v8a
+
+# GPU stack.  The emulators drop is keyed on PROFILE *and* this: emulators link
+# the vendor GL stack, so a Mali payload cannot run on an Adreno board (it needs
+# libmali.so.0, which such a board does not ship).  Cores are keyed on PROFILE
+# alone -- they link only libGLESv2/libEGL, which both stacks provide.
+GPU adreno
