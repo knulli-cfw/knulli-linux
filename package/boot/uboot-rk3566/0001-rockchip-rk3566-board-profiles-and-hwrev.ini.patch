@@ -1,0 +1,600 @@
+Subject: [PATCH] rockchip: rk3566 board profiles and hwrev.ini
+
+One profile per handheld (SARADC ID, U-Boot and kernel DTB, framebuffer
+rotation), applied as a unit; /hwrev.ini on the boot FAT names a board
+and replaces whatever detection chose.  The RG DS and RG DS Plus read the
+same on every ID channel and differ in RAM (3 GiB vs 1 GiB).  U-Boot loads dtbs/<board>.dtb from the
+boot partition, falling back to the resource.img hwid path when it is
+missing.
+---
+diff --git a/arch/arm/mach-rockchip/Makefile b/arch/arm/mach-rockchip/Makefile
+index a880840..f759cab 100644
+--- a/arch/arm/mach-rockchip/Makefile
++++ b/arch/arm/mach-rockchip/Makefile
+@@ -43,7 +43,7 @@ obj-$(CONFIG_ROCKCHIP_FIT_IMAGE) += fit.o
+ obj-$(CONFIG_ROCKCHIP_UIMAGE) += uimage.o
+ obj-$(CONFIG_ROCKCHIP_SMCCC) += rockchip_smccc.o
+ obj-$(CONFIG_ROCKCHIP_VENDOR_PARTITION) += vendor.o
+-obj-$(CONFIG_ROCKCHIP_RESOURCE_IMAGE) += resource_img.o
++obj-$(CONFIG_ROCKCHIP_RESOURCE_IMAGE) += resource_img.o hwrev.o
+ obj-$(CONFIG_ROCKCHIP_DEBUGGER) += rockchip_debugger.o
+ obj-$(CONFIG_FPGA_ROCKCHIP) += fpga.o
+ endif
+diff --git a/arch/arm/mach-rockchip/resource_img.c b/arch/arm/mach-rockchip/resource_img.c
+index a2fc643..1104c2b 100644
+--- a/arch/arm/mach-rockchip/resource_img.c
++++ b/arch/arm/mach-rockchip/resource_img.c
+@@ -17,6 +17,7 @@
+ #include <asm/unaligned.h>
+ #include <dm/ofnode.h>
+ #include <linux/list.h>
++#include <asm/arch/hwrev.h>
+ #include <asm/arch/resource_img.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+@@ -929,191 +930,47 @@ static struct resource_file *rockchip_read_hwid_dtb(void)
+ }
+ #endif
+ 
+-/*
+- * Boot-partition DTB override.
+- *
+- * Some handhelds cannot be told apart by SARADC/GPIO hwid — e.g. their ADC
+- * channels are the analog sticks (no dedicated board-id divider), so the
+- * stick-at-rest values collide with another board within the match margin.
+- * For those, drop a small text file on the FAT boot partition naming the DTB
+- * to use; it is honoured BEFORE hwid auto-detection.
+- *
+- *   File:    /dtb_override.txt  (boot FAT, part 3 then 1 — same as resource.img)
+- *   Content: a DTB name, one per line. The first name that resolves wins;
+- *            blank lines and lines starting with '#' are ignored; leading/
+- *            trailing whitespace is trimmed. Each name may be either:
+- *              (a) a STANDALONE .dtb file sitting on the same FAT partition,
+- *                  e.g.  rk3566-gkd-bubble-uboot.dtb
+- *                  — loaded directly, no resource.img repack needed (this is
+- *                  how new/undetectable devices are added: drop a dtb + name it);
+- *              (b) an entry already packed inside resource.img, e.g.
+- *                  rk-kernel#_saradc_ch1=539#_saradc_ch0=527.dtb
+- *            A standalone file of the same name takes precedence over a packed
+- *            entry.
+- *
+- * If the file is absent, empty, or nothing resolves, we silently fall through
+- * to the normal hwid detection.
+- *
+- * Return: 1 = standalone .dtb loaded straight into fdt_addr (*out_file left NULL);
+- *         0 = resolved to a resource.img entry (*out_file set, caller copies it);
+- *        <0 = no usable override, fall through to hwid.
+- */
+-#define DTB_OVERRIDE_FILE	"/dtb_override.txt"
+-#define DTB_OVERRIDE_MAXLEN	256
+-
+-static bool ends_with_dtb(const char *s)
+-{
+-	int n = strlen(s);
+-
+-	return n >= 4 && !strcmp(s + n - 4, ".dtb");
+-}
+-
+-/* Load a standalone .dtb file from the given FAT partition into fdt_addr. */
+-static int load_dtb_file_from_fat(const char *ifname, const char *devpart,
+-				  const char *name, void *fdt_addr)
+-{
+-	char path[DTB_OVERRIDE_MAXLEN + 2];
+-	loff_t dtb_size = 0, actread = 0;
+-
+-	snprintf(path, sizeof(path), "%s%s",
+-		 (name[0] == '/') ? "" : "/", name);
+-
+-	if (fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT) ||
+-	    fs_size(path, &dtb_size) || dtb_size <= 0)
+-		return -ENOENT;
+-
+-	fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT);
+-	if (fs_read(path, (ulong)fdt_addr, 0, dtb_size, &actread) ||
+-	    actread != dtb_size)
+-		return -EIO;
+-
+-	if (fdt_check_header(fdt_addr))
+-		return -EBADF;
+-
+-	return 0;
+-}
+-
+-static int rockchip_read_dtb_override(void *fdt_addr,
+-				      struct resource_file **out_file)
+-{
+-	static const int fat_parts[] = { 3, 1 };
+-	struct blk_desc *dev_desc;
+-	const char *ifname;
+-	char devpart[16];
+-	/* cache-aligned: FAT/MMC reads DMA into this buffer */
+-	ALLOC_CACHE_ALIGN_BUFFER(char, buf, DTB_OVERRIDE_MAXLEN + 1);
+-	int i;
+-
+-	*out_file = NULL;
+-
+-	dev_desc = rockchip_get_bootdev();
+-	if (!dev_desc)
+-		return -ENODEV;
+-	ifname = blk_get_if_type_name(dev_desc->if_type);
+-
+-	for (i = 0; i < ARRAY_SIZE(fat_parts); i++) {
+-		loff_t file_size = 0, actread = 0;
+-		char *line, *save = NULL;
+-
+-		snprintf(devpart, sizeof(devpart), "%d:%d",
+-			 dev_desc->devnum, fat_parts[i]);
+-		if (fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT) ||
+-		    fs_size(DTB_OVERRIDE_FILE, &file_size) || file_size <= 0)
+-			continue;
+-
+-		if (file_size > DTB_OVERRIDE_MAXLEN)
+-			file_size = DTB_OVERRIDE_MAXLEN;
+-
+-		fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT);
+-		if (fs_read(DTB_OVERRIDE_FILE, (ulong)buf, 0,
+-			    file_size, &actread) || actread <= 0)
+-			continue;
+-		buf[actread] = '\0';
+-		save = buf;
+-
+-		/* Walk lines: first name that resolves wins. */
+-		while ((line = strsep(&save, "\r\n")) != NULL) {
+-			struct resource_file *file;
+-			char *name = line, *end;
+-
+-			while (*name == ' ' || *name == '\t')
+-				name++;
+-			if (*name == '\0' || *name == '#')
+-				continue;
+-			/* trim trailing whitespace */
+-			end = name + strlen(name);
+-			while (end > name && (end[-1] == ' ' || end[-1] == '\t'))
+-				*--end = '\0';
+-
+-			/* (a) standalone .dtb file on this FAT partition */
+-			if (ends_with_dtb(name) &&
+-			    !load_dtb_file_from_fat(ifname, devpart, name,
+-						    fdt_addr)) {
+-				printf("DTB override[%s]: %s (file)\n",
+-				       devpart, name);
+-				return 1;
+-			}
+-
+-			/* (b) entry packed in resource.img */
+-			file = get_file_info(name);
+-			if (file) {
+-				printf("DTB override[%s]: %s (resource.img)\n",
+-				       devpart, name);
+-				*out_file = file;
+-				return 0;
+-			}
+-
+-			printf("DTB override: '%s' not found (file or resource.img)\n",
+-			       name);
+-		}
+-
+-		/* File was present but nothing resolved: stop, fall to hwid. */
+-		return -ENOENT;
+-	}
+-
+-	return -ENOENT;
+-}
++/* Largest U-Boot dtb accepted from the boot partition. */
++#define HWREV_DTB_MAX	(2 << 20)
+ 
+ int rockchip_read_resource_dtb(void *fdt_addr, char **hash, int *hash_size)
+ {
+ 	struct resource_file *file;
++	char path[80];
++	loff_t size = 0;
+ 	int ret;
+ 
+-	/* TEMP diagnostic: dump all SARADC channels (find a charge-stable hwid) */
+-	{
+-		unsigned int v;
+-		int ch;
++	/*
++	 * Board profile: SARADC detection, then /hwrev.ini.  It names the U-Boot
++	 * dtb (dtbs/<name>.dtb on the boot partition) and sets fdtfile and
++	 * fbcon_rotate for extlinux.
++	 */
++	hwrev_setup();
+ 
+-		for (ch = 0; ch < 8; ch++) {
+-			if (!adc_channel_single_shot("saradc", ch, &v))
+-				printf("hwid-dump: saradc ch%d = %u\n", ch, v);
+-		}
++	snprintf(path, sizeof(path), "/%s", env_get("dtb_uboot") ? : "");
++	if (!hwrev_fat_read(path, fdt_addr, HWREV_DTB_MAX, &size) &&
++	    !fdt_check_header(fdt_addr)) {
++		*hash = NULL;
++		*hash_size = 0;
++		printf("DTB: %s\n", path);
++		return 0;
+ 	}
+ 
+ 	/*
+-	 * Boot-partition file override wins over hwid auto-detection. It can
+-	 * either load a standalone .dtb straight into fdt_addr (ret == 1) or
+-	 * select a resource.img entry (ret == 0, 'file' set).
++	 * A boot partition without dtbs/ (older image): fall back to the
++	 * resource.img hwid entries and the kernel dtb name they carry.
+ 	 */
++	printf("DTB: %s not found, using resource.img\n", path);
+ 	file = NULL;
+-	ret = rockchip_read_dtb_override(fdt_addr, &file);
+-	if (ret == 1) {
+-		/* Standalone .dtb already loaded + header-checked in fdt_addr. */
+-		*hash = NULL;
+-		*hash_size = 0;
+-		goto export_props;
+-	}
+ 
+ #ifdef CONFIG_ROCKCHIP_HWID_DTB
+-	/* Else find dtb by matched hardware id(GPIO/ADC) */
+-	if (!file)
+-		file = rockchip_read_hwid_dtb();
++	/* Find dtb by matched hardware id(GPIO/ADC) */
++	file = rockchip_read_hwid_dtb();
+ 	/* If dtbs matched hardware id(GPIO/ADC) not found, try the default */
+ 	if (!file)
+ 		file = get_file_info(DTB_FILE);
+ #else
+-	if (!file)
+-		file = get_file_info(DTB_FILE);
++	file = get_file_info(DTB_FILE);
+ #endif
+ 	if (!file)
+ 		return -ENODEV;
+@@ -1129,12 +986,6 @@ int rockchip_read_resource_dtb(void *fdt_addr, char **hash, int *hash_size)
+ 	*hash_size = file->hash_size;
+ 	printf("DTB: %s\n", file->name);
+ 
+-export_props:
+-	/*
+-	 * Export the kernel dtb name from the loaded dtb's 'uboot,fdtfile'
+-	 * property, so extlinux.conf's FDTDIR loads the matching /boot dtb for
+-	 * this board. Left unset if the property is absent.
+-	 */
+ 	{
+ 		const char *fdtfile = fdt_getprop(fdt_addr, 0,
+ 						  "uboot,fdtfile", NULL);
+@@ -1145,13 +996,7 @@ export_props:
+ 			env_set("fdtfile", fdtfile);
+ 			printf("fdtfile: %s\n", fdtfile);
+ 		}
+-		/*
+-		 * Per-device framebuffer console rotation for the kernel
+-		 * cmdline. extlinux.conf uses fbcon=rotate:${fbcon_rotate};
+-		 * default 0 when the dtb doesn't specify one.
+-		 */
+ 		env_set("fbcon_rotate", rotate ? rotate : "0");
+-		printf("fbcon_rotate: %s\n", rotate ? rotate : "0");
+ 	}
+ 
+ 	return 0;
+diff --git a/arch/arm/include/asm/arch-rockchip/hwrev.h b/arch/arm/include/asm/arch-rockchip/hwrev.h
+new file mode 100644
+index 0000000..680fb37
+--- /dev/null
++++ b/arch/arm/include/asm/arch-rockchip/hwrev.h
+@@ -0,0 +1,14 @@
++/*
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#ifndef __ASM_ARCH_HWREV_H
++#define __ASM_ARCH_HWREV_H
++
++#include <fs.h>
++
++void hwrev_setup(void);
++int hwrev_apply_board(const char *name);
++int hwrev_fat_read(const char *path, void *buf, loff_t max, loff_t *size);
++
++#endif
+diff --git a/arch/arm/mach-rockchip/hwrev.c b/arch/arm/mach-rockchip/hwrev.c
+new file mode 100644
+index 0000000..02de789
+--- /dev/null
++++ b/arch/arm/mach-rockchip/hwrev.c
+@@ -0,0 +1,298 @@
++/*
++ * RK3566 board profiles: SARADC detection plus the hwrev.ini override.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <common.h>
++#include <command.h>
++#include <adc.h>
++#include <fs.h>
++#include <memalign.h>
++#include <boot_rkimg.h>
++#include <asm/arch/hwrev.h>
++
++DECLARE_GLOBAL_DATA_PTR;
++
++/*
++ * One profile per supported RK3566 handheld.  A profile is applied as a unit:
++ * partially overriding one board with another's values is what produces the
++ * unbootable mixtures this table exists to prevent.
++ *
++ * A board matches when every channel it lists reads within HWREV_MARGIN of
++ * the listed value; ch = -1 ends the list.  A board with no channels has no
++ * SARADC identity of its own and is only reachable from hwrev.ini.  The RG DS
++ * and RG DS Plus read the same on all their ID channels (ch5 follows the
++ * charger on both), so their RAM tells them apart: 3 GiB vs 1 GiB.
++ *
++ * Order matters: the first match wins, as it did for the resource.img hwid
++ * entries this table replaces.
++ */
++#define HWREV_MARGIN	30
++
++struct hwrev_adc {
++	s8 ch;
++	u16 val;
++};
++
++struct rk3566_board {
++	const char *name;
++	struct hwrev_adc adc[3];
++	const char *dtb_uboot;	/* dtbs/<name>.dtb on the boot partition */
++	const char *dtb_kernel;	/* fdts/<name>.dtb, picked by extlinux FDTDIR */
++	u8 fb_rotate;
++	u16 ram_min_mb;		/* RAM window, 0 = no bound */
++	u16 ram_max_mb;
++};
++
++#define NO_ADC	{ { -1, 0 }, { -1, 0 }, { -1, 0 } }
++
++static const struct rk3566_board boards[] = {
++	{ "rg-arc-s",		{ { 1, 187 }, { -1, 0 } },
++	  "rk3566-anbernic-rg-arc-s",	"rk3566-anbernic-rg-arc-s",	1 },
++	{ "powkiddy-rgb30",	{ { 1, 383 }, { 0, 1023 }, { -1, 0 } },
++	  "rk3566-powkiddy-rgb30",	"rk3566-powkiddy-rgb30",	0 },
++	{ "miniloong",		{ { 1, 922 }, { -1, 0 } },
++	  "rk3566-miniloong",		"rk3566-miniloong",		3 },
++	{ "powkiddy-x55",	{ { 1, 539 }, { 0, 527 }, { -1, 0 } },
++	  "rk3566-powkiddy-x55",	"rk3566-powkiddy-x55",		3 },
++	{ "rg-ds-plus",		{ { 1, 525 }, { 0, 1023 }, { -1, 0 } },
++	  "rk3566-anbernic-rg-ds-plus",	"rk3566-anbernic-rg-ds-plus",	0, 0, 2047 },
++	{ "rg-ds",		{ { 1, 525 }, { 0, 1023 }, { -1, 0 } },
++	  "rk3566-anbernic-rg-ds",	"rk3566-anbernic-rg-ds",	0, 2048, 0 },
++	{ "miyoo-flip",		{ { 0, 356 }, { -1, 0 } },
++	  "rk3566-miyoo-flip",		"rk3566-miyoo-flip",		0 },
++
++	/* Anything unrecognised: must stay last (the old rk-kernel.dtb). */
++	{ "rk3566",		NO_ADC,
++	  "rk3566-powkiddy-rgb30",	"rk3566-powkiddy-rgb30",	0 },
++};
++
++#define BOARD_DEFAULT (&boards[ARRAY_SIZE(boards) - 1])
++
++static void board_apply(const struct rk3566_board *b)
++{
++	char buf[64];
++
++	env_set("hwrev", b->name);
++	snprintf(buf, sizeof(buf), "dtbs/%s.dtb", b->dtb_uboot);
++	env_set("dtb_uboot", buf);
++	snprintf(buf, sizeof(buf), "%s.dtb", b->dtb_kernel);
++	env_set("dtb_kernel", buf);
++	snprintf(buf, sizeof(buf), "%d", b->fb_rotate);
++	env_set("fb_rotate", buf);
++}
++
++/*
++ * Select a board by name, replacing everything SARADC detection decided.  This
++ * is how hwrev.ini corrects a misdetection: naming the board is enough, so no
++ * stale value from the wrong profile can survive.
++ */
++int hwrev_apply_board(const char *name)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(boards); i++) {
++		if (!strcmp(name, boards[i].name)) {
++			board_apply(&boards[i]);
++			return 0;
++		}
++	}
++
++	return -ENOENT;
++}
++
++static bool board_matches(const struct rk3566_board *b, int *v)
++{
++	u64 ram_mb = gd->ram_size >> 20;
++	int i, n = 0;
++
++	if ((b->ram_min_mb && ram_mb < b->ram_min_mb) ||
++	    (b->ram_max_mb && ram_mb > b->ram_max_mb))
++		return false;
++
++	for (i = 0; i < ARRAY_SIZE(b->adc) && b->adc[i].ch >= 0; i++, n++) {
++		int got = v[b->adc[i].ch];
++
++		if (got < 0 || abs(got - b->adc[i].val) > HWREV_MARGIN)
++			return false;
++	}
++
++	return n > 0;
++}
++
++static int hwrev_detect(void)
++{
++	int v[2] = { -1, -1 };
++	unsigned int raw;
++	int ch, i;
++
++	for (ch = 0; ch < ARRAY_SIZE(v); ch++)
++		if (!adc_channel_single_shot("saradc", ch, &raw))
++			v[ch] = raw;
++
++	for (i = 0; i < ARRAY_SIZE(boards); i++)
++		if (board_matches(&boards[i], v))
++			break;
++
++	board_apply(i < ARRAY_SIZE(boards) ? &boards[i] : BOARD_DEFAULT);
++	printf("hwrev: saradc ch0=%d ch1=%d, %llu MiB -> %s\n", v[0], v[1],
++	       (unsigned long long)(gd->ram_size >> 20), env_get("hwrev"));
++
++	return 0;
++}
++
++static int do_hwrev(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
++{
++	if (argc > 1) {
++		if (hwrev_apply_board(argv[1])) {
++			printf("hwrev: unknown board '%s'\n", argv[1]);
++			return CMD_RET_FAILURE;
++		}
++		return CMD_RET_SUCCESS;
++	}
++
++	return hwrev_detect() ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
++}
++
++U_BOOT_CMD(
++	hwrev, 2, 1, do_hwrev,
++	"detect or select the RK3566 board",
++	"[board]"
++);
++
++/*
++ * The boot FAT partition: part 3 on the current GPT layout, part 1 on older
++ * Knulli/JELOS cards -- the same search resource.img uses.
++ */
++static const int fat_parts[] = { 3, 1 };
++
++int hwrev_fat_read(const char *path, void *buf, loff_t max, loff_t *size)
++{
++	struct blk_desc *dev_desc = rockchip_get_bootdev();
++	const char *ifname;
++	char devpart[16];
++	int i;
++
++	if (!dev_desc)
++		return -ENODEV;
++	ifname = blk_get_if_type_name(dev_desc->if_type);
++
++	for (i = 0; i < ARRAY_SIZE(fat_parts); i++) {
++		loff_t len = 0, actread = 0;
++
++		snprintf(devpart, sizeof(devpart), "%d:%d",
++			 dev_desc->devnum, fat_parts[i]);
++		if (fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT) ||
++		    fs_size(path, &len) || len <= 0)
++			continue;
++		if (len > max)
++			return -EFBIG;
++
++		fs_set_blk_dev(ifname, devpart, FS_TYPE_FAT);
++		if (fs_read(path, (ulong)buf, 0, len, &actread) ||
++		    actread != len)
++			return -EIO;
++
++		*size = len;
++		return 0;
++	}
++
++	return -ENOENT;
++}
++
++/*
++ * Optional manual override: hwrev.ini on the boot FAT partition, one U-Boot
++ * command per line ('#' comments and blank lines skipped).  It runs after the
++ * SARADC detection and before anything consumes its results.
++ */
++#define HWREV_INI	"/hwrev.ini"
++#define HWREV_INI_MAX	8192
++
++static int hwrev_ini_load(char *buf)
++{
++	loff_t size = 0;
++
++	if (hwrev_fat_read(HWREV_INI, buf, HWREV_INI_MAX, &size))
++		return -ENOENT;
++
++	buf[size] = '\0';
++
++	return 0;
++}
++
++/* Run every non-comment line as a U-Boot command.  Destroys the buffer. */
++static void hwrev_ini_run(char *p)
++{
++	char *eol;
++	size_t len;
++
++	while (*p) {
++		eol = strchr(p, '\n');
++		if (eol)
++			*eol = '\0';
++
++		while (*p == ' ' || *p == '\t')
++			p++;
++
++		/* strip CR and trailing blanks: these files are often CRLF */
++		len = strlen(p);
++		while (len && (p[len - 1] == '\r' || p[len - 1] == ' ' ||
++			       p[len - 1] == '\t'))
++			p[--len] = '\0';
++
++		if (*p && *p != '#')
++			run_command(p, 0);
++
++		if (!eol)
++			break;
++		p = eol + 1;
++	}
++}
++
++static void hwrev_apply_override(void)
++{
++	ALLOC_CACHE_ALIGN_BUFFER(char, buf, HWREV_INI_MAX + 1);
++	char detected[24];
++	const char *now;
++
++	if (hwrev_ini_load(buf))
++		return;
++
++	printf("hwrev.ini:\n");
++
++	strlcpy(detected, env_get("hwrev") ? : "", sizeof(detected));
++
++	hwrev_ini_run(buf);
++
++	/*
++	 * The file named a different board.  Apply that board's whole profile:
++	 * detection's values must not survive next to it, and a file that fixes
++	 * hwrev but forgets dtb_kernel would otherwise leave exactly the
++	 * half-and-half mixture this override exists to prevent.  Then replay
++	 * the file so its own settings still win over the profile.
++	 */
++	now = env_get("hwrev") ? : "";
++	if (strcmp(detected, now) && !hwrev_apply_board(now) &&
++	    !hwrev_ini_load(buf)) {
++		printf("hwrev: %s profile applied\n", now);
++		hwrev_ini_run(buf);
++	}
++}
++
++/*
++ * Detect the board, let hwrev.ini override it, then publish what the rest of
++ * the boot consumes: fdtfile for extlinux FDTDIR, fbcon_rotate for its APPEND
++ * line (hwrev itself reaches Linux as board=${hwrev}).
++ */
++void hwrev_setup(void)
++{
++	hwrev_detect();
++	hwrev_apply_override();
++
++	env_set("fdtfile", env_get("dtb_kernel"));
++	env_set("fbcon_rotate", env_get("fb_rotate") ? : "0");
++
++	printf("hwrev: %s %s %s\n", env_get("hwrev"), env_get("dtb_uboot"),
++	       env_get("fdtfile"));
++}
