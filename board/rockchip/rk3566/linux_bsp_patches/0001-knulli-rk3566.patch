@@ -178,14 +178,15 @@ index 000000000..54d6d1f08
 +
 +...
 diff --git a/arch/arm64/boot/dts/rockchip/Makefile b/arch/arm64/boot/dts/rockchip/Makefile
-index cfce2606a..407113960 100644
+index cfce2606a..3d2d23fe7 100644
 --- a/arch/arm64/boot/dts/rockchip/Makefile
 +++ b/arch/arm64/boot/dts/rockchip/Makefile
-@@ -124,6 +124,15 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3528-hinlink-h28k.dtb
+@@ -124,6 +124,16 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3528-hinlink-h28k.dtb
  dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3528-hinlink-ht2.dtb
  dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-h96max-v56.dtb
  dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-hlink-netfusion.dtb
 +dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-anbernic-rg-ds.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-anbernic-rg-ds-plus.dtb
 +dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-anbernic-rg-arc-s.dtb
 +dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-anbernic-rg503.dtb
 +dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-gkd-geek.dtb
@@ -1001,12 +1002,894 @@ index 000000000..df0fe3d57
 +		status = "okay";
 +	};
 +};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds-plus.dts b/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds-plus.dts
+new file mode 100644
+index 000000000..2a8e58575
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds-plus.dts
+@@ -0,0 +1,876 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/linux-event-codes.h>
++#include <dt-bindings/pinctrl/rockchip.h>
++#include "rk3566-anbernic-rgxx3.dtsi"
++
++/*
++ * Anbernic RG DS Plus — the RG DS board with two 1024x768 panels. Ported from
++ * the vendor BSP DTB (RG-DS-PLUS-EN16GB-V1.0-20260915) onto rgxx3.dtsi, laid out
++ * like rk3566-anbernic-rg-ds.dts. Same pins as the RG DS for the buttons, stick
++ * mux, hall, status LEDs, panel rails/enable/reset, WiFi/BT and rumble motor.
++ * Differences from the RG DS:
++ *   - 1024x768 2-lane DSI panels, backlights on pwm1/pwm2 (m1) with enable-gpios
++ *   - speakers on two Awinic AW883xx smart amps (i2c2, i2s3_2ch); the rk817
++ *     codec only drives the headphones (hp-det gpio3 PB5)
++ *   - two SD slots (sdmmc0 + sdmmc1) with gpio-switched vmmc rails
++ *   - one GT9xx touch panel (i2c5m0), low-power LED on gpio3 PB6
++ *   - io-domains vccio4/6/7 as the vendor DTB
++ */
++
++/ {
++	model = "Anbernic RG DS Plus";
++	compatible = "anbernic,rg-ds-plus", "rockchip,rk3566";
++
++	aliases {
++		mmc0 = &sdhci;
++		mmc1 = &sdmmc0;
++		mmc2 = &sdmmc1;
++	};
++
++	/* Top screen (DSI0) backlight - PWM1. */
++	backlight0: backlight0 {
++		compatible = "pwm-backlight";
++		pwms = <&pwm1 0 25000 0>;
++		enable-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
++		power-supply = <&vcc_sys>;
++		brightness-levels = <
++			  0   3   4   5   7   9  12  15  18  20  22  24  25  26  26  27
++			 27  28  28  29  29  30  30  31  31  32  32  33  33  34  34  35
++			 35  36  36  37  37  38  38  39  40  41  42  43  44  45  46  47
++			 48  49  50  50  51  52  53  54  55  55  56  57  58  59  60  61
++			 62  63  64  64  65  65  66  67  68  69  70  71  71  72  73  74
++			 75  76  77  78  79  79  80  81  82  83  84  85  86  86  87  88
++			 89  90  91  92  93  94  94  95  96  97  98  99 100 101 101 102
++			103 104 105 106 107 107 108 109 110 111 112 113 114 115 115 116
++			117 118 119 120 121 122 123 123 124 125 126 127 128 129 130 130
++			131 132 133 134 135 136 136 137 138 139 140 141 142 143 143 144
++			145 146 147 147 148 149 150 151 152 153 154 155 156 156 157 158
++			159 157 158 159 160 161 162 162 163 164 165 166 167 168 169 169
++			170 171 172 173 174 175 175 176 177 178 179 180 181 182 182 183
++			184 185 186 187 188 189 190 190 191 192 193 194 195 196 197 197
++			198 199 200 201 202 203 204 204 205 206 207 208 209 209 210 211
++			212 213 213 214 214 215 215 216 216 217 217 218 218 219 219 220
++		>;
++		default-brightness-level = <200>;
++	};
++
++	/* Bottom screen (DSI1) backlight - PWM2. */
++	backlight1: backlight1 {
++		compatible = "pwm-backlight";
++		pwms = <&pwm2 0 25000 0>;
++		enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
++		power-supply = <&vcc_sys>;
++		brightness-levels = <
++			  0   3   4   5   7   9  12  15  18  20  22  24  25  26  26  27
++			 27  28  28  29  29  30  30  31  31  32  32  33  33  34  34  35
++			 35  36  36  37  37  38  38  39  40  41  42  43  44  45  46  47
++			 48  49  50  50  51  52  53  54  55  55  56  57  58  59  60  61
++			 62  63  64  64  65  65  66  67  68  69  70  71  71  72  73  74
++			 75  76  77  78  79  79  80  81  82  83  84  85  86  86  87  88
++			 89  90  91  92  93  94  94  95  96  97  98  99 100 101 101 102
++			103 104 105 106 107 107 108 109 110 111 112 113 114 115 115 116
++			117 118 119 120 121 122 123 123 124 125 126 127 128 129 130 130
++			131 132 133 134 135 136 136 137 138 139 140 141 142 143 143 144
++			145 146 147 147 148 149 150 151 152 153 154 155 156 156 157 158
++			159 157 158 159 160 161 162 162 163 164 165 166 167 168 169 169
++			170 171 172 173 174 175 175 176 177 178 179 180 181 182 182 183
++			184 185 186 187 188 189 190 190 191 192 193 194 195 196 197 197
++			198 199 200 201 202 203 204 204 205 206 207 208 209 209 210 211
++			212 213 213 214 214 215 215 216 216 217 217 218 218 219 219 220
++		>;
++		default-brightness-level = <200>;
++	};
++
++	/* Same labels as the RG DS so knulli-power-led drives both alike. */
++	gpio-leds-ds {
++		compatible = "gpio-leds";
++
++		led-battery-full {
++			gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
++			label = "battery_full";
++			default-state = "off";
++		};
++
++		led-battery-charging {
++			gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
++			label = "battery_charging";
++			linux,default-trigger = "battery-charging";
++			retain-state-suspended;
++		};
++
++		led-low-power {
++			gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_HIGH>;
++			label = "low_power";
++			default-state = "off";
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		button-vol-up {
++			gpios = <&gpio3 RK_PA1 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_VOLUMEUP>;
++			label = "volume up";
++		};
++
++		button-vol-down {
++			gpios = <&gpio3 RK_PA2 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_VOLUMEDOWN>;
++			label = "volume down";
++		};
++
++		/* knulli's rk3566 lid handling watches KEY_F12. */
++		button-hall {
++			wakeup-source;
++			gpios = <&gpio0 RK_PC3 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_F12>;
++			label = "HALL status";
++		};
++	};
++
++	/*
++	 * The vendor DTB drives these from a gpio-keys-polled variant with the
++	 * stick mux (A0/A1/en on gpio3 PC3/PC2/PC1, saradc ch3); the pins are
++	 * the RG DS ones, so the RG DS singleadc-joypad mapping is reused.
++	 */
++	joypad: singleadc-joypad {
++		compatible = "singleadc-joypad";
++		joypad-name = "Anbernic RG DS Plus";
++		joypad-product = <0x1101>;
++		joypad-revision = <0x0100>;
++		status = "okay";
++
++		io-channel-names = "amux_adc_ch0", "amux_adc_ch1",
++				   "amux_adc_ch2", "amux_adc_ch3";
++		io-channels = <&saradc 3>, <&saradc 3>, <&saradc 3>, <&saradc 3>;
++		/* one stick: mux ch3 is X, ch2 is Y; no Z/RZ from the empty inputs */
++		amux-count = <2>;
++		amux-channel-mapping = <3 2 0 1>;
++		amux-a-gpios = <&gpio3 RK_PC2 GPIO_ACTIVE_LOW>;
++		amux-b-gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_LOW>;
++		amux-en-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_LOW>;
++
++		button-adc-scale = <1>;
++		button-adc-deadzone = <50>;
++		button-adc-fuzz = <160>;
++		button-adc-flat = <32>;
++
++		abs_x-p-tuning = <250>;
++		abs_x-n-tuning = <250>;
++		abs_y-p-tuning = <250>;
++		abs_y-n-tuning = <250>;
++		abs_rx-p-tuning = <250>;
++		abs_rx-n-tuning = <250>;
++		abs_ry-p-tuning = <250>;
++		abs_ry-n-tuning = <250>;
++
++		poll-interval = <5>;
++		/* A and Y swap pins against the RG DS; the stick reads inverted */
++		invert-absx;
++		invert-absy;
++
++		sw1  { gpios = <&gpio2 RK_PD4 GPIO_ACTIVE_LOW>; label = "GPIO DPAD-UP";    linux,code = <BTN_DPAD_UP>; };
++		sw2  { gpios = <&gpio2 RK_PD5 GPIO_ACTIVE_LOW>; label = "GPIO DPAD-DOWN";  linux,code = <BTN_DPAD_DOWN>; };
++		sw3  { gpios = <&gpio2 RK_PD7 GPIO_ACTIVE_LOW>; label = "GPIO DPAD-LEFT";  linux,code = <BTN_DPAD_LEFT>; };
++		sw4  { gpios = <&gpio2 RK_PD6 GPIO_ACTIVE_LOW>; label = "GPIO DPAD-RIGHT"; linux,code = <BTN_DPAD_RIGHT>; };
++		sw5  { gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>; label = "GPIO KEY BTN-A";  linux,code = <BTN_EAST>; };
++		sw6  { gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>; label = "GPIO BTN-B";      linux,code = <BTN_SOUTH>; };
++		sw7  { gpios = <&gpio3 RK_PA7 GPIO_ACTIVE_LOW>; label = "GPIO BTN-X";      linux,code = <BTN_NORTH>; };
++		sw8  { gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>; label = "GPIO BTN-Y";      linux,code = <BTN_WEST>; };
++		sw9  { gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>; label = "GPIO BTN_SELECT"; linux,code = <BTN_SELECT>; };
++		sw10 { gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>; label = "GPIO BTN_START";  linux,code = <BTN_START>; };
++		sw12 { gpios = <&gpio3 RK_PA3 GPIO_ACTIVE_LOW>; label = "GPIO BTN_TL";     linux,code = <BTN_TL>; };
++		sw13 { gpios = <&gpio3 RK_PA5 GPIO_ACTIVE_LOW>; label = "GPIO BTN_TR";     linux,code = <BTN_TR>; };
++		sw14 { gpios = <&gpio3 RK_PA4 GPIO_ACTIVE_LOW>; label = "GPIO BTN_TL2";    linux,code = <BTN_TL2>; };
++		sw15 { gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>; label = "GPIO BTN_TR2";    linux,code = <BTN_TR2>; };
++		sw16 { gpios = <&gpio2 RK_PD3 GPIO_ACTIVE_LOW>; label = "GPIO BTN_THUMBR"; linux,code = <BTN_THUMBR>; };
++		sw17 { gpios = <&gpio2 RK_PD2 GPIO_ACTIVE_LOW>; label = "GPIO BTN_THUMBL"; linux,code = <BTN_THUMBL>; };
++		sw19 { gpios = <&gpio2 RK_PD1 GPIO_ACTIVE_LOW>; label = "GPIO RG_KEY";     linux,code = <KEY_PROG1>; };
++	};
++
++	/* rk817 codec: headphones only (use-ext-amplifier, no spk-ctl gpio). */
++	rk817_sound: rk817-sound {
++		compatible = "rockchip,multicodecs-card";
++		rockchip,card-name = "rockchip-rk817";
++		pinctrl-names = "default";
++		pinctrl-0 = <&hp_det>;
++		hp-det-gpio = <&gpio3 RK_PB5 GPIO_ACTIVE_HIGH>;
++		io-channels = <&saradc 2>;
++		io-channel-names = "adc-detect";
++		keyup-threshold-microvolt = <1800000>;
++		poll-interval = <100>;
++		rockchip,format = "i2s";
++		rockchip,mclk-fs = <256>;
++		rockchip,cpu = <&i2s1_8ch>;
++		rockchip,codec = <&rk817_codec>;
++
++		play-pause-key {
++			label = "playpause";
++			linux,code = <KEY_PLAYPAUSE>;
++			press-threshold-microvolt = <2000>;
++		};
++	};
++
++	/* Speakers: two AW883xx smart amps on i2s3_2ch (L = 0x34, R = 0x35). */
++	aw883xx_sound: aw883xx-sound {
++		compatible = "rockchip,multicodecs-card";
++		rockchip,card-name = "rockchip-aw883xx";
++		rockchip,format = "i2s";
++		rockchip,mclk-fs = <256>;
++		rockchip,cpu = <&i2s3_2ch>;
++		rockchip,codec = <&aw883xx_l>, <&aw883xx_r>;
++		status = "okay";
++	};
++
++	vcc_sd0: regulator-vcc-sd0 {
++		compatible = "regulator-fixed";
++		gpio = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc_sd0_h>;
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-name = "vcc_sd0";
++		vin-supply = <&vcc_3v3>;
++	};
++
++	vcc_sd1: regulator-vcc-sd1 {
++		compatible = "regulator-fixed";
++		gpio = <&gpio0 RK_PB7 GPIO_ACTIVE_LOW>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc_sd1_h>;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-name = "vcc_sd1";
++		vin-supply = <&vcc_3v3>;
++	};
++};
++
++/* ---- Disable the mainline-style rgxx3 input/sound nodes (as rg-ds) ---- */
++/delete-node/ &{/adc-joystick};
++
++&gpio_keys_control {
++	status = "disabled";
++};
++
++&gpio_keys_vol {
++	status = "disabled";
++};
++
++&adc_mux {
++	status = "disabled";
++};
++
++&gpio_mux {
++	status = "disabled";
++};
++
++/*
++ * The back button (stock: "home") on saradc ch0 swaps the two screens.  Not
++ * rgxx3's BTN_MODE: that code makes udev see a joystick (a phantom jsN).
++ */
++&adc_keys {
++	/delete-node/ button-mode;
++
++	button-screen-swap {
++		label = "screen swap";
++		linux,code = <KEY_SWITCHVIDEOMODE>;
++		press-threshold-microvolt = <1750>;
++	};
++};
++
++/delete-node/ &leds;
++
++&{/sound} {
++	status = "disabled";
++};
++
++&spk_amp {
++	status = "disabled";
++};
++
++/* No HDMI connector (disabled in the vendor DTB too). */
++&hdmi {
++	status = "disabled";
++};
++
++&hdmi_in_vp0 {
++	status = "disabled";
++};
++
++&hdmi_sound {
++	status = "disabled";
++};
++
++/* Rumble motor: same gpio3 PC4 as the RG DS, driven as pwm14m0 by the vendor. */
++&vibrator {
++	pwms = <&pwm14 0 1000000 0>;
++};
++
++&pwm5 {
++	status = "disabled";
++};
++
++&pwm14 {
++	status = "okay";
++};
++
++&pmu_io_domains {
++	vccio4-supply = <&vcc1v8_dvp>;
++	vccio6-supply = <&vcc_1v8>;
++	vccio7-supply = <&vcc_1v8>;
++};
++
++/* ---- Displays ---- */
++/*
++ * Panel rails as the vendor DTB: lcd0 on gpio0 PB0, lcd1 on gpio0 PC1 (the RG DS
++ * pins, but used as panel supplies so no gpio is claimed twice).
++ */
++&vcc3v3_lcd0_n {
++	gpio = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;
++	pinctrl-0 = <&vcc3v3_lcd0_n_en>;
++};
++
++/ {
++	vcc3v3_lcd1_n: regulator-vcc3v3-lcd1 {
++		compatible = "regulator-fixed";
++		gpio = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_lcd1_n_en>;
++		regulator-boot-on;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-name = "vcc3v3_lcd1_n";
++		vin-supply = <&vcc_3v3>;
++
++		regulator-state-mem {
++			regulator-off-in-suspend;
++		};
++	};
++};
++
++&dsi0 {
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	dsi0_panel: panel@0 {
++		compatible = "simple-panel-dsi";
++		reg = <0>;
++		backlight = <&backlight0>;
++		power-supply = <&vcc3v3_lcd0_n>;
++		enable-gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&gpio0 RK_PB3 GPIO_ACTIVE_LOW>;
++		bpc = <8>;
++		stbyb-delay-ms = <10>;
++		prepare-delay-ms = <10>;
++		reset-delay-ms = <10>;
++		init-delay-ms = <10>;
++		enable-delay-ms = <10>;
++		disable-delay-ms = <10>;
++		unprepare-delay-ms = <10>;
++		width-mm = <119>;
++		height-mm = <143>;
++		dsi,flags = <0xe03>;
++		dsi,format = <0>;
++		dsi,lanes = <2>;
++		panel-init-sequence = [
++			29 00 02 30 00 29 00 05 f7 49 61 02 00 29 00 02 30 01 29 00 02 04 0c
++			29 00 02 0b 01 29 00 02 20 04 29 00 02 25 19 29 00 02 28 18
++			29 00 02 30 02 29 00 02 00 11 29 00 02 01 26 29 00 02 02 10
++			29 00 02 05 68 29 00 02 06 80
++			29 00 0c 0b 0d 0d 03 0d 03 0d 03 03 15 08 06
++			29 00 0c 0c 1d 1f 25 27 29 2b 16 21 0d 0b 0d
++			29 00 0c 0d 0d 0d 03 0d 03 0d 03 03 15 09 07
++			29 00 0c 0e 1c 1e 24 26 28 2a 0a 20 0d 0b 0d
++			29 00 0c 0f 0d 0d 03 0d 0b 0d 03 03 15 2a 28
++			29 00 0c 10 26 24 1e 1c 07 09 20 0a 0d 03 0d
++			29 00 0c 11 0d 0d 03 0d 0b 0d 03 03 15 2b 29
++			29 00 0c 12 27 25 1f 1d 06 08 21 16 0d 03 0d 29 00 05 13 00 00 41 41
++			29 00 05 14 00 00 41 41 29 00 03 1a 0b 14 29 00 02 30 06
++			29 00 0f 12 3f 24 23 30 26 2d 34 38 3b 32 22 18 12 00
++			29 00 0f 13 3f 24 23 30 26 2c 33 37 3a 31 22 18 12 00 29 00 02 30 07
++			29 00 02 0d 01 29 00 02 30 08 29 00 02 05 01 29 00 02 0c 1a
++			29 00 02 0d 0e 29 00 02 30 0a 29 00 02 02 4f 29 00 02 0b 40
++			29 00 02 30 0d 29 00 02 10 0c 29 00 02 11 0c 29 00 02 12 0c
++			29 00 02 13 0c 29 00 02 30 00 15 ff 02 11 00 15 ff 02 29 00
++		];
++		panel-exit-sequence = [05 40 01 28 05 78 01 10];
++
++		display-timings {
++			native-mode = <&dsi0_timing0>;
++
++			dsi0_timing0: timing0 {
++				clock-frequency = <62800000>;
++				hactive = <1024>;
++				vactive = <768>;
++				hsync-len = <80>;
++				hback-porch = <80>;
++				hfront-porch = <120>;
++				vsync-len = <8>;
++				vback-porch = <8>;
++				vfront-porch = <16>;
++				hsync-active = <0>;
++				vsync-active = <0>;
++				de-active = <0>;
++				pixelclk-active = <1>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				dsi0_panel_in: endpoint {
++					remote-endpoint = <&dsi0_out_panel>;
++				};
++			};
++		};
++	};
++
++	ports {
++		port@1 {
++			reg = <1>;
++			dsi0_out_panel: endpoint {
++				remote-endpoint = <&dsi0_panel_in>;
++			};
++		};
++	};
++};
++
++&dsi0_in_vp0 {
++	status = "okay";
++};
++
++&dsi0_in_vp1 {
++	status = "disabled";
++};
++
++&dsi1 {
++	status = "okay";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	/* Mounted rotated: the vendor sequence ends with MADCTL 0x36 = 0x03. */
++	dsi1_panel: panel@0 {
++		compatible = "simple-panel-dsi";
++		reg = <0>;
++		backlight = <&backlight1>;
++		power-supply = <&vcc3v3_lcd1_n>;
++		enable-gpios = <&gpio0 RK_PC2 GPIO_ACTIVE_HIGH>;
++		reset-gpios = <&gpio0 RK_PB4 GPIO_ACTIVE_LOW>;
++		bpc = <8>;
++		stbyb-delay-ms = <10>;
++		prepare-delay-ms = <10>;
++		reset-delay-ms = <10>;
++		init-delay-ms = <10>;
++		enable-delay-ms = <10>;
++		disable-delay-ms = <10>;
++		unprepare-delay-ms = <10>;
++		width-mm = <229>;
++		height-mm = <143>;
++		dsi,flags = <0xe03>;
++		dsi,format = <0>;
++		dsi,lanes = <2>;
++		panel-init-sequence = [
++			29 00 02 30 00 29 00 05 f7 49 61 02 00 29 00 02 30 01 29 00 02 04 0c
++			29 00 02 0b 01 29 00 02 20 04 29 00 02 25 19 29 00 02 28 18
++			29 00 02 30 02 29 00 02 00 11 29 00 02 01 26 29 00 02 02 10
++			29 00 02 05 68 29 00 02 06 80
++			29 00 0c 0b 0d 0d 03 0d 03 0d 03 03 15 08 06
++			29 00 0c 0c 1d 1f 25 27 29 2b 16 21 0d 0b 0d
++			29 00 0c 0d 0d 0d 03 0d 03 0d 03 03 15 09 07
++			29 00 0c 0e 1c 1e 24 26 28 2a 0a 20 0d 0b 0d
++			29 00 0c 0f 0d 0d 03 0d 0b 0d 03 03 15 2a 28
++			29 00 0c 10 26 24 1e 1c 07 09 20 0a 0d 03 0d
++			29 00 0c 11 0d 0d 03 0d 0b 0d 03 03 15 2b 29
++			29 00 0c 12 27 25 1f 1d 06 08 21 16 0d 03 0d 29 00 05 13 00 00 41 41
++			29 00 05 14 00 00 41 41 29 00 03 1a 0b 14 29 00 02 30 06
++			29 00 0f 12 3f 24 23 30 26 2d 34 38 3b 32 22 18 12 00
++			29 00 0f 13 3f 24 23 30 26 2c 33 37 3a 31 22 18 12 00 29 00 02 30 07
++			29 00 02 0d 01 29 00 02 30 08 29 00 02 05 01 29 00 02 0c 1a
++			29 00 02 0d 0e 29 00 02 30 0a 29 00 02 02 4f 29 00 02 0b 40
++			29 00 02 30 0d 29 00 02 10 0c 29 00 02 11 0c 29 00 02 12 0c
++			29 00 02 13 0c 29 00 02 30 00 15 ff 02 11 00 15 00 02 36 03
++			15 ff 02 29 00
++		];
++		panel-exit-sequence = [05 40 01 28 05 78 01 10];
++
++		display-timings {
++			native-mode = <&dsi1_timing0>;
++
++			dsi1_timing0: timing0 {
++				clock-frequency = <62800000>;
++				hactive = <1024>;
++				vactive = <768>;
++				hsync-len = <80>;
++				hback-porch = <80>;
++				hfront-porch = <120>;
++				vsync-len = <8>;
++				vback-porch = <8>;
++				vfront-porch = <16>;
++				hsync-active = <0>;
++				vsync-active = <0>;
++				de-active = <0>;
++				pixelclk-active = <1>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				dsi1_panel_in: endpoint {
++					remote-endpoint = <&dsi1_out_panel>;
++				};
++			};
++		};
++	};
++
++	ports {
++		port@1 {
++			reg = <1>;
++			dsi1_out_panel: endpoint {
++				remote-endpoint = <&dsi1_panel_in>;
++			};
++		};
++	};
++};
++
++&dsi1_in_vp0 {
++	status = "disabled";
++};
++
++&dsi1_in_vp1 {
++	status = "okay";
++};
++
++&route_dsi0 {
++	connect = <&vp0_out_dsi0>;
++	status = "okay";
++};
++
++&route_dsi1 {
++	connect = <&vp1_out_dsi1>;
++	status = "okay";
++};
++
++&video_phy0 {
++	status = "okay";
++};
++
++&video_phy1 {
++	status = "okay";
++};
++
++&pwm1 {
++	pinctrl-0 = <&pwm1m1_pins>;
++	status = "okay";
++};
++
++&pwm2 {
++	pinctrl-0 = <&pwm2m1_pins>;
++	status = "okay";
++};
++
++&rk_rga {
++	status = "okay";
++};
++
++/* ---- Audio: AW883xx smart amps (speakers) ---- */
++&i2c2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c2m1_xfer>;
++	clock-frequency = <200000>;
++	status = "okay";
++
++	aw883xx_l: aw883xx@34 {
++		compatible = "awinic,aw883xx_smartpa";
++		reg = <0x34>;
++		#sound-dai-cells = <0>;
++		clocks = <&cru I2S3_MCLKOUT_TX>;
++		clock-names = "mclk";
++		assigned-clocks = <&cru CLK_I2S3_2CH_TX>;
++		assigned-clock-rates = <12288000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&i2s3m1_mclk>;
++		reset-gpio = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
++		irq-gpio = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
++		sound-channel = <0>;
++		re-min = <1000>;
++		re-max = <40000>;
++		status = "okay";
++	};
++
++	aw883xx_r: aw883xx@35 {
++		compatible = "awinic,aw883xx_smartpa";
++		reg = <0x35>;
++		#sound-dai-cells = <0>;
++		clocks = <&cru I2S3_MCLKOUT_TX>;
++		clock-names = "mclk";
++		assigned-clocks = <&cru CLK_I2S3_2CH_TX>;
++		assigned-clock-rates = <12288000>;
++		reset-gpio = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
++		irq-gpio = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;
++		sound-channel = <1>;
++		re-min = <1000>;
++		re-max = <40000>;
++		status = "okay";
++	};
++};
++
++&i2s3_2ch {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2s3m1_sclk &i2s3m1_lrck &i2s3m1_sdi &i2s3m1_sdo>;
++	i2s-lrck-gpio = <&gpio4 RK_PC4 GPIO_ACTIVE_HIGH>;
++	rockchip,always-on;
++	rockchip,trcm-sync-tx-only;
++	status = "okay";
++};
++
++/* ---- Touch: one Goodix GT9xx on i2c5m0 (no HDMI DDC on this board) ---- */
++&i2c5 {
++	pinctrl-0 = <&i2c5m0_xfer>;
++
++	gt9xx@14 {
++		compatible = "goodix,gt9xx";
++		reg = <0x14>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_gt_gpio>;
++		touch-gpio = <&gpio0 RK_PC6 GPIO_ACTIVE_LOW>;
++		reset-gpio = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
++		max-x = <1024>;
++		max-y = <768>;
++		tp-size = <911>;
++		/* the panel is landscape like the display: no GT911 swap */
++		gtp-change-x2y = <0>;
++	};
++};
++
++/* ---- Storage: eMMC + two SD slots ---- */
++&sdhci {
++	bus-width = <8>;
++	mmc-hs200-1_8v;
++	non-removable;
++	pinctrl-0 = <&emmc_bus8>, <&emmc_clk>, <&emmc_cmd>, <&emmc_datastrobe>;
++	pinctrl-names = "default";
++	vmmc-supply = <&vcc_3v3>;
++	vqmmc-supply = <&vcc_1v8>;
++	status = "okay";
++};
++
++&sdmmc0 {
++	max-frequency = <50000000>;
++	vmmc-supply = <&vcc_sd0>;
++};
++
++&sdmmc1 {
++	cd-gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_LOW>;
++	card-detect-delay = <1200>;
++	vmmc-supply = <&vcc_sd1>;
++};
++
++/* ---- UART1 = /dev/ttyS1 for the BSP rtk_hciattach BT path (as rg-ds) ---- */
++&uart1 {
++	/delete-node/ bluetooth;
++};
++
++/* ---- RK817: codec (headphones) + battery + charger ---- */
++&rk817 {
++	rockchip,system-power-controller;
++	pmic-reset-func = <0>;
++	pinctrl-names = "default", "pmic-sleep", "pmic-power-off", "pmic-reset";
++	pinctrl-0 = <&i2s1m0_mclk>, <&pmic_int_l>;
++	pinctrl-1 = <&soc_slppin_slp>, <&rk817_slppin_slp>;
++	pinctrl-2 = <&soc_slppin_gpio>, <&rk817_slppin_pwrdn>;
++	pinctrl-3 = <&soc_slppin_gpio>, <&rk817_slppin_rst>;
++
++	pinctrl_rk8xx: pinctrl_rk8xx {
++		gpio-controller;
++		#gpio-cells = <2>;
++
++		rk817_slppin_null: rk817_slppin_null {
++			pins = "gpio_slp";
++			function = "pin_fun0";
++		};
++
++		rk817_slppin_slp: rk817_slppin_slp {
++			pins = "gpio_slp";
++			function = "pin_fun1";
++		};
++
++		rk817_slppin_pwrdn: rk817_slppin_pwrdn {
++			pins = "gpio_slp";
++			function = "pin_fun2";
++		};
++
++		rk817_slppin_rst: rk817_slppin_rst {
++			pins = "gpio_slp";
++			function = "pin_fun3";
++		};
++	};
++
++	rk817_codec: codec {
++		compatible = "rockchip,rk817-codec";
++		#sound-dai-cells = <0>;
++		clocks = <&cru I2S1_MCLKOUT>;
++		clock-names = "mclk";
++		assigned-clocks = <&cru I2S1_MCLKOUT>, <&cru I2S1_MCLK_TX_IOE>;
++		assigned-clock-rates = <12288000>;
++		assigned-clock-parents = <&cru I2S1_MCLKOUT_TX>, <&cru I2S1_MCLKOUT_TX>;
++		hp-volume = <23>;
++		spk-volume = <16>;
++		mic-in-differential;
++		use-ext-amplifier;
++		status = "okay";
++	};
++
++	battery {
++		compatible = "rk817,battery";
++		ocv_table = <3400 3663 3677 3707 3731 3749 3761 3772 3786 3803 3826 3861 3908 3947 3978 4039 4083 4136 4191 4251 4338>;
++		design_capacity = <4247>;
++		design_qmax = <4247>;
++		bat_res = <69>;
++		sleep_enter_current = <300>;
++		sleep_exit_current = <300>;
++		sleep_filter_current = <100>;
++		power_off_thresd = <3400>;
++		zero_algorithm_vol = <3950>;
++		max_soc_offset = <60>;
++		monitor_sec = <5>;
++		sample_res = <10>;
++		virtual_power = <0>;
++		status = "okay";
++	};
++
++	/* 4.4 V charge voltage as the vendor DTB (the RG DS uses 4.35 V). */
++	charger {
++		compatible = "rk817,charger";
++		min_input_voltage = <4500>;
++		max_input_current = <1500>;
++		max_chrg_current = <2000>;
++		max_chrg_voltage = <4400>;
++		chrg_term_mode = <1>;
++		chrg_finish_cur = <100>;
++		virtual_power = <0>;
++		dc_det_adc = <0>;
++		extcon = <&usb2phy0>;
++		otg5v_suspend_enable = <1>;
++		sample_res = <10>;
++		status = "okay";
++	};
++};
++
++/*
++ * The vendor DTB also has a CW2015 fuel gauge at i2c0 0x62, arbitrated
++ * against the rk817 gauge by its anbernic,misc driver. Left disabled until
++ * the part is confirmed on the board.
++ */
++&i2c0 {
++	cw2015@62 {
++		compatible = "cellwise,cw2015";
++		reg = <0x62>;
++		cellwise,battery-profile = [17 67 80 6e 68 64 61 55 71 53 54 56 4f 4e 46 38 2d 25 20 1b 20 29 3b 49 3a 15 0d 91 3e 5f 5e 76 80 7d 80 81 3b 1a 6c 6c 0b 41 1c 4d 80 95 a0 14 38 7e 98 a3 80 8a 9d cb 2f 00 64 a5 b5 c1 46 ae];
++		cellwise,monitor-interval-ms = <3000>;
++		status = "disabled";
++	};
++};
++
++&usbdrd30 {
++	status = "okay";
++};
++
++&usbdrd_dwc3 {
++	dr_mode = "otg";
++	extcon = <&usb2phy0>;
++};
++
++/* ---- WiFi/BT: RTL8821CS, same wiring as the RG DS ---- */
++/ {
++	wireless_wlan: wireless-wlan {
++		compatible = "wlan-platdata";
++		rockchip,grf = <&grf>;
++		wifi_chip_type = "rtl8821cs";
++		pinctrl-names = "default";
++		pinctrl-0 = <&wifi_host_wake_irq>;
++		WIFI,host_wake_irq = <&gpio4 RK_PA1 GPIO_ACTIVE_HIGH>;
++		keep_wifi_power_on;
++		status = "okay";
++	};
++
++	wireless_bluetooth: wireless-bluetooth {
++		compatible = "bluetooth-platdata";
++		clocks = <&rk817 1>;
++		clock-names = "ext_clock";
++		BT,reset_gpio    = <&gpio0 RK_PD5 GPIO_ACTIVE_HIGH>;
++		BT,wake_gpio     = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
++		BT,wake_host_irq = <&gpio0 RK_PD4 GPIO_ACTIVE_HIGH>;
++		status = "okay";
++	};
++};
++
++&pinctrl {
++	headphone {
++		hp_det: hp-det {
++			rockchip,pins = <3 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	touch {
++		touch_gt_gpio: touch-gt-gpio {
++			rockchip,pins = <0 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
++					<0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
++	lcd {
++		vcc3v3_lcd0_n_en: vcc3v3-lcd0-n-en {
++			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		vcc3v3_lcd1_n_en: vcc3v3-lcd1-n-en {
++			rockchip,pins = <0 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	vcc_sd {
++		vcc_sd0_h: vcc-sd0-h {
++			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		vcc_sd1_h: vcc-sd1-h {
++			rockchip,pins = <0 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	wireless-wlan {
++		wifi_host_wake_irq: wifi-host-wake-irq {
++			rockchip,pins = <4 RK_PA1 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
++	soc_slppin {
++		soc_slppin_gpio: soc_slppin_gpio {
++			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_output_low_pull_down>;
++		};
++
++		soc_slppin_slp: soc_slppin_slp {
++			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++
++		soc_slppin_rst: soc_slppin_rst {
++			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++};
 diff --git a/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds.dts b/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds.dts
 new file mode 100644
 index 000000000..a25c340e2
 --- /dev/null
 +++ b/arch/arm64/boot/dts/rockchip/rk3566-anbernic-rg-ds.dts
-@@ -0,0 +1,906 @@
+@@ -0,0 +1,944 @@
 +// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 +
 +/dts-v1/;
@@ -1039,10 +1922,10 @@ index 000000000..a25c340e2
 +		mmc2 = &sdmmc1;
 +	};
 +
-+	/* Top screen (DSI0) backlight - PWM0. */
++	/* Top screen (DSI0) backlight - PWM12. */
 +	backlight0: backlight0 {
 +		compatible = "pwm-backlight";
-+		pwms = <&pwm0 0 25000 0>;
++		pwms = <&pwm12 0 25000 0>;
 +		power-supply = <&vcc_sys>;
 +		brightness-levels = <
 +			  0   3   4   5   7   9  12  15  18  20  22  24  25  26  26  27
@@ -1065,10 +1948,10 @@ index 000000000..a25c340e2
 +		default-brightness-level = <200>;
 +	};
 +
-+	/* Bottom screen (DSI1) backlight - PWM1. */
++	/* Bottom screen (DSI1) backlight - PWM13. */
 +	backlight1: backlight1 {
 +		compatible = "pwm-backlight";
-+		pwms = <&pwm1 0 25000 0>;
++		pwms = <&pwm13 0 25000 0>;
 +		power-supply = <&vcc_sys>;
 +		brightness-levels = <
 +			  0   3   4   5   7   9  12  15  18  20  22  24  25  26  26  27
@@ -1207,6 +2090,8 @@ index 000000000..a25c340e2
 +		joypad-product = <0x1101>;
 +		joypad-revision = <0x0100>;
 +		status = "okay";
++		pinctrl-names = "default";
++		pinctrl-0 = <&btn_swap>;
 +
 +		/*
 +		 * All four stick axes are routed through a single saradc input
@@ -1255,7 +2140,7 @@ index 000000000..a25c340e2
 +		sw15 { gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>; label = "GPIO BTN_TR2";    linux,code = <BTN_TR2>; };
 +		sw16 { gpios = <&gpio2 RK_PD3 GPIO_ACTIVE_LOW>; label = "GPIO BTN_THUMBR"; linux,code = <BTN_THUMBR>; };
 +		sw17 { gpios = <&gpio2 RK_PD2 GPIO_ACTIVE_LOW>; label = "GPIO BTN_THUMBL"; linux,code = <BTN_THUMBL>; };
-+		sw18 { gpios = <&gpio3 RK_PA0 GPIO_ACTIVE_LOW>; label = "GPIO HALL";       linux,code = <KEY_POWER>; };
++		sw18 { gpios = <&gpio3 RK_PA0 GPIO_ACTIVE_LOW>; label = "GPIO HALL";       linux,code = <KEY_SWITCHVIDEOMODE>; };
 +		sw19 { gpios = <&gpio2 RK_PD1 GPIO_ACTIVE_LOW>; label = "GPIO RG_KEY";     linux,code = <KEY_PROG1>; };
 +	};
 +
@@ -1628,11 +2513,16 @@ index 000000000..a25c340e2
 +	status = "okay";
 +};
 +
-+&pwm0 {
++/* pwm0/pwm1 pins are the upper touch reset/irq */
++&pwm12 {
++	pinctrl-names = "active";
++	pinctrl-0 = <&pwm12m1_pins>;
 +	status = "okay";
 +};
 +
-+&pwm1 {
++&pwm13 {
++	pinctrl-names = "active";
++	pinctrl-0 = <&pwm13m1_pins>;
 +	status = "okay";
 +};
 +
@@ -1670,11 +2560,15 @@ index 000000000..a25c340e2
 +	gt9xx@14 {
 +		compatible = "goodix,gt9xx";
 +		reg = <0x14>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_int_lower>;
 +		touch-gpio = <&gpio0 RK_PB6 GPIO_ACTIVE_LOW>;
 +		reset-gpio = <&gpio0 RK_PB5 GPIO_ACTIVE_HIGH>;
 +		max-x = <640>;
 +		max-y = <480>;
 +		tp-size = <911>;
++		/* lower panel: landscape like the display, no GT911 swap */
++		gtp-change-x2y = <0>;
 +	};
 +};
 +
@@ -1686,11 +2580,17 @@ index 000000000..a25c340e2
 +	gt9xx@14 {
 +		compatible = "goodix,gt9xx";
 +		reg = <0x14>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_int_upper>;
 +		touch-gpio = <&gpio0 RK_PC0 GPIO_ACTIVE_LOW>;
 +		reset-gpio = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
 +		max-x = <640>;
 +		max-y = <480>;
 +		tp-size = <911>;
++		/* upper panel: mounted rotated 180 degrees */
++		gtp-change-x2y = <0>;
++		gtp-x-reverse = <1>;
++		gtp-y-reverse = <1>;
 +	};
 +};
 +
@@ -1870,6 +2770,27 @@ index 000000000..a25c340e2
 +};
 +
 +&pinctrl {
++	/*
++	 * Touch INT pull-ups: GPIO0_C0 defaults to pull-down, so the upper
++	 * panel's active-low INT idled low and it never interrupted again.
++	 */
++	touch {
++		touch_int_upper: touch-int-upper {
++			rockchip,pins = <0 RK_PC0 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++
++		touch_int_lower: touch-int-lower {
++			rockchip,pins = <0 RK_PB6 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
++	/* screen-swap key (sw18): GPIO3_A0 idles low without the pull-up */
++	btns {
++		btn_swap: btn-swap {
++			rockchip,pins = <3 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
 +	headphone {
 +		/*
 +		 * hp-det (gpio4 PC2) must be pull-none so the headphone jack switch

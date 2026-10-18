@@ -11,7 +11,7 @@ LED_LOW=""
 read -r BOARD < /boot/boot/knulli.board
 
 case "$BOARD" in
-    rg-arc-s|rg-ds)
+    rg-arc-s|rg-ds|rg-ds-plus)
         LED_PWR="${LED_ROOT}/battery_full"
         LED_LOW="${LED_ROOT}/low_power"
     ;;

@@ -1,0 +1,159 @@
+Subject: [PATCH] input: touchscreen: gt9xx: report touches with MT slots
+
+Protocol A (no ABS_MT_SLOT, no ABS_X/ABS_Y) only reaches SDL as BTN_TOUCH:
+a drag in EmulationStation arrives as a click.  Report with slots, as the
+driver already does on Chrome platforms, through input_mt_report_slot_state()
+so input_mt_sync_frame() keeps the active slot, after the axis ranges so the
+pointer emulation copies them.
+
+And let the DT override the orientation its tp-size variant implies
+("gtp-change-x2y", "gtp-x-reverse", "gtp-y-reverse", the reverses then
+applying to GT911 too), per panel: the RG DS has two, one mounted rotated
+180 degrees, so the settings move from globals into goodix_ts_data.
+
+The interrupt is level triggered: with the edge the driver used, a report
+raised while the irq was masked for the previous one left INT held low and
+the panel silent until a reboot.
+---
+--- a/drivers/input/touchscreen/gt9xx/gt9xx.h	2026-10-07 00:42:58.026418443 +0000
++++ b/drivers/input/touchscreen/gt9xx/gt9xx.h	2026-10-07 03:19:16.310273482 +0000
+@@ -57,11 +57,8 @@
+ #define GTP_HAVE_TOUCH_KEY    0
+ #define GTP_POWER_CTRL_SLEEP  0
+ 
+-#if defined(CONFIG_CHROME_PLATFORMS)
++/* MT slots (protocol B): SDL only tracks finger motion with slots */
+ #define GTP_ICS_SLOT_REPORT   1
+-#else
+-#define GTP_ICS_SLOT_REPORT   0
+-#endif
+ 
+ #define GTP_AUTO_UPDATE       0    // auto update fw by .bin file as default
+ #define GTP_HEADER_FW_UPDATE  0    // auto update fw by gtp_default_FW in gt9xx_firmware.h, function together with GTP_AUTO_UPDATE
+@@ -101,6 +98,11 @@
+ struct goodix_ts_data {
+     spinlock_t irq_lock;
+     struct i2c_client *client;
++    /* per panel: two of them may sit on one board, oriented differently */
++    u8 change_x2y;
++    u8 x_reverse;
++    u8 y_reverse;
++    u8 dt_reverse;      /* reverse set by the DT: applies to GT911 too */
+     struct input_dev  *input_dev;
+     struct hrtimer timer;
+     struct work_struct  work;
+--- a/drivers/input/touchscreen/gt9xx/gt9xx.c	2026-10-07 00:42:58.026418443 +0000
++++ b/drivers/input/touchscreen/gt9xx/gt9xx.c	2026-10-07 03:24:06.252927774 +0000
+@@ -422,20 +422,21 @@
+ *********************************************************/
+ static void gtp_touch_down(struct goodix_ts_data* ts,s32 id,s32 x,s32 y,s32 w)
+ {
+-	if (gtp_change_x2y)
++	if (ts->change_x2y)
+ 		GTP_SWAP(x, y);
+ 
+-	if (!bgt911 && !bgt970) {
+-		if (gtp_x_reverse)
++	if (ts->dt_reverse || (!bgt911 && !bgt970)) {
++		if (ts->x_reverse)
+ 			x = ts->abs_x_max - x;
+ 
+-		if (gtp_y_reverse)
++		if (ts->y_reverse)
+ 			y = ts->abs_y_max - y;
+ 	}
+ 
+ #if GTP_ICS_SLOT_REPORT
++    /* marks the slot used: input_mt_sync_frame() drops the others */
+     input_mt_slot(ts->input_dev, id);
+-    input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, id);
++    input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, true);
+     input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
+     input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);
+     input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, w);
+@@ -465,7 +466,7 @@
+ {
+ #if GTP_ICS_SLOT_REPORT
+     input_mt_slot(ts->input_dev, id);
+-    input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, -1);
++    input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, false);
+     GTP_DEBUG("Touch id[%2d] release!", id);
+ #else
+     input_report_key(ts->input_dev, BTN_TOUCH, 0);
+@@ -1012,6 +1013,9 @@
+     else
+ #endif
+     {
++#if GTP_ICS_SLOT_REPORT
++        input_mt_sync_frame(ts->input_dev);
++#endif
+         input_sync(ts->input_dev);
+     }
+ 
+@@ -2077,9 +2081,7 @@
+     }
+ 
+     ts->input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS) ;
+-#if GTP_ICS_SLOT_REPORT
+-    input_mt_init_slots(ts->input_dev, 16, INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);     // in case of "out of memory"
+-#else
++#if !GTP_ICS_SLOT_REPORT
+     ts->input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+ #endif
+     __set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
+@@ -2095,7 +2097,7 @@
+     input_set_capability(ts->input_dev, EV_KEY, KEY_POWER);
+ #endif 
+ 
+-	if (gtp_change_x2y)
++	if (ts->change_x2y)
+ 		GTP_SWAP(ts->abs_x_max, ts->abs_y_max);
+ 
+ #if defined(CONFIG_CHROME_PLATFORMS)
+@@ -2107,6 +2109,10 @@
+     input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+     input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+     input_set_abs_params(ts->input_dev, ABS_MT_TRACKING_ID, 0, 255, 0, 0);
++#if GTP_ICS_SLOT_REPORT
++    /* after the ranges: the BTN_TOUCH/ABS_X/ABS_Y pointer emulation copies them */
++    input_mt_init_slots(ts->input_dev, 16, INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);     // in case of "out of memory"
++#endif
+ 
+     sprintf(phys, "input/ts");
+     ts->input_dev->name = goodix_ts_name;
+@@ -2700,6 +2706,20 @@
+ 		gtp_x_reverse = FALSE;
+ 		gtp_y_reverse = TRUE;
+ 	}
++	/* a board can override the orientation its tp-size variant implies */
++	if (!of_property_read_u32(np, "gtp-change-x2y", &val))
++		gtp_change_x2y = !!val;
++	ts->change_x2y = gtp_change_x2y;
++	ts->x_reverse = gtp_x_reverse;
++	ts->y_reverse = gtp_y_reverse;
++	if (!of_property_read_u32(np, "gtp-x-reverse", &val)) {
++		ts->x_reverse = !!val;
++		ts->dt_reverse = TRUE;
++	}
++	if (!of_property_read_u32(np, "gtp-y-reverse", &val)) {
++		ts->y_reverse = !!val;
++		ts->dt_reverse = TRUE;
++	}
+ 
+ 	ts->tp_regulator = devm_regulator_get(&client->dev, "tp");
+ 	if (IS_ERR(ts->tp_regulator)) {
+@@ -2807,7 +2827,13 @@
+         ts->int_trigger_type = GTP_INT_TRIGGER;
+     }
+     
+-    ts->irq_flags = ts->int_trigger_type ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING;
++    /*
++     * Level, not edge: the handler masks the irq until the work has read
++     * the report, and an edge in that gap was lost for good -- the panel
++     * then held INT low and never interrupted again.  A level irq refires
++     * on enable while a report is still pending.
++     */
++    ts->irq_flags = ts->int_trigger_type ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH;
+     // Create proc file system
+ #if 0
+ 	gt91xx_config_proc = proc_create(GT91XX_CONFIG_PROC_FILE, 0664, NULL, &config_proc_ops);

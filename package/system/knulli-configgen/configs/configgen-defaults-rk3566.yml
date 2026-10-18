@@ -10,8 +10,8 @@ default:
     retroarch.ozone_font_scale_factor_global: "1.200000"
 
 nds:
-  emulator: advanced_drastic
-  core:     advanced_drastic
+  emulator: dsperate
+  core:     dsperate
 fmtowns:
   emulator: libretro
   core:     mame

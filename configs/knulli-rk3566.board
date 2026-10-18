@@ -32,7 +32,7 @@ BR2_TOOLCHAIN_OPTIONAL_LINARO_AARCH64=y
 
 # Build the DTB from the kernel sources
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-anbernic-rg-arc-s rockchip/rk3566-anbernic-rg-ds rockchip/rk3566-miniloong rockchip/rk3566-miyoo-flip rockchip/rk3566-powkiddy-rgb30 rockchip/rk3566-powkiddy-x55"
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-anbernic-rg-arc-s rockchip/rk3566-anbernic-rg-ds rockchip/rk3566-anbernic-rg-ds-plus rockchip/rk3566-miniloong rockchip/rk3566-miyoo-flip rockchip/rk3566-powkiddy-rgb30 rockchip/rk3566-powkiddy-x55"
 
 # Bootloader
 
@@ -106,3 +106,5 @@ BR2_PACKAGE_KNULLI_ARMHF_DROP_DEVICE="rk3566"
 
 # Miyoo Flip USB WiFi (RTL8733BU, 0bda:b733) out-of-tree vendor driver
 BR2_PACKAGE_RTL8733BU=y
+# RG DS Plus speaker amps (AW883xx 2066)
+BR2_PACKAGE_AW883XX=y

@@ -10,13 +10,13 @@ DSI_OUT=$(cat /var/run/drmConn)
 cd $DS_PATH
 
 # The RG-DS needs the bottom display to be active for drastic dual screen to work
-if [ "$BOARD" = "rg-ds" ]; then
+if [ "$BOARD" = "rg-ds" ] || [ "$BOARD" = "rg-ds-plus" ]; then
     knulli-resolution setOutput 1
 fi
 
 LD_PRELOAD=$DS_PATH/libhookdrastic.so $DS_PATH/drastic "$1"
 
-if [ "$BOARD" = "rg-ds" ]; then
+if [ "$BOARD" = "rg-ds" ] || [ "$BOARD" = "rg-ds-plus" ]; then
 # Restore display
     knulli-resolution setOutput $DS_PATH
 fi
