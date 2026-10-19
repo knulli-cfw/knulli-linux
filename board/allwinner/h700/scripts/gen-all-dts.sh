@@ -23,3 +23,5 @@ python3 "$HERE/build_dts.py" "$HERE/../../../../package/boot/uboot-h700/rg34xx-s
 python3 "$HERE/build_dts.py" "$HERE/../../../../package/boot/uboot-h700/rg35xx-plus/boot_package/rg35xx-plus.dts" \
 	"$KTREE" "Anbernic H700" "$HERE/../dts/sunxi/sun50i-h700-anbernic-select.dts" select
 python3 "$HERE/gen-select-dts.py" "$HERE/../dts/sunxi" "$HERE/../fsoverlay/usr/share/knulli/h700-panels.conf"
+# what every tree shares moves to sun50i-h700-anbernic.dtsi
+python3 "$HERE/split-dts.py" "$HERE/../dts/sunxi"
