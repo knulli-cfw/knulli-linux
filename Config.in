@@ -754,6 +754,7 @@ menu "Knulli Packages"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/mangohud/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/knulli-overlay/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/batteryplus/Config.in"
+    source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/ff-rumble/Config.in"
   endmenu
 
   menu "Kernels"

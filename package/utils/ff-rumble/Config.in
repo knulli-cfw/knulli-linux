@@ -1,0 +1,5 @@
+config BR2_PACKAGE_FF_RUMBLE
+	bool "ff-rumble"
+	help
+	  Command-line rumble utility for handhelds.
+	  Automatically finds the internal controller from es_input.cfg
