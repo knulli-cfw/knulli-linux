@@ -51,6 +51,7 @@ rm -f "${TARGET_DIR}/usr/bin/knulli-settings-set-queue" || exit 1
 rm -f "${TARGET_DIR}/usr/share/emulationstation/scripts/powermanagement-changed/refresh-battery-state.sh" || exit 1
 rm -f "${TARGET_DIR}/etc/batteryplus/discharging.d/00shutdown" || exit 1
 rm -f "${TARGET_DIR}/etc/pm/sleep.d/15-batteryplus-wakeup" || exit 1
+rm -f "${TARGET_DIR}/usr/bin/knulli-battery-saver-aggressive" || exit 1
 
 # Remove base batocera init scripts we don't need
 rm -f "${TARGET_DIR}/etc/init.d/S50kodi" || exit 1
