@@ -1161,52 +1161,78 @@
 };
 
 /* The H700 fuses speed bin 0x6c00, which the 5.4 cpufreq-nvmem driver maps
- * to "a5" (kernel patch 0012); the dtsi table only knows a0-a4.  Voltages
- * are mainline's speed5 set (rocknix), which runs this device at 1.5 GHz. */
+ * to "a5" (kernel patch 0012); the dtsi table only knows a0-a4. */
 &cpu_opp_table {
 	opp@480000000 {
-		opp-microvolt-a5 = <900000>;
+		opp-hz = <0x00 0x1c9c3800>;
+		opp-microvolt-a5 = <0xc3500>;
+		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x3f>;
 	};
 
-	opp@720000000 {
-		opp-microvolt-a5 = <900000>;
-		opp-supported-hw = <0x2d>;
+	opp@792000000 {
+		opp-hz = <0x00 0x2f34f600>;
+		opp-microvolt-a5 = <0xcf850>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x2a>;
 	};
 
 	opp@1008000000 {
-		opp-microvolt-a5 = <900000>;
+		opp-hz = <0x00 0x3c14dc00>;
+		opp-microvolt-a5 = <0xd6d80>;
+		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x3f>;
-	};
-
-	opp@1104000000 {
-		opp-microvolt-a5 = <950000>;
-		opp-supported-hw = <0x2d>;
 	};
 
 	opp@1200000000 {
-		opp-microvolt-a5 = <1020000>;
+		opp-hz = <0x00 0x47868c00>;
+		opp-microvolt-a5 = <0xe7ef0>;
+		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x3f>;
 	};
 
+	opp@1320000000 {
+		opp-hz = <0x00 0x4ead9a00>;
+		opp-microvolt-a5 = <0xf4240>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x2a>;
+	};
+
 	opp@1416000000 {
-		opp-microvolt-a5 = <1100000>;
+		opp-hz = <0x00 0x54667200>;
+		opp-microvolt-a5 = <0x100590>;
+		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x2d>;
 	};
 
 	opp@1512000000 {
-		opp-microvolt-a5 = <1160000>;
+		opp-hz = <0x00 0x5a1f4a00>;
+		opp-microvolt-a5 = <0x10c8e0>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x2a>;
+	};
+
+	opp@1600000000 {
+		opp-hz = <0x00 0x5f5e1000>;
+		opp-microvolt-a5 = <0x111700>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x2a>;
+	};
+
+	opp@1704000000 {
+		opp-hz = <0x00 0x6590fa00>;
+		opp-microvolt-a5 = <0x118c30>;
+		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x2a>;
 	};
 };
 
-/* Mali OPPs and dvfs knobs from the vendor tree (legacy operating-points),
- * minus the 696 MHz @ 0.96 V point: the GPU rail (dcdc2) is a fixed 0.94 V. */
+/* Mali OPPs and dvfs knobs from the vendor tree (legacy operating-points)*/
 &gpu {
 	gpu_idle = <0x01>;
 	dvfs_status = <0x01>;
 	operating-points = <240000 900000  336000 900000  420000 900000
-			    504000 900000  600000 900000>;
+			    504000 900000  600000 900000  696000 960000>;
 };
 
 &dram {
