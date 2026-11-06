@@ -744,7 +744,7 @@ menu "Knulli Packages"
 
   menu "Utils"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/xdelta3/Config.in"
-    source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/launcher/Config.in"
+#    source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/launcher/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/vaixterm/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/vtree/Config.in"
     source "$BR2_EXTERNAL_KNULLI_PATH/package/utils/syncthing/Config.in"
