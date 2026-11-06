@@ -75,6 +75,7 @@ BR2_PACKAGE_SDL12_COMPAT=y
 
 # MISC
 
+BR2_PACKAGE_M8C=y
 
 # Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
 # "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
