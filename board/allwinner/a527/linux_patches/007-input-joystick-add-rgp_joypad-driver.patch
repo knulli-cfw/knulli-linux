@@ -1,0 +1,481 @@
+Subject: [PATCH] input: joystick: add rgp_joypad gamepad driver
+
+Drives the vendor "rgp_joypad" node of the Action Pi eMMC dtb: GPIO
+buttons, d-pad as HAT0, sticks polled from the sunxi gpadc, and the
+lradc home key reported as BTN_MODE; PWM rumble.
+---
+diff -urN a/drivers/input/joystick/Kconfig b/drivers/input/joystick/Kconfig
+--- a/drivers/input/joystick/Kconfig	2026-10-31 03:22:10.080043900 +0000
++++ b/drivers/input/joystick/Kconfig	2026-10-31 13:19:34.039219379 +0000
+@@ -393,6 +393,14 @@
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called fsia6b.
+ 
++config JOYSTICK_RGP
++	tristate "rgp_joypad GPIO and sunxi gpadc gamepad"
++	depends on AW_GPADC && GPIOLIB && OF && PWM
++	select INPUT_FF_MEMLESS
++	help
++	  Gamepad described by the vendor "rgp_joypad" device tree binding
++	  (Helegaly Action Pi): GPIO buttons and sticks on the sunxi gpadc.
++
+ config JOYSTICK_N64
+ 	bool "N64 controller"
+ 	depends on MACH_NINTENDO64
+diff -urN a/drivers/input/joystick/Makefile b/drivers/input/joystick/Makefile
+--- a/drivers/input/joystick/Makefile	2026-10-31 03:22:10.080043900 +0000
++++ b/drivers/input/joystick/Makefile	2026-10-31 03:22:10.091043889 +0000
+@@ -36,6 +36,7 @@
+ obj-$(CONFIG_JOYSTICK_TURBOGRAFX)	+= turbografx.o
+ obj-$(CONFIG_JOYSTICK_TWIDJOY)		+= twidjoy.o
+ obj-$(CONFIG_JOYSTICK_WARRIOR)		+= warrior.o
++obj-$(CONFIG_JOYSTICK_RGP)		+= rgp-joypad.o
+ obj-$(CONFIG_JOYSTICK_WALKERA0701)	+= walkera0701.o
+ obj-$(CONFIG_JOYSTICK_XPAD)		+= xpad.o
+ obj-$(CONFIG_JOYSTICK_ZHENHUA)		+= zhenhua.o
+diff -urN a/drivers/input/joystick/rgp-joypad.c b/drivers/input/joystick/rgp-joypad.c
+--- a/drivers/input/joystick/rgp-joypad.c	1970-01-01 00:00:00.000000000 +0000
++++ b/drivers/input/joystick/rgp-joypad.c	2026-10-31 13:19:34.039219379 +0000
+@@ -0,0 +1,442 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Gamepad for the vendor "rgp_joypad" binding (Helegaly Action Pi):
++ * GPIO buttons plus analog sticks on the sunxi gpadc.
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/input.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/pwm.h>
++#include <linux/slab.h>
++#include <linux/workqueue.h>
++#include <sunxi_gpadc.h>
++
++#define RGP_MAX_AXES	4
++#define RGP_ADC_MAX	1800	/* mV */
++#define RGP_AXIS_RANGE	(RGP_ADC_MAX / 2)
++
++struct rgp_button {
++	struct gpio_desc *gpio;
++	unsigned int type;
++	unsigned int code;
++	int value;
++};
++
++struct rgp_axis {
++	u8 channel;
++	unsigned int code;
++	int center;
++	u32 tune_p;
++	u32 tune_n;
++	bool invert;
++};
++
++struct rgp_joypad {
++	struct input_dev *input;
++	struct rgp_button *buttons;
++	int nbuttons;
++	struct rgp_axis axes[RGP_MAX_AXES];
++	int naxes;
++	u32 deadzone;
++	u32 scale;
++	struct input_handler home;
++	struct pwm_device *pwm;
++	struct work_struct rumble_work;
++	u32 boost_weak, boost_strong;
++	bool invert_rumble;
++	u16 level;
++};
++
++/* the vendor joypad-name is the generic "adc_gamepad" */
++static char *name = "Action Pi Controller";
++module_param(name, charp, 0444);
++MODULE_PARM_DESC(name, "input device name");
++
++static const char * const rgp_axis_names[] = {
++	[ABS_X] = "x", [ABS_Y] = "y", [ABS_RX] = "rx", [ABS_RY] = "ry",
++};
++
++static int rgp_read_adc(struct rgp_axis *axis)
++{
++	return sunxi_gpadc_read_channel_data(0, axis->channel);
++}
++
++static void rgp_poll(struct input_dev *input)
++{
++	struct rgp_joypad *jp = input_get_drvdata(input);
++	int hat[ABS_HAT3Y + 1] = { 0 };
++	bool hat_used[ABS_HAT3Y + 1] = { false };
++	int i;
++
++	for (i = 0; i < jp->nbuttons; i++) {
++		struct rgp_button *b = &jp->buttons[i];
++		int pressed = gpiod_get_value_cansleep(b->gpio) > 0;
++
++		if (b->type == EV_ABS) {
++			hat_used[b->code] = true;
++			if (pressed)
++				hat[b->code] += b->value;
++		} else {
++			input_report_key(input, b->code, pressed);
++		}
++	}
++	for (i = ABS_HAT0X; i <= ABS_HAT3Y; i++)
++		if (hat_used[i])
++			input_report_abs(input, i, clamp(hat[i], -1, 1));
++
++	for (i = 0; i < jp->naxes; i++) {
++		struct rgp_axis *a = &jp->axes[i];
++		int v = rgp_read_adc(a);
++
++		if (v > RGP_ADC_MAX)
++			continue;
++		v = (v - a->center) * (int)jp->scale;
++		v = v * (int)(v > 0 ? a->tune_p : a->tune_n) / 100;
++		if (abs(v) < (int)jp->deadzone)
++			v = 0;
++		if (a->invert)
++			v = -v;
++		input_report_abs(input, a->code,
++				 clamp(v, -RGP_AXIS_RANGE, RGP_AXIS_RANGE));
++	}
++	input_sync(input);
++}
++
++static int rgp_parse_axes(struct device *dev, struct rgp_joypad *jp)
++{
++	struct device_node *np = dev->of_node;
++	u32 idx[RGP_MAX_AXES], types[RGP_MAX_AXES], n = 0;
++	char prop[32];
++	int i, j, sum;
++
++	of_property_read_u32(np, "adc-channel-count", &n);
++	n = min_t(u32, n, RGP_MAX_AXES);
++	if (!n)
++		return 0;
++	if (of_property_read_u32_array(np, "adc-channel-index", idx, n) ||
++	    of_property_read_u32_array(np, "adc-channel-types", types, n))
++		return dev_err_probe(dev, -EINVAL, "bad adc channel tables\n");
++
++	for (i = 0; i < n; i++) {
++		struct rgp_axis *a = &jp->axes[jp->naxes];
++
++		if (types[i] >= ARRAY_SIZE(rgp_axis_names) || !rgp_axis_names[types[i]])
++			continue;
++		a->channel = idx[i];
++		a->code = types[i];
++		a->tune_p = a->tune_n = 100;
++		snprintf(prop, sizeof(prop), "abs_%s-p-tuning", rgp_axis_names[a->code]);
++		of_property_read_u32(np, prop, &a->tune_p);
++		snprintf(prop, sizeof(prop), "abs_%s-n-tuning", rgp_axis_names[a->code]);
++		of_property_read_u32(np, prop, &a->tune_n);
++		snprintf(prop, sizeof(prop), "invert-abs%s", rgp_axis_names[a->code]);
++		a->invert = of_property_read_bool(np, prop);
++
++		/* the sticks rest well off mid-scale: calibrate the center */
++		for (j = 0, sum = 0; j < 8; j++) {
++			sum += rgp_read_adc(a);
++			usleep_range(1000, 2000);
++		}
++		a->center = sum / 8;
++		if (a->center > RGP_ADC_MAX)
++			a->center = RGP_ADC_MAX / 2;
++		dev_info(dev, "axis %u: gpadc ch%u center %d mV\n",
++			 a->code, a->channel, a->center);
++		jp->naxes++;
++	}
++	return 0;
++}
++
++static int rgp_parse_buttons(struct device *dev, struct rgp_joypad *jp)
++{
++	struct fwnode_handle *child;
++	int i = 0;
++
++	jp->nbuttons = device_get_child_node_count(dev);
++	jp->buttons = devm_kcalloc(dev, jp->nbuttons, sizeof(*jp->buttons), GFP_KERNEL);
++	if (!jp->buttons)
++		return -ENOMEM;
++
++	device_for_each_child_node(dev, child) {
++		struct rgp_button *b = &jp->buttons[i];
++		u32 v;
++
++		b->gpio = devm_fwnode_gpiod_get(dev, child, NULL, GPIOD_IN, "rgp_joypad");
++		if (IS_ERR(b->gpio)) {
++			fwnode_handle_put(child);
++			return dev_err_probe(dev, PTR_ERR(b->gpio), "button gpio\n");
++		}
++		if (fwnode_property_read_u32(child, "linux,code", &b->code)) {
++			fwnode_handle_put(child);
++			return dev_err_probe(dev, -EINVAL, "button without linux,code\n");
++		}
++		b->type = EV_KEY;
++		if (!fwnode_property_read_u32(child, "linux,input-type", &v))
++			b->type = v;
++		b->value = 1;
++		if (!fwnode_property_read_u32(child, "linux,input-value", &v))
++			b->value = (s32)v;
++		if (b->type == EV_ABS && (b->code < ABS_HAT0X || b->code > ABS_HAT3Y)) {
++			fwnode_handle_put(child);
++			return dev_err_probe(dev, -EINVAL, "unsupported abs button %u\n", b->code);
++		}
++		i++;
++	}
++	return 0;
++}
++
++/* the home key sits on the lradc keyboard: report it as BTN_MODE on the pad */
++static void rgp_home_event(struct input_handle *handle, unsigned int type,
++			   unsigned int code, int value)
++{
++	struct rgp_joypad *jp = handle->handler->private;
++
++	if (type != EV_KEY || code != KEY_HOME)
++		return;
++	input_report_key(jp->input, BTN_MODE, value);
++	input_sync(jp->input);
++}
++
++static int rgp_home_connect(struct input_handler *handler, struct input_dev *dev,
++			    const struct input_device_id *id)
++{
++	struct input_handle *handle;
++	int ret;
++
++	if (strcmp(dev->name, "sunxi-keyboard"))
++		return -ENODEV;
++	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
++	if (!handle)
++		return -ENOMEM;
++	handle->dev = dev;
++	handle->handler = handler;
++	handle->name = "rgp_joypad_home";
++	ret = input_register_handle(handle);
++	if (ret)
++		goto err_free;
++	ret = input_open_device(handle);
++	if (ret)
++		goto err_unregister;
++	return 0;
++
++err_unregister:
++	input_unregister_handle(handle);
++err_free:
++	kfree(handle);
++	return ret;
++}
++
++static void rgp_home_disconnect(struct input_handle *handle)
++{
++	input_close_device(handle);
++	input_unregister_handle(handle);
++	kfree(handle);
++}
++
++static const struct input_device_id rgp_home_ids[] = {
++	{
++		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
++		.evbit = { BIT_MASK(EV_KEY) },
++		.keybit = { [BIT_WORD(KEY_HOME)] = BIT_MASK(KEY_HOME) },
++	},
++	{ }
++};
++
++static void rgp_home_unregister(void *data)
++{
++	input_unregister_handler(data);
++}
++
++/* the gpadc read helper has no NULL check: wait for gpadc0 to bind */
++static int rgp_gpadc_ready(struct device *dev)
++{
++	struct device_node *np;
++	struct platform_device *gp;
++	int ret = 0;
++
++	np = of_find_node_by_path("gpadc0");
++	if (!np)
++		return dev_err_probe(dev, -ENODEV, "no gpadc0 alias\n");
++	gp = of_find_device_by_node(np);
++	of_node_put(np);
++	if (!gp || !gp->dev.driver)
++		ret = -EPROBE_DEFER;
++	if (gp)
++		put_device(&gp->dev);
++	return ret;
++}
++
++static void rgp_rumble_work(struct work_struct *work)
++{
++	struct rgp_joypad *jp = container_of(work, struct rgp_joypad, rumble_work);
++	u16 level = READ_ONCE(jp->level);
++	struct pwm_state state;
++
++	pwm_init_state(jp->pwm, &state);
++	state.enabled = level != 0;
++	pwm_set_relative_duty_cycle(&state, jp->invert_rumble ? 0xffff - level : level, 0xffff);
++	pwm_apply_state(jp->pwm, &state);
++}
++
++static int rgp_rumble_play(struct input_dev *input, void *data, struct ff_effect *effect)
++{
++	struct rgp_joypad *jp = input_get_drvdata(input);
++	u32 level = 0;
++
++	if (effect->type != FF_RUMBLE)
++		return 0;
++	if (effect->u.rumble.strong_magnitude)
++		level = effect->u.rumble.strong_magnitude + jp->boost_strong;
++	else if (effect->u.rumble.weak_magnitude)
++		level = effect->u.rumble.weak_magnitude + jp->boost_weak;
++	WRITE_ONCE(jp->level, min_t(u32, level, 0xffff));
++	schedule_work(&jp->rumble_work);
++	return 0;
++}
++
++static void rgp_rumble_stop(void *data)
++{
++	struct rgp_joypad *jp = data;
++
++	cancel_work_sync(&jp->rumble_work);
++	pwm_disable(jp->pwm);
++}
++
++static int rgp_rumble_init(struct device *dev, struct rgp_joypad *jp)
++{
++	struct device_node *np = dev->of_node;
++	int ret;
++
++	jp->pwm = devm_pwm_get(dev, "enable");
++	if (IS_ERR(jp->pwm)) {
++		ret = PTR_ERR(jp->pwm);
++		jp->pwm = NULL;
++		/* rumble is optional */
++		return ret == -EPROBE_DEFER ? ret : 0;
++	}
++	of_property_read_u32(np, "rumble-boost-weak", &jp->boost_weak);
++	of_property_read_u32(np, "rumble-boost-strong", &jp->boost_strong);
++	jp->invert_rumble = of_property_read_bool(np, "invert-rumble");
++	INIT_WORK(&jp->rumble_work, rgp_rumble_work);
++
++	input_set_capability(jp->input, EV_FF, FF_RUMBLE);
++	ret = input_ff_create_memless(jp->input, NULL, rgp_rumble_play);
++	if (ret)
++		return ret;
++	return devm_add_action_or_reset(dev, rgp_rumble_stop, jp);
++}
++
++static int rgp_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct device_node *np = dev->of_node;
++	struct rgp_joypad *jp;
++	struct input_dev *input;
++	u32 v, fuzz = 0, flat = 0, interval = 10;
++	int i, ret;
++
++	ret = rgp_gpadc_ready(dev);
++	if (ret)
++		return ret;
++
++	jp = devm_kzalloc(dev, sizeof(*jp), GFP_KERNEL);
++	if (!jp)
++		return -ENOMEM;
++
++	jp->scale = 1;
++	if (!of_property_read_u32(np, "button-adc-scale", &v) && v)
++		jp->scale = v;
++	of_property_read_u32(np, "button-adc-deadzone", &jp->deadzone);
++	of_property_read_u32(np, "button-adc-fuzz", &fuzz);
++	of_property_read_u32(np, "button-adc-flat", &flat);
++	of_property_read_u32(np, "poll-interval", &interval);
++
++	ret = rgp_parse_buttons(dev, jp);
++	if (ret)
++		return ret;
++	ret = rgp_parse_axes(dev, jp);
++	if (ret)
++		return ret;
++
++	input = devm_input_allocate_device(dev);
++	if (!input)
++		return -ENOMEM;
++	jp->input = input;
++	input_set_drvdata(input, jp);
++
++	input->name = name;
++	input->phys = "rgp_joypad/input0";
++	input->id.bustype = BUS_HOST;
++	if (!of_property_read_u32(np, "joypad-vendor", &v))
++		input->id.vendor = v;
++	if (!of_property_read_u32(np, "joypad-product", &v))
++		input->id.product = v;
++	if (!of_property_read_u32(np, "joypad-revison", &v))
++		input->id.version = v;
++
++	for (i = 0; i < jp->nbuttons; i++) {
++		struct rgp_button *b = &jp->buttons[i];
++
++		if (b->type == EV_ABS)
++			input_set_abs_params(input, b->code, -1, 1, 0, 0);
++		else
++			input_set_capability(input, EV_KEY, b->code);
++	}
++	input_set_capability(input, EV_KEY, BTN_MODE);
++	for (i = 0; i < jp->naxes; i++)
++		input_set_abs_params(input, jp->axes[i].code,
++				     -RGP_AXIS_RANGE, RGP_AXIS_RANGE, fuzz, flat);
++
++	ret = rgp_rumble_init(dev, jp);
++	if (ret)
++		return ret;
++
++	ret = input_setup_polling(input, rgp_poll);
++	if (ret)
++		return ret;
++	input_set_poll_interval(input, interval);
++
++	ret = input_register_device(input);
++	if (ret)
++		return ret;
++
++	jp->home.event = rgp_home_event;
++	jp->home.connect = rgp_home_connect;
++	jp->home.disconnect = rgp_home_disconnect;
++	jp->home.name = "rgp_joypad_home";
++	jp->home.id_table = rgp_home_ids;
++	jp->home.private = jp;
++	ret = input_register_handler(&jp->home);
++	if (ret)
++		return ret;
++	ret = devm_add_action_or_reset(dev, rgp_home_unregister, &jp->home);
++	if (ret)
++		return ret;
++
++	dev_info(dev, "%d buttons, %d axes, poll %u ms%s\n", jp->nbuttons, jp->naxes, interval,
++		 jp->pwm ? ", rumble" : "");
++	return 0;
++}
++
++static const struct of_device_id rgp_of_match[] = {
++	{ .compatible = "rgp_joypad" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, rgp_of_match);
++
++static struct platform_driver rgp_driver = {
++	.probe = rgp_probe,
++	.driver = {
++		.name = "rgp_joypad",
++		.of_match_table = rgp_of_match,
++	},
++};
++module_platform_driver(rgp_driver);
++
++MODULE_DESCRIPTION("rgp_joypad gamepad (GPIO buttons + sunxi gpadc sticks + PWM rumble)");
++MODULE_LICENSE("GPL");

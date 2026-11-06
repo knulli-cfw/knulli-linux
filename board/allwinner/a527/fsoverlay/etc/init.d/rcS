@@ -9,6 +9,9 @@ read -r BOARD < /boot/boot/knulli.board
 case "$BOARD" in
     trimui-smart-pro-s)
         /usr/bin/progressbar_rk --pan --logo /usr/share/knulli/splash/boot-logo-1280x720.png & ;;
+    # Action Pi panel is turned the other way
+    helegaly-action-pi)
+        /usr/bin/progressbar_rk --rotate 180 & ;;
     *)                  /usr/bin/progressbar & ;;
 esac
 
@@ -34,7 +37,7 @@ for i in /etc/init.d/S??* ; do
             ;;
         *)
             case "$i" in
-                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06audio | *S06modprobe | *S11share | *S12populateshare) # Don't run these in background
+                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06audio | *S06modprobe | *S11share | *S12populateshare | *S13boarddefaults) # Don't run these in background
                     $i start
                     ;;
                 *)

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# Per-board knulli.conf defaults, written only when the user has not set the key
+
+BOARD=$(cat /boot/boot/knulli.board)
+
+setDefault() {
+    knulli-settings-get "$1" >/dev/null 2>&1 || knulli-settings-set "$1" "$2"
+}
+
+case $1 in
+    start)
+      case "$BOARD" in
+        # portrait 720x960 panel in a landscape device
+        helegaly-action-pi) setDefault display.rotate 1 ;;
+      esac
+      ;;
+esac
+
+exit 0

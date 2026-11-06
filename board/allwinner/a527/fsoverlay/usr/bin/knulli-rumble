@@ -29,6 +29,9 @@ case "$BOARD" in
     # Clamp to at least 0.2s so the pulse is felt
     awk -v d="$DURATION" 'BEGIN{ exit (d+0 < 0.2) ? 0 : 1 }' >/dev/null 2>&1 && DURATION="0.2"
     ;;
+  helegaly-action-pi)
+    DEVICE_NAME="Action Pi Controller"
+    ;;
   *)
     ;;
 esac

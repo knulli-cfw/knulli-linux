@@ -14,6 +14,11 @@ case "$1" in
       exit 1
     fi
 
+    # OTG with no ID pin (Action Pi) falls back to host; force device role
+    for role in /sys/devices/platform/soc*/*usbc0*/otg_role; do
+      [ -f "$role" ] && [ "$(cat "$role")" != "usb_device" ] && echo usb_device > "$role" && sleep 1
+    done
+
     # UDC: get the first available UDC device
     UDC=$(ls /sys/class/udc | head -n 1)
     if [ -z "$UDC" ]; then
