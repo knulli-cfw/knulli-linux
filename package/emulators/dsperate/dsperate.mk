@@ -3,8 +3,8 @@
 # dsperate
 #
 ################################################################################
-
-DSPERATE_VERSION = f5fa35ea19f966543feae086798701f134d89619
+# Pulled Oct 26, 2026
+DSPERATE_VERSION = e04b806b5c01527b08a8e7181476ada57e97db52
 DSPERATE_SITE = $(call github,beebono,DSperate,$(DSPERATE_VERSION))
 DSPERATE_LICENSE = GPL-3.0-or-later
 DSPERATE_LICENSE_FILES = LICENSE
