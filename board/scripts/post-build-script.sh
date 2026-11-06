@@ -325,8 +325,10 @@ fi
 
 # Ship ld.so.cache; the host ldconfig skips foreign-arch libs, so use the target's
 LDCONFIG="${TARGET_DIR}/sbin/ldconfig"
-QEMU="${HOST_DIR}/bin/qemu-aarch64"
-if [ -x "$LDCONFIG" ] && [ -x "$QEMU" ] && grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}"; then
+QEMU=
+grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}" && QEMU="${HOST_DIR}/bin/qemu-aarch64"
+grep -q "^BR2_arm=y$" "${BR2_CONFIG}" && QEMU="${HOST_DIR}/bin/qemu-arm"
+if [ -x "$LDCONFIG" ] && [ -n "$QEMU" ] && [ -x "$QEMU" ]; then
     rm -f "${TARGET_DIR}/etc/ld.so.cache"
     "$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -X -r "${TARGET_DIR}" || exit 1
     echo "ld.so.cache: $("$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -r "${TARGET_DIR}" -p | head -1)"
@@ -334,7 +336,7 @@ fi
 
 # Without plugins.dat, libvlc dlopens every plugin when ES starts
 VLC_CACHE_GEN="${TARGET_DIR}/usr/lib/vlc/vlc-cache-gen"
-if [ -x "$VLC_CACHE_GEN" ] && [ -x "$QEMU" ] && grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}"; then
+if [ -x "$VLC_CACHE_GEN" ] && [ -n "$QEMU" ] && [ -x "$QEMU" ]; then
     "$QEMU" -L "${TARGET_DIR}" "$VLC_CACHE_GEN" "${TARGET_DIR}/usr/lib/vlc/plugins" || exit 1
     echo "vlc plugins.dat: $(stat -c %s "${TARGET_DIR}/usr/lib/vlc/plugins/plugins.dat") bytes"
 fi
