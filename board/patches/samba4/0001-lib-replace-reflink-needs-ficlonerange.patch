@@ -1,0 +1,15 @@
+lib/replace: reflink needs FICLONERANGE
+
+Kernel headers before 4.5 pass the HAVE_LINUX_IOCTL check but lack it.
+
+--- a/lib/replace/replace.c
++++ b/lib/replace/replace.c
+@@ -1255,7 +1255,7 @@
+ 			 off_t dst_off,
+ 			 off_t to_copy)
+ {
+-#ifdef HAVE_LINUX_IOCTL
++#if defined(HAVE_LINUX_IOCTL) && defined(FICLONERANGE)
+ 	struct file_clone_range cr;
+ 
+ 	cr = (struct file_clone_range) {

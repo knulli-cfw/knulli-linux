@@ -1,0 +1,26 @@
+opus: no host assembler when cross-compiling
+
+check_language(ASM-ATT) finds the build host's as, which cannot assemble
+the ARM sources; without an assembler use the C/intrinsics paths.
+
+--- a/3rdparty/AudioCodecs/libopus/CMakeLists.txt
++++ b/3rdparty/AudioCodecs/libopus/CMakeLists.txt
+@@ -14,7 +14,8 @@
+ include(CheckLibraryExists)
+ include(CheckLanguage)
+ 
+-if(NOT MSVC)
++# cross builds would pick the host's as
++if(NOT MSVC AND (NOT CMAKE_CROSSCOMPILING OR CMAKE_ASM-ATT_COMPILER))
+   check_language(ASM-ATT)
+   if(CMAKE_ASM-ATT_COMPILER)
+     enable_language(ASM-ATT)
+@@ -504,7 +505,7 @@
+             message("-- Has AARCH_NEON_INTR: NO")
+         endif()
+ 
+-        if(FLOAT_POINT)
++        if(FLOAT_POINT AND (OPUS_ARM_GNU_ASM OR OPUS_ARM64_ARCHITECTURE))
+             set(OPUS_ARM_ASM 1)
+         endif()
+ 
