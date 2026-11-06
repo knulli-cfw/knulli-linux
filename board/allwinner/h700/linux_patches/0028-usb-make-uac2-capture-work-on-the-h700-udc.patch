@@ -1,0 +1,69 @@
+usb: make UAC2 capture work on the H700's sunxi UDC
+
+Two fixes for the host's sound reaching a UAC2 gadget (its capture
+side) on the H700:
+
+- sunxi-udc: the isochronous OUT endpoint (ep3-iso, FIFO at 4608, past
+  4K in the 8K layout) read back noise: one fixed word (0xb80100d9)
+  with random bits flipped, never what the host sent, while the packet
+  sizes and timing were right. The endpoints below 4K work. Use the
+  driver's 4K layout on sun50iw9, which puts ep3-iso at 2560, and drop
+  ep5 with it; bulk endpoints lose double buffering. Double-buffer
+  ep3-iso, as its 1K allows (two 512-byte halves), so the CPU has two
+  frames rather than one to empty it.
+
+- u_audio: the capture side copies req->actual bytes of each OUT packet
+  into the ring buffer. A packet cut short to a length that is not a
+  whole number of frames (seen: 145 bytes of a 192-byte packet) shifts
+  every later sample by that remainder, and the stream stays
+  misaligned, heard as loud noise, until another such packet shifts it
+  back. Round the length down to whole frames: a damaged packet then
+  loses part of a millisecond, nothing more.
+
+--- a/drivers/usb/gadget/function/u_audio.c	2026-11-06 14:38:58.290955647 -0500
++++ b/drivers/usb/gadget/function/u_audio.c	2026-11-06 14:38:58.272075859 -0500
+@@ -143,6 +143,13 @@
+ 		}
+ 
+ 		req->actual = req->length;
++	} else {
++		/*
++		 * Keep whole frames only: a packet cut short (an odd byte
++		 * count) would otherwise shift every later sample in the
++		 * ring buffer, turning the rest of the stream into noise.
++		 */
++		req->actual -= req->actual % frames_to_bytes(runtime, 1);
+ 	}
+ 
+ 	hw_ptr = prm->hw_ptr;
+--- a/drivers/usb/sunxi_usb/include/sunxi_udc.h	2026-11-06 14:38:58.291045741 -0500
++++ b/drivers/usb/sunxi_usb/include/sunxi_udc.h	2026-11-06 14:38:58.279062168 -0500
+@@ -102,7 +102,7 @@
+ 
+ #if defined(CONFIG_ARCH_SUN50IW1) || defined(CONFIG_ARCH_SUN50IW3) \
+ 	|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW15) \
+-	|| defined(CONFIG_ARCH_SUN50IW10) || defined(CONFIG_ARCH_SUN50IW9) \
++	|| defined(CONFIG_ARCH_SUN50IW10) \
+ 	|| defined(CONFIG_ARCH_SUN8IW20) || defined(CONFIG_ARCH_SUN20IW1)
+ /**
+  * fifo 8k
+@@ -153,7 +153,7 @@
+ 	{ep1out_bulk_name, 1024, 512,  0},
+ 	{ep2in_bulk_name,  1536, 512,  0},
+ 	{ep2out_bulk_name, 2048, 512,  0},
+-	{ep3_iso_name,     2560, 1024, 0},
++	{ep3_iso_name,     2560, 1024, 1},
+ 	{ep4_int_name,     3584, 512,  0},
+ };
+ #endif
+--- a/drivers/usb/sunxi_usb/udc/sunxi_udc.c	2026-11-06 14:38:58.291229071 -0500
++++ b/drivers/usb/sunxi_usb/udc/sunxi_udc.c	2026-11-06 14:38:58.287379139 -0500
+@@ -3245,7 +3245,7 @@
+ 
+ #if defined(CONFIG_ARCH_SUN50IW1) || defined(CONFIG_ARCH_SUN50IW3) \
+ 	|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW15) \
+-	|| defined(CONFIG_ARCH_SUN50IW10) || defined(CONFIG_ARCH_SUN50IW9) \
++	|| defined(CONFIG_ARCH_SUN50IW10) \
+ 	|| defined(CONFIG_ARCH_SUN8IW20) || defined(CONFIG_ARCH_SUN20IW1)
+ 	.ep[7] = {
+ 		.num			= 5,

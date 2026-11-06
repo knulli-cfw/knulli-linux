@@ -1,0 +1,53 @@
+usb: gadget: f_uac2: make the speaker work on Windows
+
+Two things keep Windows usbaudio2 from playing to the capture (host to
+device) side of this f_uac2:
+
+- The OUT endpoint is marked asynchronous, but this f_uac2 predates the
+  feedback endpoint (5.12). usbaudio2 needs explicit feedback for an
+  asynchronous OUT endpoint and fails to start (problem 0xA). Adaptive
+  needs none (the host clock leads), and is what later kernels offer as
+  c_sync=adaptive.
+- The I/O terminals are typed Input/Output Terminal, Undefined (0x0200,
+  0x0300). usbaudio2 starts on such a function but exposes no audio
+  endpoint for an undefined terminal. Later kernels type them
+  Microphone (0x0201) and Speaker (0x0301), as here.
+
+--- a/drivers/usb/gadget/function/f_uac2.c	2026-11-06 14:38:58.290830494 -0500
++++ b/drivers/usb/gadget/function/f_uac2.c	2026-11-06 14:38:58.264539490 -0500
+@@ -176,7 +176,7 @@
+ 
+ 	.bDescriptorSubtype = UAC_INPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_INPUT_TERMINAL_UNDEFINED),
++	.wTerminalType = cpu_to_le16(UAC_INPUT_TERMINAL_MICROPHONE),
+ 	.bAssocTerminal = 0,
+ 	/* .bCSourceID = DYNAMIC */
+ 	.iChannelNames = 0,
+@@ -204,7 +204,7 @@
+ 
+ 	.bDescriptorSubtype = UAC_OUTPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_UNDEFINED),
++	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),
+ 	.bAssocTerminal = 0,
+ 	/* .bSourceID = DYNAMIC */
+ 	/* .bCSourceID = DYNAMIC */
+@@ -273,7 +273,7 @@
+ 	.bDescriptorType = USB_DT_ENDPOINT,
+ 
+ 	.bEndpointAddress = USB_DIR_OUT,
+-	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
++	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE,
+ 	/* .wMaxPacketSize = DYNAMIC */
+ 	.bInterval = 1,
+ };
+@@ -282,7 +282,7 @@
+ 	.bLength = USB_DT_ENDPOINT_SIZE,
+ 	.bDescriptorType = USB_DT_ENDPOINT,
+ 
+-	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
++	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE,
+ 	/* .wMaxPacketSize = DYNAMIC */
+ 	.bInterval = 4,
+ };
