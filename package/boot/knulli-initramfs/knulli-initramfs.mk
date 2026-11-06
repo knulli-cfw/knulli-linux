@@ -49,6 +49,17 @@ ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_T527),y)
 BATOCERA_INITRAMFS_INITRDA=arm
 endif
 
+# A527: the vendor eMMC U-Boot does not pass the boot image ramdisk; build it into the kernel
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_T527),y)
+$(LINUX_TARGET_BUILD): | knulli-initramfs
+define KNULLI_INITRAMFS_LINUX_BUILTIN
+	$(call KCONFIG_SET_OPT,CONFIG_INITRAMFS_SOURCE,"$(INITRAMFS_DIR) $(LINUX_DIR)/usr/default_cpio_list",$(LINUX_DIR)/.config)
+	# default the options that only exist once a source is set, or the build prompts
+	$(LINUX_MAKE_ENV) $(BR2_MAKE) $(LINUX_KCONFIG_OPTS) -C $(LINUX_DIR) olddefconfig
+endef
+LINUX_PRE_BUILD_HOOKS += KNULLI_INITRAMFS_LINUX_BUILTIN
+endif
+
 ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_SM4450),y)
 KNULLI_INITRAMFS_DEPENDENCIES += alllinuxfirmwares
 define KNULLI_INITRAMFS_SM4450_EARLY_FIRMWARE
