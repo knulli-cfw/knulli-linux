@@ -166,5 +166,13 @@ mixer $card 'AIU SPDIF SRC SEL' 'SPDIF'
 # Odroid Go Advance Speaker
 mixer $card 'Playback Path' 'SPK'
 
+# RG DS / DS Plus: rk817 mic is off until a path is set; boost to 3 (+30 dB)
+case "$(cat /boot/boot/knulli.board 2>/dev/null)" in
+	rg-ds|rg-ds-plus)
+		amixer -c "$card" cset name='Capture MIC Path' 'Main Mic' >/dev/null 2>&1
+		amixer -c "$card" cset name='MIC Boost Gain' 3,3 >/dev/null 2>&1
+		;;
+esac
+
 exit 0
 )&
