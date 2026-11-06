@@ -53,6 +53,7 @@ _GENERATOR_MAP: Final[dict[str, tuple[str, str]]] = {
     'advanced_drastic': ('advanced_drastic.advanced_drasticGenerator', 'Advanced_DrasticGenerator'),
     'amiberry-lite': ('amiberry_lite.amiberry_liteGenerator', 'AmiberryLiteGenerator'),
     'dsperate': ('dsperate.dsperateGenerator', 'DsperateGenerator'),
+    'mupen64plus-pow2': ('mupen64plus_pow2.mupen64plus_pow2Generator', 'Mupen64plusPow2Generator'),
 }
 
 

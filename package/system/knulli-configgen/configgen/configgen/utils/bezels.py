@@ -29,6 +29,9 @@ def toAspectRatio(width: int, height: int) -> str:
     ratio = math.gcd(width, height)
     x = int(width / ratio)
     y = int(height / ratio)
+    # odd panels (960x544 = 30_17) snap to the nearest ratio the bezel sets ship
+    if y > 10:
+        x, y = min(((16, 9), (4, 3), (3, 2), (1, 1)), key=lambda r: abs(r[0] / r[1] - width / height))
     return str(x) + "_" + str(y)
 
 def getBezelInfos(rom: str | Path, bezel: str, systemName: str, emulator: str) -> BezelInfos | None:
