@@ -111,6 +111,13 @@ define MALI_LIBS_BUILD_CMDS
     cp $(@D)/lib/$(MALI_LIBS_ARCH)/$(MALI_LIBS_SO_NAME) $(@D)/build-hook/libmali-blob.so.1
     $(HOST_DIR)/bin/patchelf --set-soname libmali-blob.so.1 $(@D)/build-hook/libmali-blob.so.1
 
+    # Route the blob's drmModeGetResources to the hook's knlModeGetResources (drmconn.c).
+    off=$$(LC_ALL=C grep -a -o -b -P '\x00drmModeGetResources\x00' $(@D)/build-hook/libmali-blob.so.1 | cut -d: -f1); \
+    if [ -n "$$off" ]; then \
+        [ $$(echo "$$off" | wc -l) -eq 1 ] || { echo "mali-libs: drmModeGetResources not unique" >&2; exit 1; }; \
+        printf knl | dd of=$(@D)/build-hook/libmali-blob.so.1 bs=1 seek=$$((off + 1)) conv=notrunc status=none; \
+    fi
+
     # Hook library, against the blob it wraps.
     defs=""; \
     for f in $(MALI_LIBS_HOOK_FUNCS); do \
@@ -120,7 +127,7 @@ define MALI_LIBS_BUILD_CMDS
     $(TARGET_CC) $(TARGET_CFLAGS) -shared -fPIC -o $(@D)/build-hook/libmali-hook.so.1 \
         -Wl,-soname,libmali-hook.so.1 -DHAS_EGL -DHAS_GBM $$defs \
         '-DLIBMALI_SO="libmali-blob.so.1"' -I$(@D)/include -I$$(cat $(@D)/.gbm-dir) \
-        -I$(STAGING_DIR)/usr/include/libdrm $(@D)/hook/hook.c \
+        -I$(STAGING_DIR)/usr/include/libdrm $(@D)/hook/hook.c $(MALI_LIBS_PKGDIR)/drmconn.c \
         -L$(@D)/build-hook -l:libmali-blob.so.1 -ldrm -ldl -lpthread
 
     # Wrappers: empty libraries that pull in the hook, then the blob.

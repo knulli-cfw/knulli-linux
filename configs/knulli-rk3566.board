@@ -49,6 +49,7 @@ BR2_PACKAGE_ROCKCHIP_RKBIN_BL31_FILENAME="bin/rk35/rk3568_bl31_v1.45.elf"
 
 # System
 BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
+# BR2_PACKAGE_LVM2_STANDARD_INSTALL is not set
 
 # GPU - Using proprietary Mali blob via mali-libs package (kernel has no Panfrost support)
 BR2_PACKAGE_MALI_LIBS=y
