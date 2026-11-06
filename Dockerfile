@@ -7,6 +7,7 @@ RUN dpkg --add-architecture i386 && \
 		libstdc++6:i386 \
 		build-essential \
 		bsdextrautils \
+		bsdmainutils \
 		cmake \
 		git \
 		libncurses6 \
