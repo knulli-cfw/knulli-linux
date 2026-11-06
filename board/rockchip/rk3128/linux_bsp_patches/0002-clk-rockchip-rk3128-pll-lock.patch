@@ -1,0 +1,111 @@
+clk: rockchip: rk3128: keep apll on, GRF lock fallback, power cycle, restore once
+
+diff --git a/drivers/clk/rockchip/clk-pll.c b/drivers/clk/rockchip/clk-pll.c
+index f6d9d199a..1e219a6d4 100644
+--- a/drivers/clk/rockchip/clk-pll.c
++++ b/drivers/clk/rockchip/clk-pll.c
+@@ -531,8 +531,12 @@ static int rockchip_rk3036_pll_wait_lock(struct rockchip_clk_pll *pll)
+ 					 pllcon,
+ 					 pllcon & RK3036_PLLCON1_LOCK_STATUS,
+ 					 0, 1000);
++	/* rk3128: lock status is reported in GRF_SOC_STATUS0 */
++	if (ret && !IS_ERR_OR_NULL(pll->ctx->grf))
++		ret = rockchip_pll_wait_lock(pll);
+ 	if (ret)
+-		pr_err("%s: timeout waiting for pll to lock\n", __func__);
++		pr_err("%s: %s: timeout waiting for pll to lock\n", __func__,
++		       clk_hw_get_name(&pll->hw));
+ 
+ 	return ret;
+ }
+@@ -614,8 +618,9 @@ static unsigned long rockchip_rk3036_pll_recalc_rate(struct clk_hw *hw,
+ 	return (unsigned long)rate64;
+ }
+ 
+-static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+-				const struct rockchip_pll_rate_table *rate)
++static int __rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
++				const struct rockchip_pll_rate_table *rate,
++				bool restore)
+ {
+ 	const struct clk_ops *pll_mux_ops = pll->pll_mux_ops;
+ 	struct clk_mux *pll_mux = &pll->pll_mux;
+@@ -623,6 +628,7 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 	u32 pllcon;
+ 	int rate_change_remuxed = 0;
+ 	int cur_parent;
++	bool pll_on;
+ 	int ret;
+ 
+ 	pr_debug("%s: rate settings for %lu fbdiv: %d, postdiv1: %d, refdiv: %d, postdiv2: %d, dsmpd: %d, frac: %d\n",
+@@ -631,6 +637,8 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 
+ 	rockchip_rk3036_pll_get_params(pll, &cur);
+ 	cur.rate = 0;
++	pll_on = !(readl(pll->reg_base + RK3036_PLLCON(1)) &
++		   RK3036_PLLCON1_PWRDOWN);
+ 
+ 	if (!(pll->flags & ROCKCHIP_PLL_FIXED_MODE)) {
+ 		cur_parent = pll_mux_ops->get_parent(&pll_mux->hw);
+@@ -640,6 +648,11 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 		}
+ 	}
+ 
++	/* set pll power down */
++	writel(HIWORD_UPDATE(RK3036_PLLCON1_PWRDOWN,
++			     RK3036_PLLCON1_PWRDOWN, 0),
++	       pll->reg_base + RK3036_PLLCON(1));
++
+ 	/* update pll values */
+ 	writel_relaxed(HIWORD_UPDATE(rate->fbdiv, RK3036_PLLCON0_FBDIV_MASK,
+ 					  RK3036_PLLCON0_FBDIV_SHIFT) |
+@@ -664,12 +677,20 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 	if (IS_ENABLED(CONFIG_ROCKCHIP_CLK_BOOST))
+ 		rockchip_boost_disable_low(pll);
+ 
++	/* a disabled pll stays powered down */
++	if (!pll_on)
++		return 0;
++
++	/* set pll power up */
++	writel(HIWORD_UPDATE(0, RK3036_PLLCON1_PWRDOWN, 0),
++	       pll->reg_base + RK3036_PLLCON(1));
++
+ 	/* wait for the pll to lock */
+ 	ret = rockchip_rk3036_pll_wait_lock(pll);
+-	if (ret) {
++	if (ret && restore) {
+ 		pr_warn("%s: pll update unsuccessful, trying to restore old params\n",
+ 			__func__);
+-		rockchip_rk3036_pll_set_params(pll, &cur);
++		__rockchip_rk3036_pll_set_params(pll, &cur, false);
+ 	}
+ 
+ 	if (rate_change_remuxed)
+@@ -678,6 +699,12 @@ static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
+ 	return ret;
+ }
+ 
++static int rockchip_rk3036_pll_set_params(struct rockchip_clk_pll *pll,
++				const struct rockchip_pll_rate_table *rate)
++{
++	return __rockchip_rk3036_pll_set_params(pll, rate, true);
++}
++
+ static int rockchip_rk3036_pll_set_rate(struct clk_hw *hw, unsigned long drate,
+ 					unsigned long prate)
+ {
+diff --git a/drivers/clk/rockchip/clk-rk3128.c b/drivers/clk/rockchip/clk-rk3128.c
+index d07072ca7..684030aa0 100644
+--- a/drivers/clk/rockchip/clk-rk3128.c
++++ b/drivers/clk/rockchip/clk-rk3128.c
+@@ -218,7 +218,8 @@ static struct rockchip_clk_branch common_clk_branches[] __initdata = {
+ 	FACTOR(0, "clk_ddrphy", "ddrphy2x", 0, 1, 2),
+ 
+ 	/* PD_CORE */
+-	GATE(0, "apll_core", "apll", CLK_IGNORE_UNUSED,
++	/* keep apll on: armclk users enable/disable it */
++	GATE(0, "apll_core", "apll", CLK_IS_CRITICAL,
+ 			RK2928_CLKGATE_CON(0), 6, GFLAGS),
+ 	GATE(0, "gpll_div2_core", "gpll_div2", CLK_IGNORE_UNUSED,
+ 			RK2928_CLKGATE_CON(0), 6, GFLAGS),

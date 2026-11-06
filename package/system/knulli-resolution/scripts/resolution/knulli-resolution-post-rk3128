@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # use for syntax only
 PSCREEN=
@@ -11,9 +11,10 @@ fi
 
 ACTION=$1
 PARAM=$2
+test "${ACTION}" = "setOutput" || exit 0
 INTERNALCARD=$(cat /boot/boot/knulli.board)
 
-if test "${INTERNALCARD}" = "p5000"
+if test "${INTERNALCARD}" = "ps5000"
 then
 	CONNECTORNAME="DSI" # For PS5000
 else

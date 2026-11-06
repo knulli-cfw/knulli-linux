@@ -1,0 +1,57 @@
+diff --git a/arch/arm/dts/rk3128-wx8.dtsi b/arch/arm/dts/rk3128-wx8.dtsi
+--- a/arch/arm/dts/rk3128-wx8.dtsi
++++ b/arch/arm/dts/rk3128-wx8.dtsi
+@@ -147,7 +147,7 @@
+ 	max-frequency = <37500000>;
+ 	num-slots = <1>;
+ 
+-	bus-width = <1>;
++	bus-width = <4>;
+ };
+ 
+ &sfc {
+diff --git a/arch/arm/mach-rockchip/rk3128/rk3128.c b/arch/arm/mach-rockchip/rk3128/rk3128.c
+--- a/arch/arm/mach-rockchip/rk3128/rk3128.c
++++ b/arch/arm/mach-rockchip/rk3128/rk3128.c
+@@ -9,6 +9,7 @@
+ #include <asm/arch/grf_rk3128.h>
+ 
+ #define GRF_GPIO1C_IOMUX		0x200080c0
++#define GRF_SOC_CON0			0x20008140
+ #define SDMMC_INTMASK			0x10214024
+ #define READLATENCY_VAL			0x3f
+ #define BUS_MSCH_QOS_BASE		0x10128014
+@@ -30,6 +31,9 @@
+ 	/* Set GPIO1_C1 iomux to gpio, default sdcard_detn */
+ 	writel(0x00040000, GRF_GPIO1C_IOMUX);
+ 
++	/* Disable auto jtag switching on sdmmc d2/d3 */
++	writel(0x01000000, GRF_SOC_CON0);
++
+ #ifdef CONFIG_ROCKCHIP_RK3126
+ 	/*
+ 	 * Disable interrupt, otherwise it always generates wakeup signal. This
+diff --git a/drivers/mmc/dw_mmc.c b/drivers/mmc/dw_mmc.c
+--- a/drivers/mmc/dw_mmc.c
++++ b/drivers/mmc/dw_mmc.c
+@@ -222,8 +222,10 @@
+ 
+ 		if (host->fifo_mode && size) {
+ 			len = 0;
++			/* small reads end below the rx watermark: drain on dto */
+ 			if (data->flags == MMC_DATA_READ &&
+-			    (mask & DWMCI_INTMSK_RXDR)) {
++			    ((mask & DWMCI_INTMSK_RXDR) ||
++			     (!stride && (mask & DWMCI_INTMSK_DTO)))) {
+ 				while (size) {
+ 					len = dwmci_readl(host, DWMCI_STATUS);
+ 					len = (len >> DWMCI_FIFO_SHIFT) &
+@@ -231,6 +233,8 @@
+ 					len = min(size, len);
+ 					if (!stride) {
+ 						/* Legacy pio mode */
++						if (!len)
++							break;
+ 						for (i = 0; i < len; i++)
+ 							*buf++ = dwmci_readl(host, DWMCI_DATA);
+ 						goto read_again;

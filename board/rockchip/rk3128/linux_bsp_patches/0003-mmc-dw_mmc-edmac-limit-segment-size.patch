@@ -1,0 +1,33 @@
+mmc: dw_mmc: fit EDMAC segments and MSIZE to the pl330
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index ca68e43b5..6f28f9ca8 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -1049,6 +1049,10 @@ static void dw_mci_adjust_fifoth(struct dw_mci *host, struct mmc_data *data)
+ 	tx_wmark = (host->fifo_depth) / 2;
+ 	tx_wmark_invers = host->fifo_depth - tx_wmark;
+ 
++	/* pl330 bursts are at most 16 beats; keep MSIZE within that */
++	if (host->use_dma == TRANS_MODE_EDMAC)
++		idx = 3;
++
+ 	/*
+ 	 * MSIZE is '1',
+ 	 * if blksz is not a multiple of the FIFO width
+@@ -3184,12 +3188,13 @@ static int dw_mci_init_slot(struct dw_mci *host)
+ 		mmc->max_req_size = mmc->max_seg_size * host->ring_size;
+ 		mmc->max_blk_count = mmc->max_req_size / 512;
+ 	} else if (host->use_dma == TRANS_MODE_EDMAC) {
+-		mmc->max_segs = 64;
++		/* rockchip pl330 merges all segments into one microcode buffer */
++		mmc->max_segs = 32;
+ 		mmc->max_blk_size = 65535;
+ 		mmc->max_blk_count = 65535;
+ 		mmc->max_req_size =
+ 				mmc->max_blk_size * mmc->max_blk_count;
+-		mmc->max_seg_size = mmc->max_req_size;
++		mmc->max_seg_size = SZ_64K;
+ 	} else {
+ 		/* TRANS_MODE_PIO */
+ 		mmc->max_segs = 64;

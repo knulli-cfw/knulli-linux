@@ -1,0 +1,26 @@
+exfat: readahead the allocation bitmap at mount
+
+diff --git a/fs/exfat/balloc.c b/fs/exfat/balloc.c
+index 32209acd5..9fbf3f9c0 100644
+--- a/fs/exfat/balloc.c
++++ b/fs/exfat/balloc.c
+@@ -52,6 +52,7 @@ static int exfat_allocate_bitmap(struct super_block *sb,
+ 	long long map_size;
+ 	unsigned int i, need_map_size;
+ 	sector_t sector;
++	struct blk_plug plug;
+ 
+ 	sbi->map_clu = le32_to_cpu(ep->dentry.bitmap.start_clu);
+ 	map_size = le64_to_cpu(ep->dentry.bitmap.size);
+@@ -75,6 +76,11 @@ static int exfat_allocate_bitmap(struct super_block *sb,
+ 		return -ENOMEM;
+ 
+ 	sector = exfat_cluster_to_sector(sbi, sbi->map_clu);
++	/* queue the whole bitmap so the reads merge */
++	blk_start_plug(&plug);
++	for (i = 0; i < sbi->map_sectors; i++)
++		sb_breadahead(sb, sector + i);
++	blk_finish_plug(&plug);
+ 	for (i = 0; i < sbi->map_sectors; i++) {
+ 		sbi->vol_amap[i] = sb_bread(sb, sector + i);
+ 		if (!sbi->vol_amap[i]) {

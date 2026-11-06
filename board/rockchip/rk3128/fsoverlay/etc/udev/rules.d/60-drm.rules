@@ -1,1 +1,1 @@
-SUBSYSTEM=="drm", ACTION=="add|change", RUN+="/usr/bin/-resolution-post setOutput auto"
+SUBSYSTEM=="drm", ACTION=="add|change", RUN+="/usr/bin/knulli-resolution-post setOutput auto"

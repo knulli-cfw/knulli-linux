@@ -1,0 +1,43 @@
+################################################################################
+#
+# uboot-powkiddy-a13
+#
+################################################################################
+
+UBOOT_POWKIDDY_A13_VERSION = powkiddy-a13
+UBOOT_POWKIDDY_A13_SITE = \
+    $(call github,alpgarcia,caesar-u-boot,$(UBOOT_POWKIDDY_A13_VERSION))
+UBOOT_POWKIDDY_A13_LICENSE = GPLv2
+UBOOT_POWKIDDY_A13_BOOT_SRC = idbloader.img uboot.img:uboot-powkiddy-a13.img trust.img
+UBOOT_POWKIDDY_A13_BINARIES_SUBDIR =
+
+# hangs at display init when built with gcc 14
+UBOOT_POWKIDDY_A13_DEPENDENCIES = rk3128-blobs host-toolchain-optional-linaro-armhf
+
+define UBOOT_POWKIDDY_A13_BUILD_CMDS
+    # FIXME: there should be a better way to build
+    # Build uboot for wx8-rk3128
+    cd $(@D) && ARCH=arm CHIP=rk3128 \
+        CROSS_COMPILE=$(TOOLCHAIN_OPTIONAL_LINARO_ARMHF_PREFIX) \
+        make powkiddy-a13-rk3128_defconfig
+    cd $(@D) && ARCH=arm CHIP=rk3128 \
+        CROSS_COMPILE=$(TOOLCHAIN_OPTIONAL_LINARO_ARMHF_PREFIX) make
+
+    # Generate idbloader.img
+    $(@D)/tools/mkimage -n rk3128 -T rksd -d \
+        $(BINARIES_DIR)/rkbin/bin/rk31/rk3128_ddr_300MHz_v2.12.bin \
+        $(@D)/idbloader.img
+    cat $(BINARIES_DIR)/rkbin/bin/rk31/rk3128x_miniloader_v2.57.bin >> \
+        $(@D)/idbloader.img
+
+    # Generate uboot.img
+    $(@D)/tools/loaderimage --pack --uboot $(@D)/u-boot-dtb.bin \
+        $(@D)/uboot.img --size 1024 4
+
+    # Generate trust.img
+    $(@D)/tools/loaderimage --pack --trustos \
+        $(BINARIES_DIR)/rkbin/bin/rk31/rk3126_tee_ta_v2.01.bin \
+        $(@D)/trust.img --size 1024 4
+endef
+
+$(eval $(boot-package))
