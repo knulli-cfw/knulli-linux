@@ -62,7 +62,7 @@ case "$1" in
       echo "$product" > $GADGET/strings/0x409/product
 
       # find the SHARE partitionpartition
-      lastpart=$(-part share)
+      lastpart=$(knulli-part share)
 
       # create mass storage function
       mkdir -p $GADGET/functions/mass_storage.0
