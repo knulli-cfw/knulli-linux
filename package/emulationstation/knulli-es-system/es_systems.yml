@@ -236,6 +236,8 @@ n64:
       gliden64:   { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_GLIDEN64], incompatible_extensions: [zip, 7z] }
       glide64mk2: { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_VIDEO_GLIDE64MK2], incompatible_extensions: [zip, 7z] }
       rice:       { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_VIDEO_RICE], incompatible_extensions: [zip, 7z] }
+    mupen64plus-pow2:
+      pow2:       { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_POW2], incompatible_extensions: [zip, 7z] }
     libretro:
       mupen64plus-next: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MUPEN64PLUS_NEXT] }
       parallel_n64:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PARALLEL_N64] }

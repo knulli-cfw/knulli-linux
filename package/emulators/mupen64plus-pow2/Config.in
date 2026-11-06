@@ -1,0 +1,14 @@
+config BR2_PACKAGE_MUPEN64PLUS_POW2
+	bool "mupen64plus-pow2"
+	depends on BR2_aarch64
+	depends on BR2_INSTALL_LIBSTDCPP
+	select BR2_PACKAGE_SDL2
+	select BR2_PACKAGE_LIBPNG
+	select BR2_PACKAGE_ZLIB
+	help
+	  One static Mupen64Plus executable for aarch64 handhelds: the
+	  core, the console front-end and the foir (software RDP),
+	  arMLEt (RSP), altru (audio) and suxty (input, in-game menu)
+	  plugins, linked with LTO.
+
+	  https://github.com/beebono/mupen64plus-pow2
