@@ -17,6 +17,7 @@
 81_libretro.so                        BR2_PACKAGE_LIBRETRO_81
 a5200_libretro.so                     BR2_PACKAGE_LIBRETRO_A5200
 arduous_libretro.so                   BR2_PACKAGE_LIBRETRO_ARDUOUS
+armgba_libretro.so                    BR2_PACKAGE_LIBRETRO_ARMGBA
 atari800_libretro.so                  BR2_PACKAGE_LIBRETRO_ATARI800
 azahar_libretro.so                    BR2_PACKAGE_LIBRETRO_AZAHAR
 beetle-saturn_libretro.so             BR2_PACKAGE_LIBRETRO_BEETLE_SATURN

@@ -1,4 +1,5 @@
 arduous libretro-arduous https://github.com/libretro/arduous.git main YES CMAKE Makefile build
+armgba libretro-armgba https://github.com/MagnominusGit/armGBA.git main@e4b8d8e267ca0ecb85e4b8223197239e4a903c26 YES CMAKE Makefile build
 easyrpg libretro-easyrpg https://github.com/EasyRPG/Player.git master@409a0bff37f0049f93286ee2019d851301eb7506 YES CMAKE Makefile build
 flycast libretro-flycast https://github.com/flyinghead/flycast master YES CMAKE Makefile build
 melondsds libretro-melondsds https://github.com/JesseTG/melonds-ds.git main YES CMAKE Makefile build

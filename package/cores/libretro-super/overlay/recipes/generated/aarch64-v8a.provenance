@@ -4,7 +4,7 @@ profile  profiles/aarch64-v8a.profile   (ARCH_CLASS arm64)
 devices  a133 h700 rk3326 rk3576 
 coresets tier1 tier2 tier3 tier4-cmake arm64-only
 args     coreargs/cores.args, scopes: any + arm64
-cores    134
+cores    135
 
 The ARM_NEON / CORTEX_A9 / ARM_HARDFLOAT conf keys are deliberately absent.
 They append to FORMAT_COMPILER_TARGET at libretro-buildbot-recipe.sh:104-108,

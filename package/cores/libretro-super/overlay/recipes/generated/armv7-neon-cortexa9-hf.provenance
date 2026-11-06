@@ -4,7 +4,7 @@ profile  profiles/armv7-neon-cortexa9-hf.profile   (ARCH_CLASS arm32)
 devices  atm7039 
 coresets tier1 tier2 tier3 tier4-cmake
 args     coreargs/cores.args, scopes: any + arm32
-cores    126
+cores    127
 
 The ARM_NEON / CORTEX_A9 / ARM_HARDFLOAT conf keys are deliberately absent.
 They append to FORMAT_COMPILER_TARGET at libretro-buildbot-recipe.sh:104-108,

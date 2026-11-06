@@ -277,6 +277,7 @@ gba:
       vba-m:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_M] }
       vba_next: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_NEXT] }
       gpsp:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_GPSP] }
+      armgba: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gba
   comment_fr: |
@@ -298,6 +299,7 @@ gbc:
       mesen-s:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MESENS] }
       sameboy:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SAMEBOY] }
       doublecherrygb: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_DOUBLECHERRYGB] }
+      armgba:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gbc
   comment_fr: |
@@ -319,6 +321,7 @@ gb:
       mesen-s:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MESENS] }
       sameboy:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SAMEBOY] }
       doublecherrygb: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_DOUBLECHERRYGB] }
+      armgba:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gb
   comment_fr: |

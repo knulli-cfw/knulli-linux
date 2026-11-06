@@ -636,6 +636,9 @@ libretro:
                     "On (forced)": WRX
     arduous:
       features: [cheevos]
+    armgba:
+      features: [cheevos]
+      shared: [rewind, autosave]
     atari800:
       features: [padtokeyboard]
       systems:
