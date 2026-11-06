@@ -9,7 +9,12 @@ KNULLI_OVERRIDE_PACKAGES = libretro-flycastvl es-background-musics retroarch-ass
 							rocknix-abl rocknix-joypad libretro-gearcoleco \
 							cargo-c sdl3 wildmidi \
 							ppsspp mangohud toolchain-optional-linaro-aarch64 \
-							uboot-rk3326 rk915
+							uboot-rk3326 rk915 \
+							uboot-ps5000 uboot-ps7000 uboot-powkiddy-a13 \
+							mali-mp400-gbm
+
+# boot-package infra (rk3128 u-boot packages)
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/package/batocera/pkg-boot.mk
 
 # Knulli packages
 include $(sort $(wildcard $(BR2_EXTERNAL_KNULLI_PATH)/package/audio/*/*.mk \
