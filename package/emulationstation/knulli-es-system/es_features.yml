@@ -8831,6 +8831,9 @@ moonlight:
                 "5.1": "5.1"
                 "7.1": "7.1"
 
+mupen64plus-pow2:
+  shared: [powermode, tdp, videomode, hud, hud_corner]
+
 mupen64plus:
   shared: [powermode, tdp, videomode, bezel, bezel_stretch, hud, hud_corner, bezel.tattoo, bezel.tattoo_corner, bezel.tattoo_file, bezel.resize_tattoo]
   cfeatures:

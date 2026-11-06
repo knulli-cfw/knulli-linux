@@ -132,12 +132,12 @@ case "$ARCH" in
         ;;
     a527)
         BOARD_CAPABILITIES[rgb]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[wifi]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[bluetooth]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[analogstick]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[rumble]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[adb]="trimui-smart-pro-s"
-        BOARD_CAPABILITIES[hud]="trimui-smart-pro-s"
+        BOARD_CAPABILITIES[wifi]="trimui-smart-pro-s helegaly-action-pi"
+        BOARD_CAPABILITIES[bluetooth]="trimui-smart-pro-s helegaly-action-pi"
+        BOARD_CAPABILITIES[analogstick]="trimui-smart-pro-s helegaly-action-pi"
+        BOARD_CAPABILITIES[rumble]="trimui-smart-pro-s helegaly-action-pi"
+        BOARD_CAPABILITIES[adb]="trimui-smart-pro-s helegaly-action-pi"
+        BOARD_CAPABILITIES[hud]="trimui-smart-pro-s helegaly-action-pi"
         BOARD_CAPABILITIES[fan]="trimui-smart-pro-s"
         BOARD_CAPABILITIES[toggleswitch]="trimui-smart-pro-s"
         ;;
