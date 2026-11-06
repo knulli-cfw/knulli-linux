@@ -127,6 +127,8 @@ kronos         any    HAVE_SSE=0
 # passes exactly this for BR2_aarch64.  Literal, not ${UNAME_M}: the Makefile
 # tests for "arm64", while uname -m on this target reports "aarch64".
 emuscv         arm64  ARCH=arm64 -j1
+# generated res/*.data.h races a parallel build
+emuscv         arm32  -j1
 
 # Makefile:63 "ARCH = $(shell uname -m)" feeds :67 "WITH_DYNAREC ?= $(ARCH)",
 # so the host arch picks the DYNAREC: x86_64 selects the x86 one and its -msse.
@@ -322,6 +324,8 @@ mgba  any  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release 
 # melondsds: without these it configures for desktop GL and melonDS's
 # OpenGLSupport.h fails on GLuint.  Same pair the knulli package passes.
 melondsds  any  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DENABLE_EGL=ON -DENABLE_OPENGL=OFF
+# melonDS has no arm32 JIT backend
+melondsds  arm32  -DENABLE_JIT=OFF
 
 # yabasanshiro: the profile's platform=unix makes its Makefile emit -mfpmath=sse,
 # which aarch64 gcc rejects.  CORE_ARGS land AFTER `platform=` on the make line
