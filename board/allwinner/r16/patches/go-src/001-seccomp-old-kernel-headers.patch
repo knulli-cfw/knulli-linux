@@ -1,0 +1,20 @@
+--- a/src/crypto/internal/sysrand/internal/seccomp/seccomp_linux.go
++++ b/src/crypto/internal/sysrand/internal/seccomp/seccomp_linux.go
+@@ -12,6 +12,17 @@
+ #include <unistd.h>
+ #include <stdint.h>
+ 
++// 3.4 kernel headers lack these; arm EABI numbers
++#ifndef PR_SET_NO_NEW_PRIVS
++#define PR_SET_NO_NEW_PRIVS 38
++#endif
++#if defined(__arm__) && !defined(SYS_getrandom)
++#define SYS_getrandom 384
++#endif
++#if defined(__arm__) && !defined(SYS_seccomp)
++#define SYS_seccomp 383
++#endif
++
+ // A few definitions copied from linux/filter.h and linux/seccomp.h,
+ // which might not be available on all systems.
+ 
