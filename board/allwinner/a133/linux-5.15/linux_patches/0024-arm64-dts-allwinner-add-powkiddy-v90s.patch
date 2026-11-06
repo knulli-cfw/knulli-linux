@@ -3,7 +3,7 @@ Subject: [PATCH] arm64: dts: allwinner: add Powkiddy V90s
 ---
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-powkiddy-v90s.dts
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,173 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Powkiddy V90s (A133P), from the vendor 4.9 boot_package DT; the Brick's
@@ -40,6 +40,16 @@ Subject: [PATCH] arm64: dts: allwinner: add Powkiddy V90s
 +		select { linux,code = <BTN_SELECT>; gpios = <&pio PD 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
 +		start { linux,code = <BTN_START>; gpios = <&pio PD 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
 +		mode { linux,code = <BTN_MODE>; gpios = <&pio PD 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; };
++	};
++
++	reg_usb1_vbus: usb1-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb1-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-enable-ramp-delay = <1000>;
++		gpio = <&r_pio PL 8 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
 +	};
 +};
 +
@@ -86,6 +96,21 @@ Subject: [PATCH] arm64: dts: allwinner: add Powkiddy V90s
 +&usbc0 {
 +	usb_port_type = <0x0>;
 +	/delete-property/ usb_id_gpio;
++};
++
++/* second USB port */
++&usbc1 {
++	status = "okay";
++};
++
++&ehci1 {
++	drvvbus-supply = <&reg_usb1_vbus>;
++	status = "okay";
++};
++
++&ohci1 {
++	drvvbus-supply = <&reg_usb1_vbus>;
++	status = "okay";
 +};
 +
 +&keyboard {
