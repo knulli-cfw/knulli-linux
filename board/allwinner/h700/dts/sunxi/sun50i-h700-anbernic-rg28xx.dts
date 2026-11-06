@@ -19,6 +19,10 @@
 	knulli,device = "rg28xx";
 
 	joypad: rocknix-singleadc-joypad {
+		pwms = <&pwm 2 1000000 0>;
+		pwm-names = "enable";
+		rumble-boost-weak = <0>;
+		rumble-boost-strong = <0>;
 		joypad-name = "Anbernic RG28XX Controller";
 		amux-count = <0>;
 		rocknix,dpad-joystick;
@@ -371,5 +375,12 @@
 
 &ohci0 {
 	drvvbus-supply = <&v_drivevbus>;
+	status = "okay";
+};
+
+&pwm2 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&v_pwm2_0>;
+	pinctrl-1 = <&v_pwm2_1>;
 	status = "okay";
 };

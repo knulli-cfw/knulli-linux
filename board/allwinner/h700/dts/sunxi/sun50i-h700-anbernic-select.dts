@@ -19,6 +19,10 @@
 	knulli,device = "select";
 
 	joypad: rocknix-singleadc-joypad {
+		pwms = <&pwm 2 1000000 0>;
+		pwm-names = "enable";
+		rumble-boost-weak = <0>;
+		rumble-boost-strong = <0>;
 		joypad-name = "Anbernic RG35XX-Plus Controller";
 		amux-count = <0>;
 		rocknix,dpad-joystick;
@@ -411,7 +415,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -457,7 +461,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -503,7 +507,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -549,7 +553,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -595,7 +599,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x30>;
 		lcd_ht = <0x586>;
@@ -641,7 +645,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x30>;
 		lcd_ht = <0x586>;
@@ -687,7 +691,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -733,7 +737,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x302>;
@@ -779,7 +783,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x334>;
@@ -825,7 +829,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x334>;
@@ -871,7 +875,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x334>;
@@ -917,7 +921,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x334>;
@@ -963,7 +967,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x2e>;
 		lcd_ht = <0x424>;
@@ -1009,7 +1013,7 @@
 		lcd_pwm_used = <0x01>;
 		lcd_pwm_ch = <0x00>;
 		lcd_pwm_freq = <0xc350>;
-		lcd_pwm_pol = <0x01>;
+		lcd_pwm_pol = <0x00>;
 		lcd_pwm_max_limit = <0xff>;
 		lcd_hbp = <0x38>;
 		lcd_ht = <0x24a>;
@@ -1039,4 +1043,11 @@
 		lcd_gpio_4 = <&pio 0x08 0x0f 0x01 0xffffffff 0xffffffff 0x01>;
 		lcd_panel_init = "rg28xx";
 	};
+};
+
+&pwm2 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&v_pwm2_0>;
+	pinctrl-1 = <&v_pwm2_1>;
+	status = "okay";
 };

@@ -19,6 +19,10 @@
 	knulli,device = "rg40xx-v";
 
 	joypad: rocknix-singleadc-joypad {
+		pwms = <&pwm 3 1000000 0>;
+		pwm-names = "enable";
+		rumble-boost-weak = <0>;
+		rumble-boost-strong = <0>;
 		joypad-name = "Anbernic RG40XX-V Controller";
 		amux-count = <4>;
 
@@ -415,5 +419,12 @@
 
 &ohci0 {
 	drvvbus-supply = <&v_drivevbus>;
+	status = "okay";
+};
+
+&pwm3 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&v_pwm3_0>;
+	pinctrl-1 = <&v_pwm3_1>;
 	status = "okay";
 };

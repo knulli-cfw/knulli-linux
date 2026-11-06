@@ -1,15 +1,13 @@
 /*
  * knulli-devsel: first-boot device selection for the single H700 image.
  *
- * The boards cannot be told apart in hardware and the panels differ, so the
- * boot script cycles the extlinux default through the screen classes (one
- * reboot each) and this tool asks, on every pass, whether the screen can be
- * read: "press A", then "press B to confirm" (a late A from the previous
- * pass must not select the wrong class), then a menu of the devices in that
- * class.  Exit 0 with the chosen device on stdout, 2 to try the next class.
+ * Left/Right switches the panel live, A then A confirms a readable one, then
+ * a menu of the devices with that panel.  Writes nothing to /boot: the choice
+ * goes to an RTC general purpose register as a one-shot for U-Boot, which
+ * boots /extlinux/try-<index>.conf once.  Exit 0 with the device on stdout.
  *
- *   knulli-devsel <devices.conf> <current device>
- * devices.conf: "class|device|label" per line, classes in cycle order.
+ *   knulli-devsel <panels.conf> <devices.conf>
+ *   knulli-devsel --held    exit 0 when Select+Start are held
  */
 #include <SDL/SDL.h>
 #include <SDL/SDL_ttf.h>
@@ -19,8 +17,11 @@
 #include <linux/input.h>
 #include <linux/fb.h>
 #include <poll.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 #include <fstream>
 #include <algorithm>
@@ -32,7 +33,12 @@
 #define BTN_PAD_A BTN_EAST    /* 0x131, keya in the joypad node */
 #define BTN_PAD_B BTN_SOUTH   /* 0x130 */
 #define CONFIRM_MS 2000
+#define BLANK_MS 3000
 #define LCD_PANEL "/sys/class/disp/disp/attr/lcd_panel"
+/* RTC GPR 7 (kernel: GPR 0 access check, GPR 6 reboot flag), read by U-Boot */
+#define RTC_BASE 0x07000000
+#define RTC_TRY_OFF 0x11c
+#define TRY_MAGIC 0x4b4e0000
 
 struct Dev { std::string cls, name, label; };
 struct Panel { std::string name, group, label; int w, h; std::vector<std::string> devices; };
@@ -46,7 +52,9 @@ static std::vector<int> open_inputs()
 		if (strncmp(e->d_name, "event", 5))
 			continue;
 		std::string p = std::string("/dev/input/") + e->d_name;
-		int fd = open(p.c_str(), O_RDONLY | O_NONBLOCK);
+		int fd = open(p.c_str(), O_RDWR | O_NONBLOCK);
+		if (fd < 0)
+			fd = open(p.c_str(), O_RDONLY | O_NONBLOCK);
 		if (fd < 0)
 			continue;
 		unsigned long keys[KEY_MAX / 8 / sizeof(long) + 1] = {0};
@@ -62,16 +70,100 @@ static std::vector<int> open_inputs()
 	return fds;
 }
 
+static bool test_bit(const unsigned long *b, int n)
+{
+	return b[n / (8 * sizeof(long))] & (1UL << (n % (8 * sizeof(long))));
+}
+
+/* Select+Start down on any pad; the polled joypad reports only while open */
+static int held(void)
+{
+	std::vector<int> fds = open_inputs();
+	usleep(150000);
+	int ret = 1;
+	for (int fd : fds) {
+		unsigned long keys[KEY_MAX / 8 / sizeof(long) + 1] = {0};
+		if (ioctl(fd, EVIOCGKEY(sizeof(keys)), keys) >= 0 &&
+		    test_bit(keys, BTN_SELECT) && test_bit(keys, BTN_START))
+			ret = 0;
+		close(fd);
+	}
+	return ret;
+}
+
+/* short rumble on the first pad with FF_RUMBLE, as feedback */
+struct Haptic {
+	int fd = -1, id = -1;
+	void init(const std::vector<int> &fds)
+	{
+		for (int f : fds) {
+			unsigned long ff[FF_MAX / 8 / sizeof(long) + 1] = {0};
+			if (ioctl(f, EVIOCGBIT(EV_FF, sizeof(ff)), ff) >= 0 && test_bit(ff, FF_RUMBLE)) {
+				fd = f;
+				return;
+			}
+		}
+	}
+	/* wait: block until done (the effect stops when the fd closes) */
+	void pulse(int ms, bool wait = false)
+	{
+		if (fd < 0)
+			return;
+		struct ff_effect e = {};
+		e.type = FF_RUMBLE;
+		e.id = id;
+		e.u.rumble.strong_magnitude = 0xffff;
+		e.replay.length = ms;
+		if (ioctl(fd, EVIOCSFF, &e) < 0)
+			return;
+		id = e.id;
+		struct input_event ev = {};
+		ev.type = EV_FF;
+		ev.code = id;
+		ev.value = 1;
+		if (write(fd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev) && wait)
+			usleep(ms * 1000 + 50000);
+	}
+};
+
+/* one-shot for U-Boot: boot device <idx> once */
+static bool write_try(unsigned idx)
+{
+	int fd = open("/dev/mem", O_RDWR | O_SYNC);
+	if (fd < 0)
+		return false;
+	void *m = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, RTC_BASE);
+	close(fd);
+	if (m == MAP_FAILED)
+		return false;
+	volatile uint32_t *r = (volatile uint32_t *)((char *)m + RTC_TRY_OFF);
+	*r = TRY_MAGIC | idx;
+	bool ok = *r == (TRY_MAGIC | idx);
+	munmap(m, 4096);
+	return ok;
+}
+
 enum { K_UP = 1000, K_DOWN, K_LEFT, K_RIGHT };
 
 /* next key press: a button code, K_* for the d-pad, 0 on timeout */
+static long now_ms(void)
+{
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return t.tv_sec * 1000L + t.tv_nsec / 1000000;
+}
+
 static int wait_key(const std::vector<int> &fds, int timeout_ms)
 {
 	std::vector<pollfd> pf;
 	for (int fd : fds)
 		pf.push_back({fd, POLLIN, 0});
+	long end = now_ms() + timeout_ms;
 	for (;;) {
-		int n = poll(pf.data(), pf.size(), timeout_ms);
+		int left = timeout_ms < 0 ? -1 : (int)(end - now_ms());
+		if (timeout_ms >= 0 && left <= 0)
+			return 0;
+		int n = poll(pf.data(), pf.size(), left);
 		if (n == 0)
 			return 0;
 		if (n < 0)
@@ -96,6 +188,68 @@ static int wait_key(const std::vector<int> &fds, int timeout_ms)
 		}
 	}
 }
+
+/* backlight off after BLANK_MS idle (sunxi /dev/disp); the key that wakes
+ * it is swallowed */
+#define DISP_LCD_SET_BRIGHTNESS 0x102
+#define DISP_LCD_GET_BRIGHTNESS 0x103
+#define DISP_LCD_BACKLIGHT_ENABLE 0x104
+#define DISP_LCD_BACKLIGHT_DISABLE 0x105
+struct Blanker {
+	bool off = false;
+	unsigned long level = 0;
+	static long disp(unsigned long cmd, unsigned long val = 0)
+	{
+		int fd = open("/dev/disp", O_RDWR);
+		if (fd < 0)
+			return -1;
+		unsigned long a[3] = {0, val, 0};
+		long r = ioctl(fd, cmd, a);
+		close(fd);
+		return r;
+	}
+	void set(bool o)
+	{
+		if (o == off)
+			return;
+		off = o;
+		if (o) {
+			long l = disp(DISP_LCD_GET_BRIGHTNESS);
+			level = l > 0 ? l : 128;
+			disp(DISP_LCD_SET_BRIGHTNESS, 0);
+			disp(DISP_LCD_BACKLIGHT_DISABLE);
+		} else {
+			disp(DISP_LCD_BACKLIGHT_ENABLE);
+			disp(DISP_LCD_SET_BRIGHTNESS, level);
+		}
+	}
+	/* wait_key with the idle blanking around it */
+	int key(const std::vector<int> &fds, int timeout_ms)
+	{
+		long end = now_ms() + timeout_ms;
+		for (;;) {
+			int t = off ? -1 : BLANK_MS;
+			if (timeout_ms >= 0) {
+				int left = (int)(end - now_ms());
+				if (left <= 0)
+					return 0;
+				if (t < 0 || left < t)
+					t = left;
+			}
+			int k = wait_key(fds, t);
+			if (k && off) {
+				set(false);
+				if (timeout_ms >= 0)
+					end = now_ms() + timeout_ms;
+				continue;
+			}
+			if (k)
+				return k;
+			if (timeout_ms < 0 || now_ms() < end)
+				set(true);
+		}
+	}
+};
 
 struct Ui {
 	SDL_Surface *screen = NULL, *canvas = NULL; /* canvas: landscape drawing surface when the fb is portrait */
@@ -190,6 +344,8 @@ static std::vector<std::string> split(const std::string &s, char sep)
 
 int main(int argc, char **argv)
 {
+	if (argc == 2 && !strcmp(argv[1], "--held"))
+		return held();
 	if (argc < 3) {
 		std::cerr << "usage: knulli-devsel <panels.conf> <devices.conf>\n";
 		return 1;
@@ -233,6 +389,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	SDL_ShowCursor(SDL_DISABLE);
+	Haptic haptic;
+	haptic.init(fds);
+	Blanker blank;
 
 	/* the panel that is up now: the lcd0 node of the select DT (= the first
 	 * entry, with the id pin deciding the variant) unless already switched */
@@ -261,22 +420,24 @@ int main(int argc, char **argv)
 				 p.label, "",
 				 "Can you read this?  Press A", "",
 				 "Left/Right: try another screen"});
-			code = wait_key(fds, -1);
+			code = blank.key(fds, -1);
 			if (code == BTN_PAD_A)
 				break;
 			if (code == K_LEFT || code == K_UP) cur = (cur + panels.size() - 1) % panels.size();
 			else if (code == K_RIGHT || code == K_DOWN) cur = (cur + 1) % panels.size();
 			else continue;
 			const Panel &n = panels[cur];
-			if (n.name != applied && set_panel(n.name))
+			if (n.name != applied && set_panel(n.name)) {
 				applied = n.name;
+				haptic.pulse(80);
+			}
 			ui.mode(n.w, n.h);
 		}
 
 		/* 2. confirm (an A meant for a screen that was not readable) */
 		ui.draw({"KNULLI first boot", "", "Screen readable?", "Press A again to confirm.", "",
 			 "(" + std::to_string(CONFIRM_MS / 1000) + " s)"});
-		if (wait_key(fds, CONFIRM_MS) != BTN_PAD_A)
+		if (blank.key(fds, CONFIRM_MS) != BTN_PAD_A)
 			continue;
 
 		/* 3. which of the devices with this panel */
@@ -298,7 +459,7 @@ int main(int argc, char **argv)
 			lines.push_back("");
 			lines.push_back("Up/Down: choose    A: confirm    B: back");
 			ui.draw(lines, 2 + (int)sel);
-			code = wait_key(fds, -1);
+			code = blank.key(fds, -1);
 			if (code == K_UP && sel > 0) sel--;
 			else if (code == K_DOWN && sel + 1 < menu.size()) sel++;
 			else if (code == BTN_PAD_A) break;
@@ -306,7 +467,18 @@ int main(int argc, char **argv)
 		}
 		if (back)
 			continue;
-		ui.draw({"Saving...", "", menu[sel].label});
+		size_t idx = 0;
+		while (idx < devs.size() && devs[idx].name != menu[sel].name)
+			idx++;
+		if (idx == devs.size() || !write_try(idx)) {
+			std::cerr << "knulli-devsel: cannot hand " << menu[sel].name << " to U-Boot\n";
+			ui.draw({"Cannot save the choice", "", menu[sel].label});
+			SDL_Delay(3000);
+			continue;
+		}
+		blank.set(false);
+		ui.draw({"Starting...", "", menu[sel].label});
+		haptic.pulse(250, true);
 		std::cout << menu[sel].name << std::endl;
 		TTF_Quit();
 		SDL_Quit();

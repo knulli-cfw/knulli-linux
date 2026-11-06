@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# red LED at or below the DT pmu_battery_warning_level1; 0% is 000-shutdown's
+[ "$1" -gt 0 ] 2>/dev/null || exit 0
+LVL=$(od -An -j3 -N1 -tu1 /proc/device-tree/soc*/*/pmu/bat-power-supply/pmu_battery_warning_level1 2>/dev/null | tr -d ' ')
+[ -n "$LVL" ] || LVL=5
+
+if [ "$1" -le "$LVL" ]; then
+    knulli-power-led low on
+else
+    knulli-power-led low off
+fi
+
+exit 0

@@ -66,20 +66,33 @@ mkdir -p "${BOOT}/dtb" "${BOOT}/extlinux"						|| exit 1
 cp "${BINARIES_DIR}/Image"  "${BOOT}/Image"						|| exit 1
 cp "${BINARIES_DIR}/initrd" "${BOOT}/initrd"						|| exit 1
 cp "${BINARIES_DIR}"/sun50i-h700-anbernic-*.dtb "${BOOT}/dtb/"				|| exit 1
+entry() {
+	echo ""
+	echo "label $1"
+	echo "  kernel /Image"
+	echo "  initrd /initrd"
+	echo "  fdt /dtb/sun50i-h700-anbernic-$1.dtb"
+	echo "  append loglevel=3 console=ttyS0,115200 vt.global_cursor_default=0 label=KNULLI rootwait elevator=noop"
+}
 {
 	echo "# knulli H700: one image, one entry per device; \"default\" selects the board"
 	echo "default select"
 	echo "timeout 0"
 	for dtb in "${BOOT}"/dtb/sun50i-h700-anbernic-*.dtb; do
-		dev=$(basename "${dtb}" .dtb); dev=${dev#sun50i-h700-anbernic-}
-		echo ""
-		echo "label ${dev}"
-		echo "  kernel /Image"
-		echo "  initrd /initrd"
-		echo "  fdt /dtb/$(basename "${dtb}")"
-		echo "  append loglevel=3 console=ttyS0,115200 vt.global_cursor_default=0 label=KNULLI rootwait elevator=noop"
+		dev=$(basename "${dtb}" .dtb); entry "${dev#sun50i-h700-anbernic-}"
 	done
 } > "${BOOT}/extlinux/extlinux.conf"							|| exit 1
+# one-shot entries for U-Boot (knulli-devsel): try-<hex index in h700-devices.conf>
+i=0
+while IFS='|' read -r cls dev label; do
+	case "${cls}" in ""|"#"*) continue ;; esac
+	[ -n "${label}" ] || continue
+	if [ -f "${BOOT}/dtb/sun50i-h700-anbernic-${dev}.dtb" ]; then
+		{ echo "default ${dev}"; echo "timeout 0"; entry "${dev}"; } \
+			> "${BOOT}/extlinux/try-$(printf %x ${i}).conf"			|| exit 1
+	fi
+	i=$((i + 1))
+done < "${BOARD_DIR}/fsoverlay/usr/share/knulli/h700-devices.conf"
 
 touch "${BATOCERA_BINARIES_DIR}/boot/boot/autoresize"
 

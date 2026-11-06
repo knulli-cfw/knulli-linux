@@ -1011,6 +1011,23 @@
 		};
 	};
 
+	/* status led: PI12 green, PI11 red, both active-high */
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		power {
+			label = "power";
+			gpios = <&pio 8 12 GPIO_ACTIVE_HIGH>; /* PI12 */
+			default-state = "on";
+		};
+
+		lowpwr {
+			label = "lowpwr";
+			gpios = <&pio 8 11 GPIO_ACTIVE_HIGH>; /* PI11 */
+			default-state = "off";
+		};
+	};
+
 	joypad: rocknix-singleadc-joypad {
 		compatible = "rocknix-singleadc-joypad";
 		/* same ids as the gpio-keys device had: the es_input.cfg entries
@@ -1211,23 +1228,11 @@
 		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x2a>;
 	};
-
-	opp@1600000000 {
-		opp-hz = <0x00 0x5f5e1000>;
-		opp-microvolt-a5 = <0x111700>;
-		clock-latency-ns = <0x3b9b0>;
-		opp-supported-hw = <0x2a>;
-	};
-
-	opp@1704000000 {
-		opp-hz = <0x00 0x6590fa00>;
-		opp-microvolt-a5 = <0x118c30>;
-		clock-latency-ns = <0x3b9b0>;
-		opp-supported-hw = <0x2a>;
-	};
+	/* no 1600/1704 MHz: hangs at cpufreq init */
 };
 
-/* Mali OPPs and dvfs knobs from the vendor tree (legacy operating-points)*/
+/* Mali OPPs and dvfs knobs from the vendor tree (legacy operating-points);
+ * no gpu regulator: every point runs on the fixed dcdc2 rail */
 &gpu {
 	gpu_idle = <0x01>;
 	dvfs_status = <0x01>;
@@ -1342,7 +1347,7 @@
 			lcd_pwm_used = <0x01>;
 			lcd_pwm_ch = <0x00>;
 			lcd_pwm_freq = <0xc350>;
-			lcd_pwm_pol = <0x01>;
+			lcd_pwm_pol = <0x00>;
 			lcd_pwm_max_limit = <0xff>;
 			lcd_lvds_if = <0x00>;
 			lcd_lvds_colordepth = <0x00>;
@@ -2663,13 +2668,13 @@
 	cap-sd-highspeed;
 	broken-cd;
 	cd-gpios = <&pio 4 22 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PE22 */
-	card-pwr-gpios = <&pio 4 4 GPIO_ACTIVE_HIGH>; /* PE4 */
+	card-pwr-gpios = <&pio 4 4 GPIO_ACTIVE_HIGH>; /* PE4, polarity from ctl-spec-caps */
 	cd-used-24M;
 	sunxi-dis-signal-vol-sw;
 	sunxi-power-save-mode;
-	ctl-spec-caps = <0x608>;
+	ctl-spec-caps = <0x60c>; /* 0x4: card power gpio active-high */
 	max-busy-timeout = <0x1388>;
-	vqmmc-supply = <&v_aldo1>;
+	vqmmc-supply = <&v_cldo3>; /* aldo1 is the hdmi 1.8V rail */
 	status = "okay";
 };
 
@@ -2736,7 +2741,7 @@
 	lcd_pwm_used = <0x01>;
 	lcd_pwm_ch = <0x00>;
 	lcd_pwm_freq = <0xc350>;
-	lcd_pwm_pol = <0x01>;
+	lcd_pwm_pol = <0x00>;
 	lcd_pwm_max_limit = <0xff>;
 	lcd_lvds_if = <0x00>;
 	lcd_lvds_colordepth = <0x00>;
@@ -2757,6 +2762,10 @@
 	lcd_gpio_4 = <&pio 0x08 0x0f 0x01 0xffffffff 0xffffffff 0x01>;
 	pinctrl-0 = <&v_rgb24_0>;
 	pinctrl-1 = <&v_rgb24_1>;
+};
+
+&pwm {
+	#pwm-cells = <3>;
 };
 
 &pwm0 {

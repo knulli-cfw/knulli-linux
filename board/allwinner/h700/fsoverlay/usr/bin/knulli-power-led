@@ -4,9 +4,8 @@ if ! knulli-board-capability "pwrled"; then
     exit 1
 fi
 
-LED_ROOT="/sys/class/power_supply/axp2202-battery"
-LED_PWR="${LED_ROOT}/work_led"
-LED_LOW="${LED_ROOT}/lowpwr_led"
+LED_PWR="/sys/class/leds/power/brightness"
+LED_LOW="/sys/class/leds/lowpwr/brightness"
 
 is_discharging() {
     [ "$(knulli-battery-check status 2>/dev/null)" = "Discharging" ]
