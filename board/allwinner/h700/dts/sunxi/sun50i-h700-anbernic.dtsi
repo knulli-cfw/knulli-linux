@@ -1056,10 +1056,8 @@
 		invert-absy;
 		abs_rx-p-tuning = <70>;
 		abs_rx-n-tuning = <70>;
-		invert-absrx;
 		abs_ry-p-tuning = <70>;
 		abs_ry-n-tuning = <70>;
-		invert-absry;
 
 		keyup {
 			label = "GPIO Key Up";
@@ -2683,13 +2681,12 @@
 
 /delete-node/ &uboot_hdmi;
 
-/* pll-video0-4x is the PLL's VCO and cannot go below 288 MHz; disp2 sets the
- * TCON parent to lcd_dclk_freq * 6 (144 MHz here), so feed tcon-lcd0 from the
- * /4 output instead or the panel is clocked at twice its dot clock. */
+/* tcon-lcd0 moves to pll-video0 at lcd enable (kernel patch 0027), not at
+ * probe, where it would re-clock the panel U-Boot left lit. */
 &disp {
-	assigned-clocks = <&ccu CLK_TCON_TV0>, <&ccu CLK_TCON_LCD0>;
-	assigned-clock-parents = <&ccu CLK_PLL_VIDEO2>, <&ccu CLK_PLL_VIDEO0>;
-	assigned-clock-rates = <0>, <0>;
+	assigned-clocks = <&ccu CLK_TCON_TV0>;
+	assigned-clock-parents = <&ccu CLK_PLL_VIDEO2>;
+	assigned-clock-rates = <0>;
 	disp_init_enable = <0x01>;
 	disp_mode = <0x00>;
 	screen0_output_type = <0x01>;
