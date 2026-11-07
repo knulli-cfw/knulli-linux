@@ -176,6 +176,27 @@
 			function = "gpio_in";
 		};
 
+		v_pwm3_0: v-pwm3-0 {
+			allwinner,pins = "PI13";
+			allwinner,function = "pwm3";
+			allwinner,muxsel = <0x05>;
+			allwinner,drive = <0xffffffff>;
+			allwinner,pull = <0x00>;
+			allwinner,data = <0xffffffff>;
+			drive-strength = <10>;
+		};
+
+		v_pwm3_1: v-pwm3-1 {
+			allwinner,pins = "PI13";
+			allwinner,function = "io_disabled";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0xffffffff>;
+			allwinner,pull = <0x00>;
+			allwinner,data = <0xffffffff>;
+			drive-strength = <10>;
+			function = "gpio_in";
+		};
+
 		v_uart0_1: v-uart0-1 {
 			allwinner,pins = "PH0", "PH1";
 			allwinner,function = "uart0";
@@ -1049,5 +1070,13 @@
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&v_pwm2_0>;
 	pinctrl-1 = <&v_pwm2_1>;
+	status = "okay";
+};
+
+/* devsel pulses the 40xx/cubexx motor here through sysfs */
+&pwm3 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&v_pwm3_0>;
+	pinctrl-1 = <&v_pwm3_1>;
 	status = "okay";
 };

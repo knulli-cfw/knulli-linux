@@ -24,7 +24,8 @@
 		rumble-boost-weak = <0>;
 		rumble-boost-strong = <0>;
 		joypad-name = "Anbernic RG34XX Controller";
-		amux-count = <4>;
+		amux-count = <0>;
+		rocknix,dpad-joystick;
 
 		keymenu {
 			label = "GPIO Key Menu";

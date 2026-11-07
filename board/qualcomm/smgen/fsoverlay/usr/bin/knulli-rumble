@@ -54,6 +54,6 @@ EVENT_NODE=$(
 
 [ -n "$EVENT_NODE" ] || { echo "No rumble device found for $DEVICE_NAME" >&2; exit 1; }
 
-exec "$RUMBLE_FILE" "$EVENT_NODE" "$DURATION" ${MAG:+$MAG}
+exec "$RUMBLE_FILE" "$DURATION" "${MAG:-75}" "$EVENT_NODE"
 
 exit 0

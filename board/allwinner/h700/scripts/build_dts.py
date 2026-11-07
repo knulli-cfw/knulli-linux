@@ -175,7 +175,7 @@ sdc1_cfg = props_of(S + 'sdmmc@04021000', drop=SDC1_DROP)
 # select PI1/PI2, four axes on GPADC channel 0.  The dpad keeps the vendor's
 # hat encoding (package/controllers/rocknix-joypad carries the patch that
 # honours linux,input-value), so the input layout matches the gpio-keys one.
-STICKS = {'rg35xx-h', 'rg35xx-pro', 'rg40xx-h', 'rg40xx-v', 'rg34xx', 'rg34xx-sp', 'rg-cubexx'}
+STICKS = {'rg35xx-h', 'rg35xx-pro', 'rg40xx-h', 'rg40xx-v', 'rg34xx-sp', 'rg-cubexx'}
 # The vendor tree's key codes are a private numbering (physical A reported
 # BTN_SOUTH, Y BTN_C, L1 BTN_WEST, R2 BTN_START ...) that its userspace
 # mapped back; use the Linux gamepad codes by the vendor's key names instead.

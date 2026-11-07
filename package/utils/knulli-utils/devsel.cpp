@@ -92,6 +92,24 @@ static int held(void)
 }
 
 /* short rumble on the first pad with FF_RUMBLE, as feedback */
+static bool put(const std::string &path, const std::string &val)
+{
+	int fd = open(path.c_str(), O_WRONLY);
+	if (fd < 0)
+		return false;
+	bool ok = write(fd, val.c_str(), val.size()) == (ssize_t)val.size();
+	close(fd);
+	return ok;
+}
+
+/* motor on PI13 (pwm3) for these panel groups, joypad force feedback on PH2
+ * (pwm2) otherwise; PH2 is the RGB MCU uart there */
+static bool motor_pwm3(const std::string &group)
+{
+	return group == "40xx" || group == "cubexx";
+}
+
+#define PWM3 "/sys/class/pwm/pwmchip0/pwm3/"
 struct Haptic {
 	int fd = -1, id = -1;
 	void init(const std::vector<int> &fds)
@@ -104,9 +122,24 @@ struct Haptic {
 			}
 		}
 	}
-	/* wait: block until done (the effect stops when the fd closes) */
-	void pulse(int ms, bool wait = false)
+	/* pwm3 through sysfs; blocks for ms */
+	static void pulse_pwm3(int ms)
 	{
+		if (access(PWM3 "enable", W_OK) != 0)
+			put("/sys/class/pwm/pwmchip0/export", "3");
+		if (!put(PWM3 "period", "1000000") || !put(PWM3 "duty_cycle", "500000") ||
+		    !put(PWM3 "enable", "1"))
+			return;
+		usleep(ms * 1000);
+		put(PWM3 "enable", "0");
+	}
+	/* wait: block until done (the effect stops when the fd closes) */
+	void pulse(const std::string &group, int ms, bool wait = false)
+	{
+		if (motor_pwm3(group)) {
+			pulse_pwm3(ms);
+			return;
+		}
 		if (fd < 0)
 			return;
 		struct ff_effect e = {};
@@ -429,7 +462,7 @@ int main(int argc, char **argv)
 			const Panel &n = panels[cur];
 			if (n.name != applied && set_panel(n.name)) {
 				applied = n.name;
-				haptic.pulse(80);
+				haptic.pulse(n.group, 80);
 			}
 			ui.mode(n.w, n.h);
 		}
@@ -478,7 +511,7 @@ int main(int argc, char **argv)
 		}
 		blank.set(false);
 		ui.draw({"Starting...", "", menu[sel].label});
-		haptic.pulse(250, true);
+		haptic.pulse(p.group, 250, true);
 		std::cout << menu[sel].name << std::endl;
 		TTF_Quit();
 		SDL_Quit();
