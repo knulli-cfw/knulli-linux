@@ -215,6 +215,8 @@ amux_count = 4 if device in STICKS else 0
 fb0_buffer_num = 4 if device == 'rg-cubexx' else 6
 # boards without sticks: the D-pad can act as the left stick (dpad-toggle)
 dpad_joystick = '' if device in STICKS else '\t\trocknix,dpad-joystick;\n'
+# right stick reads reversed on these (rocknix)
+rstick_invert = '\t\tinvert-absrx;\n\t\tinvert-absry;\n' if device in {'rg40xx-h', 'rg34xx-sp', 'rg-cubexx'} else ''
 # clamshells: the vendor hall_key (PE7) as a lid switch.  The sensor drives
 # the line (high = open), it only needs the pin muxed as an input, which the
 # gpio request does; a pinctrl claim would make the request fail (strict).
@@ -321,11 +323,9 @@ dts = f'''// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 		invert-absy;
 		abs_rx-p-tuning = <70>;
 		abs_rx-n-tuning = <70>;
-		invert-absrx;
 		abs_ry-p-tuning = <70>;
 		abs_ry-n-tuning = <70>;
-		invert-absry;
-
+{rstick_invert}
 {chr(10).join(keys)}
 	}};
 {lid}}};

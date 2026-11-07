@@ -25,6 +25,8 @@
 		rumble-boost-strong = <0>;
 		joypad-name = "Anbernic RG CubeXX Controller";
 		amux-count = <4>;
+		invert-absrx;
+		invert-absry;
 
 		keyl3 {
 			label = "GPIO Key L3";
