@@ -1185,16 +1185,23 @@
 		opp-supported-hw = <0x3f>;
 	};
 
-	opp@792000000 {
-		opp-hz = <0x00 0x2f34f600>;
+	opp@720000000 {
+		opp-hz = <0x00 0x2aea5400>;
 		opp-microvolt-a5 = <0xcf850>;
 		clock-latency-ns = <0x3b9b0>;
-		opp-supported-hw = <0x2a>;
+		opp-supported-hw = <0x3f>;
 	};
 
 	opp@1008000000 {
 		opp-hz = <0x00 0x3c14dc00>;
 		opp-microvolt-a5 = <0xd6d80>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x3f>;
+	};
+
+	opp@1104000000 {
+		opp-hz = <0x00 0x41cdb400>;
+		opp-microvolt-a5 = <0xdbba0>;
 		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x3f>;
 	};
@@ -1226,16 +1233,22 @@
 		clock-latency-ns = <0x3b9b0>;
 		opp-supported-hw = <0x2a>;
 	};
-	/* no 1600/1704 MHz: hangs at cpufreq init */
+
+	opp@1608000000 {
+		opp-hz = <0x00 0x5fd82200>;
+		opp-microvolt-a5 = <0x111700>;
+		clock-latency-ns = <0x3b9b0>;
+		opp-supported-hw = <0x2a>;
+	};
 };
 
-/* Mali OPPs and dvfs knobs from the vendor tree (legacy operating-points);
- * no gpu regulator: every point runs on the fixed dcdc2 rail */
+/* Enable GPU frequency and voltage scaling through dcdc2. */
 &gpu {
 	gpu_idle = <0x01>;
 	dvfs_status = <0x01>;
-	operating-points = <240000 900000  336000 900000  420000 900000
-			    504000 900000  600000 900000  696000 960000>;
+	independent_power = <0x01>;
+	gpu-supply = <&v_dcdc2>;
+	operating-points = <0x3a980 0xc3500 0x52080 0xc8320 0x668a0 0xd1f60 0x7b0c0 0xdbba0 0x927c0 0xdbba0 0xa9ec0 0xea600>;
 };
 
 &dram {
