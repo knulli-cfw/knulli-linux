@@ -6577,8 +6577,8 @@ vaixterm:
   extensions: [vxt]
   group: tools
   emulators:
-    odcommander:
-      odcommander: { requireAnyOf: [BR2_PACKAGE_VAIXTERM] }
+    vaixterm:
+      vaixterm: { requireAnyOf: [BR2_PACKAGE_VAIXTERM] }
   comment_en: |
     A Robust SDL2 Terminal for Handheld & Embedded Systems.
   comment_fr: |
