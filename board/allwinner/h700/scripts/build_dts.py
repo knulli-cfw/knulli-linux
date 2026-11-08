@@ -628,15 +628,19 @@ dts = f'''// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 }};
 
 &ehci0 {{
-	drvvbus-supply = <&{em.label_for(ph(PMU + '/regulators@0/drivevbus'))}>;
+	drvvbus-supply = <&reg_usb0_vbus>;
 	status = "okay";
 }};
 
 &ohci0 {{
-	drvvbus-supply = <&{em.label_for(ph(PMU + '/regulators@0/drivevbus'))}>;
+	drvvbus-supply = <&reg_usb0_vbus>;
 	status = "okay";
 }};
 '''
+
+# the RG35XX-H's second port (USB1): PI7 VBUS switch on a 3.8 V rail from PE5
+if device == 'rg35xx-h':
+    dts += open(os.path.join(os.path.dirname(__file__), 'rg35xx-h-usb1.dtsi')).read()
 
 # pins referenced while emitting the late blocks above (pwm0 etc.) are already
 # in need_pins because em.ref() registered them before emit_pins() ran.

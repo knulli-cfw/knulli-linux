@@ -388,12 +388,12 @@
 };
 
 &ehci0 {
-	drvvbus-supply = <&v_drivevbus>;
+	drvvbus-supply = <&reg_usb0_vbus>;
 	status = "okay";
 };
 
 &ohci0 {
-	drvvbus-supply = <&v_drivevbus>;
+	drvvbus-supply = <&reg_usb0_vbus>;
 	status = "okay";
 };
 

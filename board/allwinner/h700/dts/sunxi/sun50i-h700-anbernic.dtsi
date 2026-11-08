@@ -2819,3 +2819,31 @@
 	ignore-pm-notify;
 	status = "okay";
 };
+
+/* OTG host VBUS: the PI16 switch after the AXP boost (rocknix) */
+/ {
+	reg_usb0_vbus: regulator-usb0-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb0-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&pio 8 16 GPIO_ACTIVE_HIGH>; /* PI16 */
+		enable-active-high;
+		vin-supply = <&v_drivevbus>;
+	};
+};
+
+/* USB1 reaches a connector only on the RG35XX-H */
+&ehci1 {
+	status = "disabled";
+};
+
+&ohci1 {
+	status = "disabled";
+};
+
+/* the 5.4 axp2202 driver registers no vmid regulator: this supply never
+ * resolved, so every drivevbus (OTG VBUS boost) lookup failed */
+&v_drivevbus {
+	/delete-property/ drivevbusin-supply;
+};
