@@ -1,0 +1,51 @@
+Subject: [PATCH] arm64: dts: allwinner: trimui-brick: enable the rear USB port
+
+The Brick has a second USB-C port on the back, wired to usbc1/ehci1/ohci1.
+They were left disabled, so nothing plugged in there was powered or seen.
+Enable them as in the vendor device tree, with the port 5 V on the
+GPIO-switched fixed regulator it uses there (usb1-vbus, PL8 active high);
+ehci1/ohci1 turn it on as their drvvbus supply.
+
+---
+--- a/arch/arm64/boot/dts/allwinner/sun50i-a133-trimui-brick.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-trimui-brick.dts
+@@ -24,6 +24,17 @@
+ 			parameter = <0x1f54000 0x1b1e280f 0xc1e3202 0x14050a04 0x74fbc80d 0x431036fb 0x4601ea0d 0x2a063605 0xf40ab50f 0x420ee609 0x9a0e420e 0x3b042d04 0x2309180e 0x90e0408 0xf70dda0d 0xd003bb03 0x9d087f0d 0x6a0d5507 0xc2572b27 0x1e0d1408 0xc5987e66 0x4e44381a 0x120af600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6 0xfb0000 0xfb0000fb 0xf600 0xf600f6>;
+ 		};
+ 	};
++
++	/* rear USB-C port 5 V, switched by PL8 (vendor DT: usb1-vbus) */
++	reg_usb1_vbus: usb1-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb1-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-enable-ramp-delay = <1000>;
++		gpio = <&r_pio PL 8 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
+ };
+ 
+ &cpu0 {
+@@ -513,6 +524,21 @@
+ 	status = "okay";
+ };
+ 
++/* rear USB-C port: host only */
++&usbc1 {
++	status = "okay";
++};
++
++&ehci1 {
++	drvvbus-supply = <&reg_usb1_vbus>;
++	status = "okay";
++};
++
++&ohci1 {
++	drvvbus-supply = <&reg_usb1_vbus>;
++	status = "okay";
++};
++
+ &pio {
+ 	pwm0_pin_a: pwm0@0 {
+ 		pins = "PD23";
