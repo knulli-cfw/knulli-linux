@@ -13,22 +13,19 @@ default:
 
 amiga500:
   emulator: libretro
-  core:     puae2021
+  core:     puae
 amiga1200:
   emulator: libretro
-  core:     puae2021
+  core:     puae
 amigacd32:
   emulator: libretro
-  core:     puae2021
+  core:     puae
 mastersystem:
   emulator: libretro
   core:     picodrive
 megadrive:
   emulator: libretro
   core:     picodrive
-nds:
-  emulator: drastic
-  core:     drastic
 snes:
   emulator: libretro
   core:     snes9x

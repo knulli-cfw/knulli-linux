@@ -7,8 +7,15 @@ case "$1" in
         # Get the current adapter name from the config file
         current_name=$(grep -Po '(?<=^Name = ).*' "$MAIN_CONF_FILE")
 
-        # Get the desired adapter name from knulli-info
-        info_output=$(knulli-info | grep "Model:" | awk -F": " '{print $2}' | head -n 1)
+        # Model as knulli-info reports it, without running knulli-info
+        info_output=
+        for f in /sys/firmware/devicetree/base/model \
+                 /sys/devices/virtual/dmi/id/product_name \
+                 /sys/devices/virtual/dmi/id/board_name; do
+            info_output=$(tr -d '\0' < "$f" 2>/dev/null | sed -e s+"[^A-Za-z0-9]"+"_"+g)
+            [ -n "$info_output" ] && [ "$info_output" != "Default_string" ] && break
+            info_output=
+        done
 
         if [ -n "$info_output" ]; then
             if [ "$current_name" == "$info_output" ]; then

@@ -1,0 +1,27 @@
+KMSDRM: SDL_KMSDRM_ALL_DISPLAYS opts out of the drmConn filter
+
+The drmConn patch registers only the connector EmulationStation chose, so
+a dual-screen app never sees the second panel.  With the hint (or the
+environment variable) set, every connected connector becomes a display.
+
+--- a/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-10-07 01:29:43.931022561 +0000
++++ b/src/video/kmsdrm/SDL_kmsdrmvideo.c	2026-10-07 01:29:43.943022556 +0000
+@@ -1177,11 +1177,17 @@
+     }
+     //
+ 
++    /* SDL_KMSDRM_ALL_DISPLAYS: every connected connector, not only the
++       drmConn one (dual-screen apps such as DSperate's dual-window mode) */
++    if (SDL_GetHintBoolean("SDL_KMSDRM_ALL_DISPLAYS", SDL_FALSE)) {
++        drmConn = -1;
++    }
++
+     /* Iterate on the available connectors. For every connected connector,
+        we create an SDL_Display and add it to the list of SDL Displays. */
+     for (i = 0; i < resources->count_connectors; i++) {
+         drmModeConnector *connector;
+-        if(i != drmConn) continue;
++        if(drmConn >= 0 && i != drmConn) continue;
+             connector = KMSDRM_drmModeGetConnector(viddata->drm_fd,
+                                                    resources->connectors[i]);
+ 

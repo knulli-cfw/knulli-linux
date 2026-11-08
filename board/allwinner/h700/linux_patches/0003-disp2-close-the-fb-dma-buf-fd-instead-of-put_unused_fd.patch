@@ -1,0 +1,67 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: close the fb dma-buf fd instead of put_unused_fd()
+
+__disp_ion_alloc_coherent() installs an fd with dma_buf_fd() only to hand it
+to disp_dma_map(), then releases it with put_unused_fd().  That clears the
+fd bit but leaves the file in the table of the allocating task (init, when
+the fb is set up at boot): "alloc_fd: slot 0 not NULL!", the slot is handed
+out again, a later close drops the framebuffer's reference and the pages are
+freed while the display engine and the GPU still write to them.
+
+Keep the fd's reference as an explicit one and close the fd properly.  Also
+drop a leaked kmalloc and fix the error paths, which dereferenced p_item
+after it failed to map.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include "dev_disp.h"
++#include <linux/syscalls.h>
+ #include <linux/ion.h>
+ #include <uapi/linux/ion.h>
+ #include <linux/pm_runtime.h>
+@@ -1570,28 +1571,30 @@
+ 	}
+ 
+ 	__debug("ion map kernel, vaddr=0x%p\n", mem->vaddr);
+-	mem->p_item = kmalloc(sizeof(struct dmabuf_item), GFP_KERNEL);
+ 
++	/*
++	 * disp_dma_map() only takes an fd, so install one briefly.  It has to be
++	 * closed properly afterwards: put_unused_fd() on an installed fd leaves
++	 * the file in the table of whoever allocated the fb (init, at boot), the
++	 * slot gets handed out again and the dma-buf is freed while it is still
++	 * being scanned out.  The fd's reference is kept as our own, which is
++	 * what the teardown in __disp_ion_free_coherent() expects.
++	 */
+ 	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
++	if (fd < 0)
++		goto err_phys;
++	get_dma_buf(dmabuf);
+ 	mem->p_item = disp_dma_map(fd);
++	ksys_close(fd);
+ 	if (!mem->p_item)
+ 		goto err_phys;
+ 
+-
+-	/*
+-	 * put_unused_fd should be called immediatelly after dma_buf_fd, or else
+-	 * those processes forked by init will hold different fds whose file struct
+-	 * data is copied from init, and finally makes abort issue for android
+-	 * system server as system server treats the file type as an unknown one.
+-	 */
+-	put_unused_fd(fd);
+-
+ 	return 0;
+ 
+ err_phys:
+-	ion_heap_unmap_kernel(NULL, mem->p_item->dmabuf->priv);
++	ion_heap_unmap_kernel(NULL, dmabuf->priv);
+ err_map_kernel:
+-	ion_free(mem->p_item->dmabuf->priv);
++	dma_buf_put(dmabuf);
+ 	return -ENOMEM;
+ }
+ 

@@ -1,0 +1,53 @@
+--- a/Common/GPU/Vulkan/VulkanContext.cpp
++++ b/Common/GPU/Vulkan/VulkanContext.cpp
+@@ -1500,6 +1500,50 @@
+ 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+ 	}
+ 
++	// Some displays cannot be pre-rotated by the driver at all -- a KHR_display
++	// surface on a panel mounted rotated advertises IDENTITY as its only
++	// supported transform -- so the rotation has to happen in here instead.
++	// Everything needed for that already exists for the pretransform path
++	// above: the render manager swaps the logical size back, rot_matrix turns
++	// the geometry, and RotateRectToDisplay fixes up viewports and scissors.
++	//
++	// The one difference is that swapChainExtent_ must be left exactly as the
++	// surface reported it, because it is also the swapchain's imageExtent and
++	// the surface accepts no other size.
++	//
++	// $PPSSPP_DISPLAY_ROTATION (0, 90, 180, 270) forces this on any device;
++	// with it unset, a transposed display mode turns it on at 270 degrees,
++	// which is how the rotated panels seen so far are mounted.
++	if (preTransform == VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
++		int appRotation = displayModeTransposed_ ? 270 : 0;
++		const char *rotEnv = getenv("PPSSPP_DISPLAY_ROTATION");
++		if (rotEnv) {
++			appRotation = atoi(rotEnv);
++		}
++
++		switch (appRotation) {
++		case 90:
++			g_display.rotation = DisplayRotation::ROTATE_90;
++			g_display.rot_matrix.setRotationZ90();
++			break;
++		case 180:
++			g_display.rotation = DisplayRotation::ROTATE_180;
++			g_display.rot_matrix.setRotationZ180();
++			break;
++		case 270:
++			g_display.rotation = DisplayRotation::ROTATE_270;
++			g_display.rot_matrix.setRotationZ270();
++			break;
++		default:
++			appRotation = 0;
++			break;
++		}
++		if (appRotation != 0) {
++			INFO_LOG(Log::G3D, "Rotating the presented image by %d degrees in-app (backbuffer stays %dx%d)",
++				appRotation, swapChainExtent_.width, swapChainExtent_.height);
++		}
++	}
++
+ 	// Only log transforms if relevant.
+ 	if (surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+ 		std::string preTransformStr = surface_transforms_to_string(preTransform);

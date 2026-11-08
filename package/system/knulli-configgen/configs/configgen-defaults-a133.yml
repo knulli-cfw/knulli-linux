@@ -40,3 +40,6 @@ n64dd:
 cdi:
   emulator: libretro
   core:     same_cdi
+3ds:
+  emulator: libretro
+  core:     azahar

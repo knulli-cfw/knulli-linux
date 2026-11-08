@@ -1,0 +1,326 @@
+From: denghaijian <denghaijian@gurobot.com>
+Subject: [PATCH] video: sunxi: disp2: add h028b23 panel (MagicX Zero 28)
+
+From the vendor 4.9 tree (MagicX A133 SDK), unchanged apart from the
+header comment; registered for the 5.15 BSP disp2 layer.
+---
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/h028b23.c
+@@ -0,0 +1,245 @@
++/* drivers/video/sunxi/disp2/disp/lcd/h028b23.c (MagicX Zero 28, ported from the vendor 4.9 tree)
++ *
++ * Copyright (c) 2024 gurobot Co., Ltd.
++ * Author: denghaijian <denghaijian@gurobot.com>
++ *
++ * h028b23 panel driver
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#include "h028b23.h"
++
++static void lcd_power_on(u32 sel);
++static void lcd_power_off(u32 sel);
++static void lcd_bl_open(u32 sel);
++static void lcd_bl_close(u32 sel);
++
++static void lcd_panel_init(u32 sel);
++static void lcd_panel_exit(u32 sel);
++
++#define panel_reset(sel, val) sunxi_lcd_gpio_set_value(sel, 0, val)
++#define LED_SET(sel, val) sunxi_lcd_gpio_set_value(sel, 1, val)
++
++static void lcd_cfg_panel_info(struct panel_extend_para *info)
++{
++	u32 i = 0, j = 0;
++	u32 items;
++	u8 lcd_gamma_tbl[][2] = {
++		{0, 0},
++		{15, 15},
++		{30, 30},
++		{45, 45},
++		{60, 60},
++		{75, 75},
++		{90, 90},
++		{105, 105},
++		{120, 120},
++		{135, 135},
++		{150, 150},
++		{165, 165},
++		{180, 180},
++		{195, 195},
++		{210, 210},
++		{225, 225},
++		{240, 240},
++		{255, 255},
++	};
++
++	u32 lcd_cmap_tbl[2][3][4] = {
++	{
++		{LCD_CMAP_G0, LCD_CMAP_B1, LCD_CMAP_G2, LCD_CMAP_B3},
++		{LCD_CMAP_B0, LCD_CMAP_R1, LCD_CMAP_B2, LCD_CMAP_R3},
++		{LCD_CMAP_R0, LCD_CMAP_G1, LCD_CMAP_R2, LCD_CMAP_G3},
++		},
++		{
++		{LCD_CMAP_B3, LCD_CMAP_G2, LCD_CMAP_B1, LCD_CMAP_G0},
++		{LCD_CMAP_R3, LCD_CMAP_B2, LCD_CMAP_R1, LCD_CMAP_B0},
++		{LCD_CMAP_G3, LCD_CMAP_R2, LCD_CMAP_G1, LCD_CMAP_R0},
++		},
++	};
++
++	items = sizeof(lcd_gamma_tbl) / 2;
++	for (i = 0; i < items - 1; i++) {
++		u32 num = lcd_gamma_tbl[i+1][0] - lcd_gamma_tbl[i][0];
++
++		for (j = 0; j < num; j++) {
++			u32 value = 0;
++
++			value = lcd_gamma_tbl[i][1] +
++				((lcd_gamma_tbl[i+1][1] - lcd_gamma_tbl[i][1])
++				* j) / num;
++			info->lcd_gamma_tbl[lcd_gamma_tbl[i][0] + j] =
++							(value<<16)
++							+ (value<<8) + value;
++		}
++	}
++	info->lcd_gamma_tbl[255] = (lcd_gamma_tbl[items-1][1]<<16) +
++					(lcd_gamma_tbl[items-1][1]<<8)
++					+ lcd_gamma_tbl[items-1][1];
++
++	memcpy(info->lcd_cmap_tbl, lcd_cmap_tbl, sizeof(lcd_cmap_tbl));
++
++}
++
++static s32 lcd_open_flow(u32 sel)
++{
++	LCD_OPEN_FUNC(sel, lcd_power_on, 100);
++	LCD_OPEN_FUNC(sel, lcd_panel_init, 200);
++	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 100);
++	LCD_OPEN_FUNC(sel, lcd_bl_open, 0);
++
++	return 0;
++}
++
++static s32 lcd_close_flow(u32 sel)
++{
++	LCD_CLOSE_FUNC(sel, lcd_bl_close, 0);
++	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 0);
++	LCD_CLOSE_FUNC(sel, lcd_panel_exit, 200);
++	LCD_CLOSE_FUNC(sel, lcd_power_off, 500);
++
++	return 0;
++}
++
++static void lcd_power_on(u32 sel)
++{
++	sunxi_lcd_power_enable(sel, 0);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_power_enable(sel, 1);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_pin_cfg(sel, 1);
++	sunxi_lcd_delay_ms(50);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(100);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(100);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(100);
++	LED_SET(sel, 0);
++}
++
++static void lcd_power_off(u32 sel)
++{
++	sunxi_lcd_pin_cfg(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 1);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 0);
++	LED_SET(sel, 1);
++}
++
++static void lcd_bl_open(u32 sel)
++{
++	sunxi_lcd_pwm_enable(sel);
++	sunxi_lcd_backlight_enable(sel);
++}
++
++static void lcd_bl_close(u32 sel)
++{
++	sunxi_lcd_backlight_disable(sel);
++	sunxi_lcd_pwm_disable(sel);
++}
++#if 1
++#define REGFLAG_DELAY 0XFE
++#define REGFLAG_END_OF_TABLE 0xFD // END OF REGISTERS MARKER
++struct LCM_setting_table {
++    u8 cmd;
++    u32 count;
++    u8 para_list[32];
++};
++static struct LCM_setting_table LCM_he0801a068_setting[] = {
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x13}},
++{0xef,    1,     {0x08}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x10}},
++{0xc0,    2,     {0x4f,0x00}},
++{0xc1,    2,     {0x10,0x02}},
++{0xc2,    2,     {0x20,0x02}},
++{0xcc,    1,     {0x10}},
++{0xb0,    16,     {0x06,0x16,0x1e,0x0e,0x12,0x06,0x0a,0x08,0x09,0x23,0x04,0x12,0x10,0x2b,0x31,0x1f}},
++{0xb1,    16,     {0x06,0x0f,0x16,0x0d,0x10,0x07,0x04,0x09,0x07,0x20,0x05,0x12,0x10,0x26,0x2f,0x1f}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x11}},
++{0xb0,    1,     {0x65}},
++{0xb1,    1,     {0x85}},
++{0xb2,    1,     {0x82}},
++{0xb3,    1,     {0x80}},
++{0xb5,    1,     {0x42}},
++{0xb7,    1,     {0x85}},
++{0xb8,    1,     {0x20}},
++{0xc1,    1,     {0x78}},
++{0xc2,    1,     {0x78}},
++{0xd0,    1,     {0x88}},
++{0xe0,    3,     {0x00,0x00,0x02}},
++{0xe1,    11,     {0x04,0xa0,0x06,0xa0,0x05,0xa0,0x07,0xa0,0x00,0x44,0x44}},
++{0xe2,    12,     {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}},
++{0xe3,    4,     {0x00,0x00,0x22,0x22}},
++{0xe4,    2,     {0x44,0x44}},
++{0xe5,    16,     {0x0c,0x90,0xa0,0xa0,0x0e,0x92,0xa0,0xa0,0x08,0x8c,0xa0,0xa0,0x0a,0x8e,0xa0,0xa0}},
++{0xe6,    4,     {0x00,0x00,0x22,0x22}},
++{0xe7,    2,     {0x44,0x44}},
++{0xe8,    16,     {0x0d,0x91,0xa0,0xa0,0x0f,0x93,0xa0,0xa0,0x09,0x8d,0xa0,0xa0,0x0b,0x8f,0xa0,0xa0}},
++{0xeb,    7,     {0x00,0x00,0xe4,0xe4,0x44,0x00,0x40}},
++{0xed,    16,     {0xff,0xf5,0x47,0x6f,0x0b,0xa1,0xab,0xff,0xff,0xba,0x1a,0xb0,0xf6,0x74,0x5f,0xff}},
++{0xef,    6,     {0x08,0x08,0x08,0x40,0x3f,0x64}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x00}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x13}},
++{0xe6,    2,     {0x16,0x0c}},
++{0xe8,    2,     {0x00,0x0e}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x00}},
++{0x11,    0,     {}},
++{REGFLAG_DELAY, REGFLAG_DELAY, {150}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x13}},
++{0xe8,    2,     {0x00,0x0c}},
++{0xe8,    2,     {0x00,0x00}},
++{0xff,    5,     {0x77,0x01,0x00,0x00,0x00}},
++{0x29,    0,     {}},
++{REGFLAG_DELAY, REGFLAG_DELAY, {120}},
++{REGFLAG_END_OF_TABLE, REGFLAG_END_OF_TABLE, {}}
++};
++#endif 
++static void lcd_panel_init(u32 sel)
++{
++	int i=0;
++	sunxi_lcd_dsi_clk_enable(sel);
++	for(i=0;;i++)
++	{
++		if(LCM_he0801a068_setting[i].count == REGFLAG_END_OF_TABLE)
++			break;
++		else if (LCM_he0801a068_setting[i].count == REGFLAG_DELAY)
++			sunxi_lcd_delay_ms(LCM_he0801a068_setting[i].para_list[0]);
++		else
++			sunxi_lcd_dsi_dcs_write(sel,LCM_he0801a068_setting[i].cmd,LCM_he0801a068_setting[i].para_list,LCM_he0801a068_setting[i].count);
++	}
++	//sunxi_lcd_dsi_clk_enable(sel);
++
++}
++
++static void lcd_panel_exit(u32 sel)
++{
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x10);
++	sunxi_lcd_delay_ms(80);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x28);
++	sunxi_lcd_delay_ms(50);
++}
++
++/*sel: 0:lcd0; 1:lcd1*/
++static s32 lcd_user_defined_func(u32 sel, u32 para1, u32 para2, u32 para3)
++{
++	return 0;
++}
++
++struct __lcd_panel h028b23_panel = {
++	/* panel driver name, must mach the name of
++	 * lcd_drv_name in sys_config.fex
++	 */
++	.name = "h028b23",
++	.func = {
++		.cfg_panel_info = lcd_cfg_panel_info,
++			.cfg_open_flow = lcd_open_flow,
++			.cfg_close_flow = lcd_close_flow,
++			.lcd_user_defined_func = lcd_user_defined_func,
++	},
++};
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/h028b23.h
+@@ -0,0 +1,22 @@
++/* drivers/video/sunxi/disp2/disp/lcd/h028b23.h
++ *
++ * Copyright (c) 2024 gurobot Co., Ltd.
++ * Author: denghaijian <denghaijian@gurobot.com>
++ *
++ * h028b23 panel driver
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#ifndef _H028B23_H
++#define _H028B23_H
++
++#include "panels.h"
++
++extern struct __lcd_panel h028b23_panel;
++
++extern s32 bsp_disp_get_panel_info(u32 screen_id, struct disp_panel_para *info);
++
++#endif /*End of file*/
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
+@@ -58,6 +58,9 @@
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_TRIMUI_BRICK)
+ 	&trimui_brick_panel,
+ #endif
++#if IS_ENABLED(CONFIG_LCD_SUPPORT_H028B23)
++	&h028b23_panel,
++#endif
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_HE0801A068)
+ 	&he0801a068_panel,
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
+@@ -89,6 +89,7 @@
+ extern struct __lcd_panel ls029b3sx02_panel;
+ extern struct __lcd_panel he0801a068_panel;
+ extern struct __lcd_panel trimui_brick_panel;
++extern struct __lcd_panel h028b23_panel;
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_INET_DSI_PANEL)
+ extern struct __lcd_panel inet_dsi_panel;
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
+@@ -32,6 +32,12 @@
+ 		er68576, st7703, nv3052, jd9168, gh7003 on the Brick Pro) is
+ 		detected from its DCS ID registers; trimui_lcd=<name> forces one.
+ 
++config LCD_SUPPORT_H028B23
++	bool "LCD support h028b23 panel"
++	default n
++	help
++		The MagicX Zero 28 480x640 2-lane MIPI panel.
++
+ config LCD_SUPPORT_HE0801A068
+ 	bool "LCD support he0801a068 panel"
+ 	default y
+--- a/bsp/drivers/video/sunxi/disp2/disp/Makefile
++++ b/bsp/drivers/video/sunxi/disp2/disp/Makefile
+@@ -30,6 +30,7 @@
+ disp-objs += of_service.o de/lcd_debug.o
+ 
+ disp-$(CONFIG_LCD_SUPPORT_TRIMUI_BRICK) += lcd/trimui_brick.o
++disp-$(CONFIG_LCD_SUPPORT_H028B23) += lcd/h028b23.o
+ disp-$(CONFIG_LCD_SUPPORT_HE0801A068) += lcd/he0801a068.o
+ disp-$(CONFIG_EINK_PANEL_USED) += lcd/default_eink.o
+ disp-$(CONFIG_LCD_SUPPORT_LT070ME05000) += lcd/lt070me05000.o

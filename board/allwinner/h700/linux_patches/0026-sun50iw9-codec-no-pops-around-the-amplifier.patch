@@ -1,0 +1,99 @@
+ASoC: sun50iw9-codec: no pops around the amplifier
+
+Keep the amp rail up and switch only its enable pin, turn the amp off
+before the lineout drops and on after pa_pin_msleep, and off at shutdown.
+
+--- a/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
++++ b/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
+@@ -382,16 +382,14 @@
+ 	on = codec_info->lineout_on && !codec_info->hp_in;
+ 	if (on != codec_info->pa_on) {
+ 		if (on) {
+-			if (codec_info->pa_supply &&
+-			    regulator_enable(codec_info->pa_supply))
+-				SND_LOG_ERR(HLOG, "pa supply enable failed\n");
++			/* let the lineout ramp settle first */
++			if (codec_info->pa_pin_max && codec_info->pa_cfg[0].msleep)
++				msleep(codec_info->pa_cfg[0].msleep);
+ 			snd_sunxi_pa_pin_enable(codec_info->pa_cfg,
+ 						codec_info->pa_pin_max);
+ 		} else {
+ 			snd_sunxi_pa_pin_disable(codec_info->pa_cfg,
+ 						 codec_info->pa_pin_max);
+-			if (codec_info->pa_supply)
+-				regulator_disable(codec_info->pa_supply);
+ 		}
+ 		codec_info->pa_on = on;
+ 	}
+@@ -439,14 +437,15 @@
+ 		break;
+ 
+ 	case SND_SOC_DAPM_PRE_PMD:
++		/* amp off before the lineout drops */
++		sunxi_lineout_set(codec_info, false);
++
+ 		regmap_update_bits(regmap, AC_RAMP_REG,
+ 				    0x1 << RDEN, 0x0 << RDEN);
+ 		regmap_update_bits(regmap, AC_DAC_REG,
+ 				   (0x1 << LINEOUTL_EN) | (0x1 << LINEOUTR_EN),
+ 				   (0x0 << LINEOUTL_EN) | (0x0 << LINEOUTR_EN));
+ 
+-		sunxi_lineout_set(codec_info, false);
+-
+ 		break;
+ 
+ 	default:
+@@ -1068,6 +1067,11 @@
+ 		if (ret == -EPROBE_DEFER)
+ 			goto err_pa_supply;
+ 	}
++	/* rail stays up, the pa pin switches the amp */
++	if (codec_info->pa_supply && regulator_enable(codec_info->pa_supply)) {
++		SND_LOG_ERR(HLOG, "pa supply enable failed\n");
++		codec_info->pa_supply = NULL;
++	}
+ 
+ 	/* alsa component register */
+ 	ret = snd_soc_register_component(dev,
+@@ -1084,6 +1088,8 @@
+ 	return 0;
+ 
+ err_register_component:
++	if (codec_info->pa_supply)
++		regulator_disable(codec_info->pa_supply);
+ err_pa_supply:
+ #if 0
+ 	snd_sunxi_regulator_exit(pdev, rglt_info);
+@@ -1117,6 +1123,8 @@
+ 	snd_sunxi_clk_exit(pdev, clk_info);
+ 	/* snd_sunxi_regulator_exit(pdev, rglt_info); */
+ 	snd_sunxi_pa_pin_exit(pdev, codec_info->pa_cfg, codec_info->pa_pin_max);
++	if (codec_info->pa_supply)
++		regulator_disable(codec_info->pa_supply);
+ 
+ 	/* sunxi codec custom info free */
+ 	devm_kfree(dev, codec_info);
+@@ -1127,6 +1135,15 @@
+ 	return 0;
+ }
+ 
++/* amp off before reboot or poweroff drops the rails */
++static void sunxi_internal_codec_dev_shutdown(struct platform_device *pdev)
++{
++	struct sunxi_codec_info *codec_info = dev_get_drvdata(&pdev->dev);
++
++	if (codec_info)
++		sunxi_lineout_set(codec_info, false);
++}
++
+ static const struct of_device_id sunxi_internal_codec_of_match[] = {
+ 	{ .compatible = "allwinner," DRV_NAME, },
+ 	{},
+@@ -1141,6 +1158,7 @@
+ 	},
+ 	.probe	= sunxi_internal_codec_dev_probe,
+ 	.remove	= sunxi_internal_codec_dev_remove,
++	.shutdown = sunxi_internal_codec_dev_shutdown,
+ };
+ 
+ int __init sunxi_internal_codec_dev_init(void)

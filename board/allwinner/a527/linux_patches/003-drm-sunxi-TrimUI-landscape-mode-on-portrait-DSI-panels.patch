@@ -1,0 +1,354 @@
+From: knulli
+Subject: [PATCH] drm/sunxi: TrimUI landscape mode on portrait DSI panels
+
+The TrimUI Smart Pro S panel is 720x1280, mounted landscape.  TrimUI's
+kernel offers 1280x720 on the DSI connector: DSI/TCON keep the panel's
+native timing while the DE is sized by the selected mode, and each
+full-screen 1280x720 frame is turned 270 degrees by G2D into a packed
+720x1280 copy that the layer scans out with its 1280x720 size and pitch.
+Reimplemented from the stock kernel; /sys/class/drm/card0-DSI-1/rotate and
+force_rotate behave as on stock.  A panel opts in with
+knulli,landscape-rotate.
+---
+--- a/bsp/drivers/drm/panel/panel-dsi.c
++++ b/bsp/drivers/drm/panel/panel-dsi.c
+@@ -30,6 +30,7 @@
+ #include <video/mipi_display.h>
+ #include <drm/drm_mipi_dsi.h>
+ #include <drm/drm_crtc.h>
++#include <drm/sunxi_lcd_rotate.h>
+ #include "panels.h"
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+@@ -247,12 +248,35 @@
+ 		mode->height_mm = desc->size.height;
+ 
+ 		mode->type |= DRM_MODE_TYPE_DRIVER;
+-		if (desc->timings->native_mode == i)
+-			mode->type |= DRM_MODE_TYPE_PREFERRED;
++		if (desc->timings->native_mode == i) {
++			drm_mode_copy(&drm_lcd_native_mode, mode);
++			drm_lcd_native_valid = true;
++			if (!drm_lcd_rotate)
++				mode->type |= DRM_MODE_TYPE_PREFERRED;
++		}
+ 
++		if (drm_lcd_force_rotate) {
++			drm_mode_destroy(connector->dev, mode);
++			continue;
++		}
+ 		drm_mode_probed_add(connector, mode);
+ 		num++;
+ 	}
++
++	if (drm_lcd_rotate || drm_lcd_force_rotate) {
++		/* CEA 720p60: only its size matters, DSI keeps the native timing */
++		static const struct drm_display_mode rotated = {
++			DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
++				 74250, 1280, 1390, 1430, 1650, 0, 720, 725, 730, 750, 0,
++				 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC)
++		};
++
++		mode = drm_mode_duplicate(connector->dev, &rotated);
++		if (mode) {
++			drm_mode_probed_add(connector, mode);
++			num++;
++		}
++	}
+ 	connector->display_info.width_mm = desc->size.width;
+ 	connector->display_info.height_mm = desc->size.height;
+ /*
+@@ -637,6 +661,10 @@
+ 
+ 	of_property_read_u32(np, "dsc,vrr-setp", &dsi_panel->vrr_setp);
+ 
++	/* portrait panel in a landscape device: offer 1280x720 by default */
++	if (of_property_read_bool(np, "knulli,landscape-rotate"))
++		drm_lcd_rotate = 1;
++
+ 	return 0;
+ }
+ 
+--- a/bsp/drivers/drm/sunxi_device/hardware/lowlevel_de/ovl/de_ovl.c
++++ b/bsp/drivers/drm/sunxi_device/hardware/lowlevel_de/ovl/de_ovl.c
+@@ -22,6 +22,10 @@
+ #endif
+ #include <drm/drm_framebuffer.h>
+ #include <drm/drm_fourcc.h>
++#include <linux/dma-mapping.h>
++#include <drm/drm_device.h>
++#include <drm/sunxi_lcd_rotate.h>
++#include <sunxi-g2d.h>
+ #include "de_ovl.h"
+ #include "de_ovl_type.h"
+ #include "de_ovl_platform.h"
+@@ -53,6 +57,10 @@
+ };
+ 
+ struct de_ovl_private {
++	/* two G2D-rotated frames, flipped between commits (drm_lcd_rotate) */
++	void *rot_vaddr;
++	dma_addr_t rot_paddr;
++	u32 rot_page;
+ 	struct de_reg_mem_info reg_mem_info;
+ 	struct de_ovl_debug_info debug;
+ 	u32 reg_blk_num;
+@@ -163,6 +171,105 @@
+ 	return 0;
+ }
+ 
++/* bsp/drivers/g2d/g2d_legacy, the in-kernel blit API */
++int g2d_open(struct inode *inode, struct file *file);
++int g2d_bsp_blit_h(g2d_blt_h *info);
++int g2d_ioctl_mutex_lock(void);
++int g2d_ioctl_mutex_unlock(void);
++
++#define ROT_FRAME_SIZE	(DRM_LCD_ROTATE_W * DRM_LCD_ROTATE_H * 4)
++
++/*
++ * drm_lcd_rotate: a full-screen 1280x720 32bpp frame is turned 270 degrees by
++ * G2D into a packed 720x1280 copy, and the layer reads that copy instead.  The
++ * layer keeps its 1280x720 size and 5120 pitch: the copy is the same byte
++ * stream the portrait panel expects, which DSI/TCON time natively.  Returns
++ * the copy's address, or 0 to scan out the frame as it is.
++ */
++static u64 de_ovl_lcd_rotate(struct de_ovl_handle *handle, struct drm_framebuffer *fb,
++			     int fmt, u32 x, u32 y, u32 w, u32 h)
++{
++	static struct file g2d_file;
++	static bool g2d_opened;
++	struct de_ovl_private *priv = handle->private;
++#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 0)
++	struct drm_gem_cma_object *gem;
++#else
++	struct drm_gem_dma_object *gem;
++#endif
++	g2d_blt_h blit = { .flag_h = G2D_ROT_270 };
++	u64 src, dst;
++	int ret;
++
++	if (!drm_lcd_rotate || fmt > DE_FORMAT_BGRX_8888 ||
++	    fb->width != DRM_LCD_ROTATE_W || fb->height != DRM_LCD_ROTATE_H ||
++	    w != DRM_LCD_ROTATE_W || h != DRM_LCD_ROTATE_H || x || y ||
++	    fb->pitches[0] != DRM_LCD_ROTATE_W * 4)
++		return 0;
++
++#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 0)
++	gem = drm_fb_cma_get_gem_obj(fb, 0);
++	if (!gem)
++		return 0;
++	src = (u64)gem->paddr + fb->offsets[0];
++#else
++	gem = drm_fb_dma_get_gem_obj(fb, 0);
++	if (!gem)
++		return 0;
++	src = (u64)gem->dma_addr + fb->offsets[0];
++#endif
++
++	/* on the device the GEM buffers come from, as they share its mapping */
++	if (!priv->rot_vaddr) {
++		priv->rot_vaddr = dma_alloc_coherent(fb->dev->dev, 2 * ROT_FRAME_SIZE,
++						     &priv->rot_paddr, GFP_KERNEL);
++		if (!priv->rot_vaddr) {
++			DRM_ERROR("[SUNXI-OVL] no memory for the rotated frames\n");
++			return 0;
++		}
++	}
++	if (!g2d_opened) {
++		g2d_open(NULL, &g2d_file);
++		g2d_opened = true;
++	}
++
++	priv->rot_page ^= 1;
++	dst = (u64)priv->rot_paddr + priv->rot_page * ROT_FRAME_SIZE;
++
++	/* DE and G2D number the RGB formats alike */
++	blit.src_image_h.format = fmt;
++	blit.src_image_h.laddr[0] = lower_32_bits(src);
++	blit.src_image_h.haddr[0] = upper_32_bits(src);
++	blit.src_image_h.width = DRM_LCD_ROTATE_W;
++	blit.src_image_h.height = DRM_LCD_ROTATE_H;
++	blit.src_image_h.clip_rect.w = DRM_LCD_ROTATE_W;
++	blit.src_image_h.clip_rect.h = DRM_LCD_ROTATE_H;
++	blit.src_image_h.alpha = 0xff;
++	blit.src_image_h.mode = G2D_PIXEL_ALPHA;
++	blit.src_image_h.use_phy_addr = 1;
++
++	blit.dst_image_h.format = fmt;
++	blit.dst_image_h.laddr[0] = lower_32_bits(dst);
++	blit.dst_image_h.haddr[0] = upper_32_bits(dst);
++	blit.dst_image_h.width = DRM_LCD_ROTATE_H;
++	blit.dst_image_h.height = DRM_LCD_ROTATE_W;
++	blit.dst_image_h.clip_rect.w = DRM_LCD_ROTATE_H;
++	blit.dst_image_h.clip_rect.h = DRM_LCD_ROTATE_W;
++	blit.dst_image_h.alpha = 0xff;
++	blit.dst_image_h.mode = G2D_PIXEL_ALPHA;
++	blit.dst_image_h.use_phy_addr = 1;
++
++	g2d_ioctl_mutex_lock();
++	ret = g2d_bsp_blit_h(&blit);
++	g2d_ioctl_mutex_unlock();
++	if (ret) {
++		DRM_ERROR_RATELIMITED("[SUNXI-OVL] G2D rotation failed: %d\n", ret);
++		return 0;
++	}
++
++	return dst;
++}
++
+ static int de_ovl_v_set_lay_layout(struct ovl_v_reg *reg, unsigned int x0, unsigned int y0,
+ 					int format, struct drm_framebuffer *fb, unsigned int layer_id, bool swap)
+ {
+@@ -440,6 +547,7 @@
+ static int de_ovl_v_apply_lay(struct de_ovl_handle *handle, const struct display_channel_state *state, const struct de_ovl_cfg *cfg)
+ {
+ 	u32 width, height, x, y, dwval, format, vi_ui_sel, i, alpha;
++	u64 rot_addr;
+ 	struct de_ovl_private *priv = handle->private;
+ 	struct ovl_v_reg *reg = get_ovl_v_reg(priv);
+ 	struct drm_framebuffer *fb;
+@@ -509,6 +617,9 @@
+ 			reg->fcolor[i].dwval = state->color[i];
+ 
+ 		de_ovl_v_set_lay_layout(reg, x, y, fmt, fb, i, swap);
++		rot_addr = de_ovl_lcd_rotate(handle, fb, fmt, x, y, width, height);
++		if (rot_addr)
++			reg->lay[i].top_laddr0.dwval = (u32)rot_addr;
+ 		ovl_set_block_dirty(priv, ((i < 2) ?
+ 			OVL_V_REG_BLK_LAY_0_1 : OVL_V_REG_BLK_LAY_2_3), 1);
+ 	}
+@@ -608,6 +719,7 @@
+ static int de_ovl_u_apply_lay(struct de_ovl_handle *handle, struct display_channel_state *state, const struct de_ovl_cfg *cfg)
+ {
+ 	u32 width, height, x, y, dwval,  format, vi_ui_sel, i, alpha;
++	u64 rot_addr;
+ 	struct de_ovl_private *priv = handle->private;
+ 	struct ovl_u_reg *reg = get_ovl_u_reg(priv);
+ 	struct drm_framebuffer *fb;
+@@ -677,6 +789,9 @@
+ 			reg->lay[i].fcolor.dwval = state->color[i];
+ 
+ 		de_ovl_u_set_lay_layout(reg, x, y, fmt, fb, i);
++		rot_addr = de_ovl_lcd_rotate(handle, fb, fmt, x, y, width, height);
++		if (rot_addr)
++			reg->lay[i].top_laddr.dwval = (u32)rot_addr;
+ 
+ 		ovl_set_block_dirty(priv, i, 1);
+ 	}
+--- a/bsp/drivers/drm/sunxi_drm_dsi.c
++++ b/bsp/drivers/drm/sunxi_drm_dsi.c
+@@ -11,6 +11,7 @@
+  * warranty of any kind, whether express or implied.
+  */
+ #include <drm/drm_modes.h>
++#include <drm/sunxi_lcd_rotate.h>
+ #include <linux/component.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/pinctrl/machine.h>
+@@ -459,7 +460,11 @@
+ 	struct sunxi_crtc_state *scrtc_state = to_sunxi_crtc_state(crtc_state);
+ 	struct disp_output_config disp_cfg;
+ 
+-	drm_mode_to_sunxi_video_timings(&dsi->mode, &dsi->dsi_para.timings);
++	/* the rotated 1280x720 mode only sizes the DE; the panel keeps its timing */
++	if ((drm_lcd_rotate || drm_lcd_force_rotate) && drm_lcd_native_valid)
++		drm_mode_to_sunxi_video_timings(&drm_lcd_native_mode, &dsi->dsi_para.timings);
++	else
++		drm_mode_to_sunxi_video_timings(&dsi->mode, &dsi->dsi_para.timings);
+ 	bpp = mipi_dsi_pixel_format_to_bpp(dsi->dsi_para.format);
+ 
+ 	if (dsi->slave)
+--- a/drivers/gpu/drm/drm_sysfs.c
++++ b/drivers/gpu/drm/drm_sysfs.c
+@@ -25,6 +25,7 @@
+ #include <drm/drm_print.h>
+ #include <drm/drm_property.h>
+ #include <drm/drm_sysfs.h>
++#include <drm/sunxi_lcd_rotate.h>
+ 
+ #include "drm_internal.h"
+ #include "drm_crtc_internal.h"
+@@ -240,11 +241,56 @@
+ static DEVICE_ATTR_RO(dpms);
+ static DEVICE_ATTR_RO(modes);
+ 
++int drm_lcd_rotate;
++EXPORT_SYMBOL(drm_lcd_rotate);
++int drm_lcd_force_rotate;
++EXPORT_SYMBOL(drm_lcd_force_rotate);
++struct drm_display_mode drm_lcd_native_mode;
++EXPORT_SYMBOL(drm_lcd_native_mode);
++bool drm_lcd_native_valid;
++EXPORT_SYMBOL(drm_lcd_native_valid);
++
++/* takes effect on the next frame and the next mode probe, as on TrimUI's kernel */
++static ssize_t rotate_show(struct device *device,
++			   struct device_attribute *attr, char *buf)
++{
++	return sysfs_emit(buf, "%d\n", drm_lcd_rotate);
++}
++
++static ssize_t rotate_store(struct device *device,
++			    struct device_attribute *attr,
++			    const char *buf, size_t count)
++{
++	int ret = kstrtoint(buf, 0, &drm_lcd_rotate);
++
++	return ret ? ret : count;
++}
++
++static ssize_t force_rotate_show(struct device *device,
++				 struct device_attribute *attr, char *buf)
++{
++	return sysfs_emit(buf, "%d\n", drm_lcd_force_rotate);
++}
++
++static ssize_t force_rotate_store(struct device *device,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	int ret = kstrtoint(buf, 0, &drm_lcd_force_rotate);
++
++	return ret ? ret : count;
++}
++
++static DEVICE_ATTR_RW(rotate);
++static DEVICE_ATTR_RW(force_rotate);
++
+ static struct attribute *connector_dev_attrs[] = {
+ 	&dev_attr_status.attr,
+ 	&dev_attr_enabled.attr,
+ 	&dev_attr_dpms.attr,
+ 	&dev_attr_modes.attr,
++	&dev_attr_rotate.attr,
++	&dev_attr_force_rotate.attr,
+ 	NULL
+ };
+ 
+--- a/include/drm/sunxi_lcd_rotate.h
++++ b/include/drm/sunxi_lcd_rotate.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Landscape mode on a portrait DSI panel, as TrimUI's TG5050 kernel does it:
++ * the connector offers 1280x720 (preferred), the DE scans out a G2D-rotated
++ * copy of each 1280x720 frame and DSI/TCON keep the panel's native timing.
++ * /sys/class/drm/card0-DSI-1/{rotate,force_rotate} drive it like on stock.
++ */
++#ifndef _DRM_SUNXI_LCD_ROTATE_H
++#define _DRM_SUNXI_LCD_ROTATE_H
++
++#include <drm/drm_modes.h>
++
++#define DRM_LCD_ROTATE_W	1280
++#define DRM_LCD_ROTATE_H	720
++
++/* offer and scan out the rotated 1280x720 mode */
++extern int drm_lcd_rotate;
++/* offer only the rotated mode */
++extern int drm_lcd_force_rotate;
++/* the panel's own mode, what DSI/TCON are timed with */
++extern struct drm_display_mode drm_lcd_native_mode;
++extern bool drm_lcd_native_valid;
++
++#endif

@@ -1,0 +1,15 @@
+config BR2_PACKAGE_VULKAN_WSI_LAYER
+	bool "vulkan-wsi-layer"
+	depends on BR2_INSTALL_LIBSTDCPP
+	select BR2_PACKAGE_LIBDRM
+	select BR2_PACKAGE_WAYLAND
+	select BR2_PACKAGE_WAYLAND_PROTOCOLS
+	select BR2_PACKAGE_VULKAN_HEADERS
+	select BR2_PACKAGE_VULKAN_LOADER
+	help
+	  Arm's Vulkan window system integration layer, built from source
+	  for Wayland.  Replaces the prebuilt layer bundled with the Mali
+	  blob, which can only present through Weston's mali_buffer_sharing
+	  and fails to create a swapchain on wlroots compositors (labwc).
+
+	  https://gitlab.freedesktop.org/mesa/vulkan-wsi-layer

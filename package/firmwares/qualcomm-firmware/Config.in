@@ -1,0 +1,7 @@
+config BR2_PACKAGE_QUALCOMM_FIRMWARE
+	bool "qualcomm firmware"
+	select BR2_PACKAGE_ALLLINUXFIRMWARES
+
+	help
+	  Vendor firmware for Qualcomm handhelds: ADSP/CDSP/VPU images,
+	  sound topologies and the WCN7850 wifi blobs.

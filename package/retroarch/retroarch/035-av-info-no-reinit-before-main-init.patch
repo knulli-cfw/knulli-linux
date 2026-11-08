@@ -1,0 +1,28 @@
+Do not reinit the drivers on SET_SYSTEM_AV_INFO before main init has run.
+
+mgba (mgba-emu tree) reports its audio rate from retro_load_game(), so
+RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO arrives before retroarch_main_init()
+has started any driver.  The handler's CMD_EVENT_REINIT brings every driver
+up there and then, and main init's own drivers_init() opens the video driver
+a second time without closing the first.  Elsewhere that leaks a window;
+SDL's mali-fbdev backend allows one EGL window surface, so the second open
+fails ("Can't create EGL window surface") and RetroArch exits.
+
+main init reads av_info from the core again and initializes every driver
+right after content loads, so before then storing av_info is enough.
+
+--- a/runloop.c
++++ b/runloop.c
+@@ -2702,6 +2702,12 @@
+ 
+             memcpy(av_info, *info, sizeof(*av_info));
+ 
++            /* Called from retro_load_game(): retroarch_main_init() reads
++             * av_info again and starts every driver right after, so a reinit
++             * here only creates a second window over the first one. */
++            if (!(runloop_st->flags & RUNLOOP_FLAG_IS_INITED))
++               return true;
++
+             command_event(CMD_EVENT_REINIT, &reinit_flags);
+ 
+             if (no_video_reinit)

@@ -1,0 +1,64 @@
+disp2: anbernic panel: keep the panel the boot loader initialised
+
+knulli's U-Boot initialises the panel for its logo and hands the logo over
+(boot_fb0) with boot_disp = 0, so disp2 re-initialises the display.  It
+marks the kernel lcd0 node knulli,panel-ready; the first open then skips
+the reset pulse, which would blank the logo for most of a second, and
+re-sends the init table (some panels lose their setup while the tcon is
+re-initialised).  Later opens (resume, a runtime panel switch) do the full
+init.
+--- a/drivers/video/fbdev/sunxi/disp2/disp/lcd/fog_fj035fhd05_v1.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/lcd/fog_fj035fhd05_v1.c
+@@ -287,17 +287,45 @@
+ 	sunxi_lcd_pwm_disable(sel);
+ }
+ 
++/*
++ * knulli's U-Boot brings the panel up for its logo and then marks the
++ * kernel's lcd0 node "knulli,panel-ready".  The first open skips the reset
++ * pulse, which would blank the logo for most of a second, but still sends
++ * the init table: some panels (CubeXX, RG34XX-SP) lose their setup while
++ * disp2 re-initialises the tcon, and resending it to a configured panel only
++ * rewrites the same registers.  Later opens (resume, a panel switched at
++ * runtime) run the whole sequence.
++ */
++static bool anbernic_panel_ready_once(void)
++{
++	static bool checked;
++	struct device_node *np;
++	bool ready;
++
++	if (checked)
++		return false;
++	checked = true;
++	np = disp_sys_lcd0_node();
++	ready = np && of_property_read_bool(np, "knulli,panel-ready");
++	of_node_put(np);
++	if (ready)
++		pr_info("fog_fj035fhd05_v1: panel initialised by the boot loader\n");
++	return ready;
++}
++
+ static void LCD_panel_init(u32 sel)
+ {
+ 	const struct anbernic_panel *p = anbernic_panel_lookup(sel);
+ 
+-	/* the vendor's reset pulse */
+-	sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 1);
+-	sunxi_lcd_delay_ms(15);
+-	sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 0);
+-	sunxi_lcd_delay_ms(50);
+-	sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 1);
+-	sunxi_lcd_delay_ms(100);
++	if (!anbernic_panel_ready_once()) {
++		/* the vendor's reset pulse */
++		sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 1);
++		sunxi_lcd_delay_ms(15);
++		sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 0);
++		sunxi_lcd_delay_ms(50);
++		sunxi_lcd_gpio_set_value(sel, GPIO_RESET, 1);
++		sunxi_lcd_delay_ms(100);
++	}
+ 
+ 	/* the table ends with exit sleep, its delay and display on */
+ 	anbernic_run_cmds(sel, p->cmds, p->cmds_len);

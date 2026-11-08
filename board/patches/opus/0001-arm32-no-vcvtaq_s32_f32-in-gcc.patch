@@ -1,0 +1,23 @@
+From: knulli
+Subject: [PATCH] celt/arm: vroundf must use the fallback on 32-bit ARMv8 with GCC
+
+vcvtaq_s32_f32 is AArch64-only in GCC.  Its arm_neon.h for AArch32 ships
+only the __fp16 vcvta variants (vcvtaq_s16_f16), so an ARMv8 board built
+in 32-bit mode fails with "implicit declaration of vcvtaq_s32_f32".
+clang does provide it for A32, which is presumably why the guard reads
+__ARM_ARCH >= 8.
+
+vminvf() and vmaxvf() just below already guard on __aarch64__ alone; make
+vroundf() match.  The fallback is plain NEON and works everywhere.
+
+--- a/celt/arm/mathops_arm.h
++++ b/celt/arm/mathops_arm.h
+@@ -38,7 +38,7 @@
+ 
+ static inline int32x4_t vroundf(float32x4_t x)
+ {
+-#  if defined(__aarch64__) || (defined(__ARM_ARCH) && __ARM_ARCH >= 8)
++#  if defined(__aarch64__)
+     return vcvtaq_s32_f32(x);
+ #  else
+     uint32x4_t sign = vandq_u32(vreinterpretq_u32_f32(x), vdupq_n_u32(0x80000000));

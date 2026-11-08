@@ -5,7 +5,8 @@ import os
 from typing import TYPE_CHECKING
 
 from ... import controllersConfig
-from ...batoceraPaths import BIOS, ROMS, ensure_parents_and_open
+from ...batoceraPaths import BIOS, ES_GAMES_METADATA, ROMS, ensure_parents_and_open
+from ...utils import metadata as metadataUtils
 from ...utils.configparser import CaseSensitiveConfigParser
 from .libretroPaths import RETROARCH_CONFIG
 
@@ -1140,7 +1141,7 @@ def generateCoreSettings(coreSettings: UnixSettings, system: Emulator, rom: Path
                 break
 
         if auto_rumble_pak:
-            metadata = controllersConfig.getGamesMetaData(system.name, rom)
+            metadata = metadataUtils.get_games_meta_data(ES_GAMES_METADATA, system.name, rom)
 
         # Controller Pak 1
         if system.isOptSet('mupen64plus-pak1'):
@@ -1275,7 +1276,7 @@ def generateCoreSettings(coreSettings: UnixSettings, system: Emulator, rom: Path
                 break
 
         if auto_rumble_pak:
-            metadata = controllersConfig.getGamesMetaData(system.name, rom)
+            metadata = metadataUtils.get_games_meta_data(ES_GAMES_METADATA, system.name, rom)
 
         # Controller Pak 1
         if system.isOptSet('parallel-n64-pak1'):

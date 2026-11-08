@@ -1,0 +1,55 @@
+Do not tear down a swapchain that is identical to the one in flight.
+
+vulkan_init() raises SHOULD_RESIZE unconditionally, and the threaded video
+wrapper swallows set_nonblock_state instead of forwarding it -- so the
+vulkan_check_swapchain() call that would clear VK_CTX_FLAG_INVALID_SWAPCHAIN
+never runs before the first frame.  vulkan_create_swapchain() then refuses
+its redundancy early-out and destroys and rebuilds a byte-identical
+swapchain on frame one of every threaded session.
+
+The PowerVR Rogue blob never releases the display buffers of a VK_KHR_display
+swapchain that has presented, so the rebuild returns
+VK_ERROR_OUT_OF_DEVICE_MEMORY and the display is gone -- video_threaded is
+unusable with the vulkan driver on a133.  Nobody checked set_resize()'s
+return, so it surfaced as a segfault a frame later.
+
+--- a/gfx/drivers/vulkan.c
++++ b/gfx/drivers/vulkan.c
+@@ -5242,6 +5242,19 @@
+          vk->ctx_driver->update_window_title(vk->ctx_data);
+    }
+ 
++   /* A pending swapchain invalidation has to be consumed before a resize is
++    * evaluated.  vulkan_create_swapchain() refuses its "nothing changed"
++    * early-out while VK_CTX_FLAG_INVALID_SWAPCHAIN is set, so an identical
++    * swapchain gets destroyed and rebuilt.  vulkan_init() raises
++    * SHOULD_RESIZE unconditionally and the threaded video wrapper never
++    * forwards set_nonblock_state, which is what clears the flag before the
++    * first frame otherwise -- so with video_threaded this always fires, and
++    * drivers that cannot hand back a display swapchain once it has presented
++    * (PowerVR Rogue on VK_KHR_display) lose the display for good. */
++   if (      (vk->flags & VK_FLAG_SHOULD_RESIZE)
++         && (vk->context->flags & VK_CTX_FLAG_INVALID_SWAPCHAIN))
++      vulkan_check_swapchain(vk);
++
+    /* Handle spurious swapchain invalidations as soon as we can,
+     * i.e. right after swap buffers. */
+ #ifdef VULKAN_HDR_SWAPCHAIN
+@@ -5276,8 +5289,15 @@
+       mode.width  = width;
+       mode.height = height;
+ 
+-      if (vk->ctx_driver->set_resize)
+-         vk->ctx_driver->set_resize(vk->ctx_data, mode.width, mode.height);
++      /* Losing the swapchain here used to go unnoticed until the next frame
++       * dereferenced it, which is a segfault rather than an error. */
++      if (      vk->ctx_driver->set_resize
++            && !vk->ctx_driver->set_resize(vk->ctx_data, mode.width, mode.height))
++      {
++         RARCH_ERR("[Vulkan] Lost the swapchain on resize, shutting down.\n");
++         vk->flags |= VK_FLAG_QUITTING;
++         return false;
++      }
+ 
+ #ifdef VULKAN_HDR_SWAPCHAIN
+       if (vk->context->flags & VK_CTX_FLAG_HDR_ENABLE)

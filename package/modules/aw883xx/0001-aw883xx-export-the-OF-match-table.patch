@@ -1,0 +1,16 @@
+From: knulli
+Subject: [PATCH] aw883xx: export the OF match table
+
+Without it the module has only an i2c alias, and udev never loads it for
+the device-tree node (of:N...Cawinic,aw883xx_smartpa).
+---
+--- a/aw883xx.c
++++ b/aw883xx.c
+@@ -2947,6 +2947,7 @@
+ 	{.compatible = "awinic,aw883xx_smartpa"},
+ 	{},
+ };
++MODULE_DEVICE_TABLE(of, aw883xx_dt_match);
+ 
+ static struct i2c_driver aw883xx_i2c_driver = {
+ 	.driver = {

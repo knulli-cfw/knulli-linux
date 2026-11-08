@@ -1,0 +1,9 @@
+config BR2_PACKAGE_POWERVR_GE8300_KM
+	bool "powervr-ge8300-km"
+	depends on BR2_LINUX_KERNEL
+	help
+	  PowerVR Rogue DDK 1.19 kernel modules (pvrsrvkm, dc_sunxi) for
+	  the GE8300 in the Allwinner A133, built from source against the
+	  kernel. Matches the powervr-ge8300-driver userspace.
+
+	  https://github.com/pocketforge-os/gpu-km-tsp

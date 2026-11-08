@@ -1,0 +1,13 @@
+Subject: [PATCH] video: sunxi: disp2: find the shared headers in an in-tree build
+
+de/ and lcd/ include headers from disp/ by bare name; Kbuild only adds
+-I$(srctree)/$(src) for out-of-tree (O=) builds.
+---
+--- a/bsp/drivers/video/sunxi/disp2/disp/Makefile
++++ b/bsp/drivers/video/sunxi/disp2/disp/Makefile
+@@ -89,3 +89,5 @@
+ disp-objs += $(obj_low)
+ disp-$(CONFIG_AW_DISP2_PQ) += pq/drv_pq.o pq/pq_common.o
+ ccflags-y += -DDYNAMIC_DEBUG_MODULE
++# de/ and lcd/ include headers from this directory (implicit only with O=)
++ccflags-y += -I$(srctree)/$(src)

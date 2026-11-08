@@ -9,26 +9,35 @@
 # ships as the generic "rk3566". The per-board init scripts (S04audioamp, power-led,
 # bluetooth, ...) key off knulli.board, so derive the real device name from the
 # kernel DT model and rewrite knulli.board before any S?? script runs.
-if [ -r /sys/firmware/devicetree/base/model ]; then
+# U-Boot's hwrev profile (board= on the cmdline) wins; the model is the
+# fallback for the generic profile and older U-Boot.
+NEW_BOARD=""
+for ARG in $(cat /proc/cmdline); do
+    case "$ARG" in
+        board=rk3566|board=) ;;
+        board=*) NEW_BOARD="${ARG#board=}" ;;
+    esac
+done
+if [ -z "$NEW_BOARD" ] && [ -r /sys/firmware/devicetree/base/model ]; then
     read -r MODEL < /sys/firmware/devicetree/base/model
-    NEW_BOARD=""
     case "$MODEL" in
         "Anbernic RG ARC-S"*) NEW_BOARD="rg-arc-s" ;;
+        "Anbernic RG DS Plus"*) NEW_BOARD="rg-ds-plus" ;;
         "Anbernic RG DS"*)    NEW_BOARD="rg-ds" ;;
         "Powkiddy X55"*)      NEW_BOARD="powkiddy-x55" ;;
         "Powkiddy RGB30"*)    NEW_BOARD="powkiddy-rgb30" ;;
         "MIYOO Flip"*)        NEW_BOARD="miyoo-flip" ;;
         "Mangmi Loong"*)      NEW_BOARD="miniloong" ;;
     esac
-    if [ -n "$NEW_BOARD" ]; then
-        CUR_BOARD=""
-        [ -r /boot/boot/knulli.board ] && read -r CUR_BOARD < /boot/boot/knulli.board
-        if [ "$CUR_BOARD" != "$NEW_BOARD" ]; then
-            mount -o remount,rw /boot
-            echo "$NEW_BOARD" > /boot/boot/knulli.board
-            sync
-            mount -o remount,ro /boot
-        fi
+fi
+if [ -n "$NEW_BOARD" ]; then
+    CUR_BOARD=""
+    [ -r /boot/boot/knulli.board ] && read -r CUR_BOARD < /boot/boot/knulli.board
+    if [ "$CUR_BOARD" != "$NEW_BOARD" ]; then
+        mount -o remount,rw /boot
+        echo "$NEW_BOARD" > /boot/boot/knulli.board
+        sync
+        mount -o remount,ro /boot
     fi
 fi
 # --------------------------------------------------------------------------

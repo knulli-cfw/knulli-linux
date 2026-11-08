@@ -1,0 +1,37 @@
+Makefile.libretro forwards OVERRIDE_CC/OVERRIDE_CXX to MAME's genie build only
+on the Windows and Apple branches.  On Linux nothing is forwarded, so genie
+falls back to plain `gcc`/`g++` and the whole core is built with the HOST
+compiler -- the cross toolchain in CC/CXX is silently ignored, and the link
+then fails (or, worse, produces an x86 object on an ARM target).
+
+Add a generic opt-in: when CROSS_BUILD is set, pass the compilers through.
+CROSS_BUILD is genie's own flag for "host tools with the host compiler, target
+objects with OVERRIDE_CC", which is exactly the split needed here.  Guarded by
+ifneq so a native build is completely unaffected.
+
+Two more values have to travel with them, both derived from the BUILD host
+otherwise:
+
+  PLATFORM      makefile:127-172 picks it from `uname -m`, so an x86_64 host
+                yields --PLATFORM=x86 and genie generates an x86 build.  MAME's
+                own names (arm, arm64) are the same tokens LIBRETRO_CPU uses.
+  ARCHITECTURE  makefile:273-337 sets it to _x64 on a 64-bit host, and
+                makefile:290-297 turns that into MPARAM := -m64, which an
+                aarch64 gcc rejects outright ("unrecognized command-line option
+                '-m64'").  Clearing it is exactly what MAME's own ARM branches
+                (makefile:355 onwards) do.
+
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -190,6 +190,11 @@
+ ifneq ($(LIBRETRO_CPU),)
+ 	PLATFLAGS += ARCH="" LIBRETRO_CPU="$(LIBRETRO_CPU)"
+ endif
++ifneq ($(CROSS_BUILD),)
++	PLATFLAGS += OVERRIDE_CC="$(CC)" OVERRIDE_CXX="$(CXX)"
++	PLATFLAGS += CROSS_BUILD="$(CROSS_BUILD)"
++	PLATFLAGS += PLATFORM="$(LIBRETRO_CPU)" ARCHITECTURE=""
++endif
+ ifneq ($(FORCE_DRC_C_BACKEND),)
+ 	PLATFLAGS += FORCE_DRC_C_BACKEND="$(FORCE_DRC_C_BACKEND)"
+ endif

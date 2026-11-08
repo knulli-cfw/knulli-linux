@@ -29,7 +29,11 @@ BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
 BR2_LINUX_KERNEL_INTREE_DTS_NAME="allwinner/sun55i-t527-orangepi-4a"
 
-BR2_PACKAGE_UBOOT_ORANGEPI_4A=y
+# U-Boot, boot package and GPU module built from source
+BR2_PACKAGE_UBOOT_A527=y
+BR2_PACKAGE_MALI_KBASE_SUNXI=y
+BR2_PACKAGE_HOST_UBOOT_TOOLS=y
+BR2_PACKAGE_HOST_PYTHON_MKBOOTIMG=y
 
 # spi flash support
 BR2_PACKAGE_MTD=y
@@ -76,3 +80,19 @@ BR2_PACKAGE_WESTON_DRM=y
 BR2_PACKAGE_ANDROID_TOOLS=y
 BR2_PACKAGE_ANDROID_TOOLS_ADBD=y
 
+
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="a527"
+
+# Standalone emulators and ports come from the emulators drop, not this build.
+BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS=y
+BR2_PACKAGE_IPUTILS=y
+BR2_PACKAGE_MPV=y

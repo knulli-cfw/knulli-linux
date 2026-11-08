@@ -1,0 +1,13 @@
+arduous libretro-arduous https://github.com/libretro/arduous.git main YES CMAKE Makefile build
+armgba libretro-armgba https://github.com/MagnominusGit/armGBA.git main@e4b8d8e267ca0ecb85e4b8223197239e4a903c26 YES CMAKE Makefile build
+easyrpg libretro-easyrpg https://github.com/EasyRPG/Player.git master@409a0bff37f0049f93286ee2019d851301eb7506 YES CMAKE Makefile build
+flycast libretro-flycast https://github.com/flyinghead/flycast master YES CMAKE Makefile build
+melondsds libretro-melondsds https://github.com/JesseTG/melonds-ds.git main YES CMAKE Makefile build
+# pcsx2: github.com/libretro/pcsx2 no longer exists -- a clone gets a 404,
+# which git turns into a credential prompt ('could not read Username').
+# Disabled rather than deleted so the dead URL is not silently re-added.
+# PCSX2 is x86-64 only in any case; it has no ARM target.
+pcsx2 libretro-pcsx2 https://github.com/libretro/pcsx2.git libretro NO CMAKE Makefile build
+swanstation libretro-swanstation https://github.com/libretro/swanstation.git main YES CMAKE Makefile build
+tic80 libretro-tic80 https://github.com/nesbox/TIC-80.git main YES CMAKE Makefile builddir
+ppsspp libretro-ppsspp https://github.com/hrydgard/ppsspp.git master YES CMAKE Makefile build

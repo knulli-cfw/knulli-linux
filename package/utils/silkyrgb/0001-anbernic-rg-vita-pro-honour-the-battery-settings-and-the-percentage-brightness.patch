@@ -1,0 +1,59 @@
+anbernic_rg_vita_pro: honour the battery settings and the percentage brightness
+
+- battery.charging and battery.low: the charging and low/critical overrides
+  only apply in "continuous" mode, as on the other devices ("off" left them
+  on); low follows battery.low.threshold instead of a fixed 20%, and only
+  while discharging.
+- led_level is a percentage in the Anbernic kernel driver (it scales it to
+  0..255 itself); writing 0..255 overflowed it.
+
+--- a/drivers/anbernic_rg_vita_pro.py	2026-09-27 00:21:44.941153111 +0000
++++ b/drivers/anbernic_rg_vita_pro.py	2026-09-27 00:22:01.423157758 +0000
+@@ -67,17 +67,23 @@
+         except:
+             low_threshold = 20
+ 
++        # The overrides follow the same settings as on the other devices:
++        # battery.charging / battery.low set to "continuous" hold the state
++        # colour for as long as it applies; "off" and "notification" leave the
++        # chosen mode alone (the hardware effects cannot play notifications).
++        charging_mode = CONFIG.get("battery.charging", "continuous")
++        low_mode = CONFIG.get("battery.low", "continuous")
++
+         if bat_status == "Charging":
+             cfg = bat_map.get("Charging")
+-            if cfg:
++            if cfg and charging_mode == "continuous":
+                 target_mode, primary_rgb = cfg["mode"], cfg["color"]
+                 is_battery_alert = True
+-        elif bat_pct <= low_threshold:
+-            # Only check low/critical if NOT charging
++        elif bat_status == "Discharging" and bat_pct <= low_threshold and low_mode == "continuous":
+             if bat_pct <= 10:
+                 cfg = bat_map.get("Critical")
+                 if cfg: (target_mode, primary_rgb, is_battery_alert) = (cfg["mode"], cfg["color"], True)
+-            elif bat_pct <= 20:
++            else:
+                 cfg = bat_map.get("Low")
+                 if cfg: (target_mode, primary_rgb, is_battery_alert) = (cfg["mode"], cfg["color"], True)
+ 
+@@ -91,8 +97,9 @@
+         self._set_sysfs("led_switch", 1)
+ 
+         # 3. Apply Brightness and Hardware IDs
++        # led_level is a percentage (the kernel driver scales it to 0..255)
+         base_br = getattr(state, "_target_br", 100)
+-        brightness = int(float(base_br) * 2.55)
++        brightness = max(0, min(100, int(float(base_br))))
+         self._set_sysfs("led_level", brightness)
+ 
+         mode_data = self.HW_MODES.get(target_mode, self.HW_MODES.get("static", {"hw_id": 1, "hw_speed": 4}))
+@@ -120,7 +127,7 @@
+                 # Convert 0-255 (Additive) to 553-3 (Inverted)
+                 def to_mode5(val):
+                     return int(round(553 - (float(val) * (550.0 / 255.0))))
+-                self._set_sysfs("led_level", 255)
++                self._set_sysfs("led_level", 100)
+                 self._set_sysfs("led_sync_colour", 0)
+ 
+                 # Standard Inverted 10-bit Math

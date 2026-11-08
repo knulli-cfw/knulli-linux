@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Boot progress bar, straight to /dev/fb0 (progressbar_rk): Weston only takes
+# the display at S14, so this covers the first-boot resize (S02) and the early
+# scripts.  The panel is portrait (fbcon=rotate:3), which progressbar_rk
+# handles itself, like the X55.
+/usr/bin/progressbar_rk &
+
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
 #

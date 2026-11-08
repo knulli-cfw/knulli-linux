@@ -1,0 +1,9 @@
+config BR2_PACKAGE_UBOOT_A527
+    bool "uboot-a527"
+    depends on BR2_aarch64
+    help
+      U-Boot boot packages for Allwinner A527/T527 handhelds, built
+      from the Tina AIOT brandy-2.0 U-Boot with the device's board dts
+      and packed with the vendor monitor and scp by dragonsecboot.
+
+      output/images/a527-boot-packages/<device>_boot_package.fex

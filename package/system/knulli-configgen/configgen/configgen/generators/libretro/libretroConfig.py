@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from ... import controllersConfig
-from ...batoceraPaths import DEFAULTS_DIR, ES_SETTINGS, SAVES, mkdir_if_not_exists
+from ...batoceraPaths import DEFAULTS_DIR, ES_GAMES_METADATA, ES_SETTINGS, SAVES, mkdir_if_not_exists
 from ...settings.unixSettings import UnixSettings
-from ...utils import bezels as bezelsUtil, videoMode as videoMode
+from ...utils import bezels as bezelsUtil, metadata as metadataUtils, videoMode as videoMode
 from ..hatari.hatariGenerator import HATARI_CONFIG
 from . import libretroMAMEConfig, libretroOptions
 from .libretroPaths import (
@@ -216,9 +216,13 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
     else:
         retroarchConfig['vrr_runloop_enable'] = 'false'
 
-    # required at least for vulkan (to get the correct resolution)
+    # Vulkan drives the display itself (KHR_display on the a133), where asking
+    # for a named fullscreen mode fails; 0 means "keep the current one".
     # For rotated screens like the rg28xx
-    if gameResolution["width"] < gameResolution["height"]:
+    if gfxBackend == 'vulkan':
+        retroarchConfig['video_fullscreen_x'] = 0
+        retroarchConfig['video_fullscreen_y'] = 0
+    elif gameResolution["width"] < gameResolution["height"]:
         retroarchConfig['video_fullscreen_x'] = gameResolution["height"]
         retroarchConfig['video_fullscreen_y'] = gameResolution["width"]
     else:
@@ -767,7 +771,7 @@ def createLibretroConfig(generator: Generator, system: Emulator, controllers: Co
             index = ratioIndexes.index(systemConfig['ratio'])
         # Check if game natively supports widescreen from metadata (not widescreen hack) (for easy scalability ensure all values for respective systems start with core name and end with "-autowidescreen")
         elif system.isOptSet(f"{systemCore}-autowidescreen") and system.config[f"{systemCore}-autowidescreen"] == "True":
-            metadata = controllersConfig.getGamesMetaData(system.name, rom)
+            metadata = metadataUtils.get_games_meta_data(ES_GAMES_METADATA, system.name, rom)
             if metadata.get("video_widescreen") == "true":
                 index = str(ratioIndexes.index("16/9"))
                 # Easy way to disable bezels if setting to 16/9

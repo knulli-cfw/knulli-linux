@@ -47,6 +47,10 @@ class MupenGenerator(Generator):
         if system.isOptSet('state_filename'):
             commandArray.extend(["--savestate", system.config['state_filename']])
 
+        # custom cheats option
+        if system.isOptSet('mupen64plus_cheats') and system.config['mupen64plus_cheats'].strip():
+            commandArray.extend(["--cheats", system.config['mupen64plus_cheats'].strip()])
+
         commandArray.append(rom)
 
         return Command.Command(array=commandArray)

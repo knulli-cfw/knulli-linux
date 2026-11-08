@@ -1,0 +1,44 @@
+Subject: [PATCH] knulli: Allwinner BSP platform, single interface
+
+Power the module and rescan the bus through the BSP sunxi-rfkill/mmc
+exports (sunxi_wlan_set_power, sunxi_mmc_rescan_card), like the vendor
+SUN50IW1P1 platform but without its Android-only flags; and build without
+concurrent mode, which adds a second wlan%d interface.
+---
+diff --git a/Makefile b/Makefile
+index 84b02b6..e1ef950 100644
+--- a/Makefile
++++ b/Makefile
+@@ -20,7 +20,8 @@ ccflags-y += -Wno-date-time	# Fix compile error && warning on gcc 4.9 and later
+ endif
+ 
+ ccflags-y += -I$(src)/include
+-ccflags-y += -DCONFIG_CONCURRENT_MODE
++# knulli: one station interface (no second wlan%d)
++#ccflags-y += -DCONFIG_CONCURRENT_MODE
+ ldflags-y += --strip-debug
+ 
+ CONFIG_AUTOCFG_CP = n
+@@ -160,6 +161,8 @@ CONFIG_PLATFORM_ACTIONS_ATM702X = n
+ CONFIG_PLATFORM_ACTIONS_ATV5201 = n
+ CONFIG_PLATFORM_ACTIONS_ATM705X = n
+ CONFIG_PLATFORM_ARM_SUN50IW1P1 = n
++# knulli: Allwinner BSP kernels (A133): power and rescan through sunxi-rfkill
++CONFIG_PLATFORM_ARM_SUNXI_BSP = y
+ CONFIG_PLATFORM_ARM_RTD299X = n
+ CONFIG_PLATFORM_ARM_LGE = n
+ CONFIG_PLATFORM_ARM_SPREADTRUM_6820 = n
+@@ -1365,6 +1368,13 @@ CROSS_COMPILE := /opt/arm-2011.09/bin/arm-none-linux-gnueabi-
+ KSRC := /home/android_sdk/Action-semi/705a_android_L/android/kernel
+ endif
+ 
++ifeq ($(CONFIG_PLATFORM_ARM_SUNXI_BSP), y)
++ccflags-y += -DCONFIG_PLATFORM_ARM_SUN50IW1P1
++ccflags-y += -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT
++ccflags-y += -DCONFIG_PLATFORM_OPS
++_PLATFORM_FILES += platform/platform_ARM_SUN50IW1P1_sdio.o
++endif
++
+ ifeq ($(CONFIG_PLATFORM_ARM_SUN50IW1P1), y)
+ ccflags-y += -DCONFIG_PLATFORM_ARM_SUN50IW1P1
+ ccflags-y += -DCONFIG_TRAFFIC_PROTECT

@@ -1,0 +1,200 @@
+From: knulli
+Subject: [PATCH] sunxi: TrimUI Smart Pro S charge mode, battery detect, backlight and GPT fixes
+
+---
+--- a/board/sunxi/power_manage.c
++++ b/board/sunxi/power_manage.c
+@@ -738,6 +738,9 @@
+ 			if (gd->chargemode == 1) {
+ 				pr_msg("start up to charge mode\n");
+ 				axp_show_bmp("bat\\battery_charge.bmp", 1);
++				mdelay(3000);
++				axp_black_light_control(DISP_LCD_BACKLIGHT_DISABLE);
++				sunxi_bat_key_handle();
+ 				charge_mode_update = 1;
+ 			}
+ 			break;
+--- a/drivers/sunxi_power/bmu_axp519.c
++++ b/drivers/sunxi_power/bmu_axp519.c
+@@ -301,7 +301,10 @@
+ 
+ 	/* AXP519_CHG_SET1 & BIT6:
+ 	   0: batter exist
+-	   1: batter no exist */
++	   1: batter no exist
++	   When battery_exist=1 in DTS, clear any stale BIT6 set by a prior boot
++	   that had battery_exist=0, then re-read to get a fresh hardware state. */
++	pmic_bus_clrbits(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, BIT(6));
+ 	pmic_bus_read(AXP519_RUNTIME_ADDR, AXP519_CHG_SET1, &data);
+ 	if (data & BIT(6)) {
+ 		check = 1;
+--- a/drivers/video/pwm_backlight.c
++++ b/drivers/video/pwm_backlight.c
+@@ -38,7 +38,7 @@
+ {
+ 	struct pwm_backlight_priv *priv = dev_get_priv(dev);
+ 	uint duty_cycle;
+-	int ret, i;
++	int ret;
+ #ifndef CONFIG_AW_DRM
+ 	struct dm_regulator_uclass_platdata *plat;
+ 	if (priv->reg) {
+@@ -56,16 +56,19 @@
+ 
+ 	duty_cycle = priv->period_ns * (priv->default_level - priv->min_level) /
+ 		(priv->max_level - priv->min_level + 1);
+-	ret = pwm_set_config(priv->pwm, priv->channel, priv->period_ns,
+-			     duty_cycle);
++	ret = pwm_config(priv->sunxi_pwm, duty_cycle, priv->period_ns);
+ 	if (ret)
+ 		return ret;
+-	ret = pwm_set_enable(priv->pwm, priv->channel, true);
++	ret = pwm_enable(priv->sunxi_pwm);
+ 	if (ret)
+ 		return ret;
+ 	mdelay(10);
++#ifdef CONFIG_DM_GPIO
+ 	dm_gpio_set_value(&priv->enable, 1);
++#endif
+ #else
++	{
++	int i;
+ 	if (priv->regulator) {
+ 		sunxi_drm_power_enable(priv->regulator, 0);
+ 		mdelay(120);
+@@ -87,15 +90,15 @@
+ 	for (i = 0; i < GPIO_NUM_MAX; i++) {
+ 		sunxi_drm_gpio_set_value(priv->enable_gpio[i], 1);
+ 	}
+-
++	}
+ #endif
+ 	return 0;
+ }
+ static int pwm_backlight_disable(struct udevice *dev)
+ {
++#ifdef CONFIG_AW_DRM
+ 	struct pwm_backlight_priv *priv = dev_get_priv(dev);
+ 	int ret, i;
+-#ifdef CONFIG_AW_DRM
+ 	if (priv->regulator)
+ 		sunxi_drm_power_disable(priv->regulator);
+ 
+@@ -116,12 +119,14 @@
+ {
+ 	struct pwm_backlight_priv *priv = dev_get_priv(dev);
+ 	struct ofnode_phandle_args args;
+-	int index, ret, count, len, i;
++	int index, ret, count, len;
+ 	const u32 *cell;
+-	char gpio_name[32] = {0};
+ 
+ 	debug("%s: start\n", __func__);
+ #ifdef CONFIG_AW_DRM
++	{
++	int i;
++	char gpio_name[32] = {0};
+ 	ret = dev_read_u32(dev, "power-supply", &priv->regulator);
+ 	if (ret)
+ 		debug("%s: Cannot get power supply: ret=%d\n", __func__, ret);
+@@ -149,12 +154,13 @@
+ 		return ret;
+ 	} else
+ 		priv->sunxi_pwm = ret;
+-
++	}
+ #else
+ 	ret = uclass_get_device_by_phandle(UCLASS_REGULATOR, dev,
+ 					   "power-supply", &priv->reg);
+ 	if (ret)
+ 		debug("%s: Cannot get power supply: ret=%d\n", __func__, ret);
++#ifdef CONFIG_DM_GPIO
+ 	ret = gpio_request_by_name(dev, "enable-gpios", 0, &priv->enable,
+ 				   GPIOD_IS_OUT);
+ 	if (ret) {
+@@ -163,6 +169,7 @@
+ 		if (ret != -ENOENT)
+ 			return ret;
+ 	}
++#endif
+ 	ret = dev_read_phandle_with_args(dev, "pwms", "#pwm-cells", 0, 0,
+ 					 &args);
+ 	if (ret) {
+@@ -170,13 +177,14 @@
+ 		return ret;
+ 	}
+ 
+-	ret = uclass_get_device_by_ofnode(UCLASS_PWM, args.node, &priv->pwm);
+-	if (ret) {
+-		debug("%s: Cannot get PWM: ret=%d\n", __func__, ret);
+-		return ret;
+-	}
+ 	priv->channel = args.args[0];
+ 	priv->period_ns = args.args[1];
++	ret = pwm_request(priv->channel, "pwm_backlight");
++	if (ret < 0) {
++		pr_err("failed to request pwm\n");
++		return ret;
++	}
++	priv->sunxi_pwm = ret;
+ #endif
+ 
+ 	index = dev_read_u32_default(dev, "default-brightness-level", 255);
+--- a/drivers/video/simple_panel.c
++++ b/drivers/video/simple_panel.c
+@@ -23,7 +23,9 @@
+ 	int ret;
+ 
+ 	debug("%s: start, backlight = '%s'\n", __func__, priv->backlight->name);
++#ifdef CONFIG_DM_GPIO
+ 	dm_gpio_set_value(&priv->enable, 1);
++#endif
+ 	ret = backlight_enable(priv->backlight);
+ 	debug("%s: done, ret = %d\n", __func__, ret);
+ 	if (ret)
+@@ -53,6 +55,7 @@
+ 		debug("%s: Cannot get backlight: ret=%d\n", __func__, ret);
+ 		return ret;
+ 	}
++#ifdef CONFIG_DM_GPIO
+ 	ret = gpio_request_by_name(dev, "enable-gpios", 0, &priv->enable,
+ 				   GPIOD_IS_OUT);
+ 	if (ret) {
+@@ -61,6 +64,7 @@
+ 		if (ret != -ENOENT)
+ 			return ret;
+ 	}
++#endif
+ 
+ 	return 0;
+ }
+--- a/sprite/sprite_download.c
++++ b/sprite/sprite_download.c
+@@ -44,7 +44,10 @@
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+-#define GPT_BUFF_SIZE        (8*1024)
++/* MBR(512) + GPT header(512) + 128 entries * 128 bytes = 17408 bytes = 34 sectors.
++ * Must be large enough for the full entry array or sunxi_update_gpt will CRC
++ * over heap garbage past the end of the buffer and corrupt the partition table. */
++#define GPT_BUFF_SIZE        (GPT_ENTRY_OFFSET + 128 * 128)
+ #define GPT_BUFF_4K_SIZE        (8 * 1024 * 8)
+ #ifndef SUNXI_UFS_ALIGN_SECTOR
+ #define SUNXI_UFS_ALIGN_SECTOR 8
+@@ -1217,13 +1220,13 @@
+ 	typedef int (*FLASH_WIRTE)(uint start_block, uint nblock, void *buffer);
+ 	FLASH_WIRTE flash_write_pt = NULL;
+ 	char *buf;
+-	int   data_len = GPT_UPDATE_BUF_SIZE;
++	int   data_len = GPT_BUFF_SIZE;
+ 	int   ret = 0;
+ 	int storage_type = get_boot_storage_type();
+ 	int i, j;
+ 
+ 	char char8_name[PARTNAME_SZ] = { 0 };
+-	buf = (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, GPT_UPDATE_BUF_SIZE);
++	buf = (char *)memalign(CONFIG_SYS_CACHELINE_SIZE, GPT_BUFF_SIZE);
+ 	if (buf == NULL) {
+ 		pr_err("malloc fail\n");
+ 		return -1;

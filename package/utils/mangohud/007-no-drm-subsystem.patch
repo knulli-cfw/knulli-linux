@@ -1,0 +1,26 @@
+From: knulli
+Subject: [PATCH] gpu: tolerate a system with no DRM subsystem
+
+The fbdev Mali boards have no /sys/class/drm, and the throwing
+directory_iterator overload aborts the process before the HUD ever
+starts.  Use the error_code overload: on failure the iterator compares
+equal to end() and we simply find no GPUs, which the rest of the class
+already handles.
+
+--- a/src/gpu.cpp
++++ b/src/gpu.cpp
+@@ -8,7 +8,13 @@
+     std::set<std::string> gpu_entries;
+     auto params = early_params ? early_params : get_params().get();
+ 
+-    for (const auto& entry : fs::directory_iterator("/sys/class/drm")) {
++    std::error_code drm_ec;
++    fs::directory_iterator drm_nodes("/sys/class/drm", drm_ec);
++    if (drm_ec)
++        SPDLOG_WARN("Cannot read /sys/class/drm ({}), no GPU metrics will be shown",
++                    drm_ec.message());
++
++    for (const auto& entry : drm_nodes) {
+         if (!entry.is_directory())
+             continue;
+ 

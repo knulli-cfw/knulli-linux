@@ -1,21 +1,17 @@
 #!/bin/sh
 #
-# Broadcom AP6212 (BCM43430A1) SDIO WiFi firmware-path fixup.
+# Broadcom AP6212 (BCM43430A1) SDIO WiFi: load the rockchip bcmdhd driver.
 #
-# The rockchip bcmdhd driver is built-in and its compiled default
-# firmware_path is the Android path /vendor/etc/firmware/ (empty on knulli),
-# so the firmware download fails ("dongle image file ... download failed") and
-# wlan0 never comes up. bcmdhd keeps the *directory* of firmware_path/nvram_path
+# bcmdhd is a module and loaded only here, when the AP6212 SDIO chip
+# (02d0:a9a6) is present: built in, it power-cycled and removed the SDIO card
+# on every board, and the Realtek chips (rtw88) then timed out.
+# Its compiled default firmware_path is the Android /vendor/etc/firmware/
+# (empty on knulli); bcmdhd keeps the *directory* of firmware_path/nvram_path
 # and regenerates the filename per detected chip (-> fw_bcm43438a1.bin /
-# nvram_ap6212a.txt), so we just point both params at /lib/firmware/ap6212/
-# where those files live (fw_bcm43438a1.bin ships in the base rootfs;
-# nvram_ap6212a.txt is added via fsoverlay). The params are read when wlan0 is
-# brought up, so setting them here (before S07network) is enough.
+# nvram_ap6212a.txt), so both point at /lib/firmware/ap6212/ where those files
+# live (fw_bcm43438a1.bin ships in the base rootfs; nvram_ap6212a.txt is added
+# via fsoverlay).  Same device-presence gating as S06wifirtw88.
 #
-# Only acts when the AP6212 SDIO chip (02d0:a9a6) is present, so this is a no-op
-# on the Realtek boards — same device-presence gating as S06wifirtw88.
-#
-PARAMS=/sys/module/bcmdhd/parameters
 FWDIR=/lib/firmware/ap6212
 
 is_ap6212() {
@@ -38,11 +34,9 @@ start() {
 	done
 	is_ap6212 || return 0
 
-	[ -w "$PARAMS/firmware_path" ] || return 0
-
 	# Only the directory matters; bcmdhd rewrites the basename by chip.
-	echo "$FWDIR/fw_bcmdhd.bin"  > "$PARAMS/firmware_path"
-	echo "$FWDIR/nvram_bcmdhd.txt" > "$PARAMS/nvram_path"
+	modprobe bcmdhd firmware_path="$FWDIR/fw_bcmdhd.bin" \
+		nvram_path="$FWDIR/nvram_bcmdhd.txt"
 	echo "bcmdhd: AP6212 firmware path -> $FWDIR" > /dev/kmsg 2>/dev/null
 }
 

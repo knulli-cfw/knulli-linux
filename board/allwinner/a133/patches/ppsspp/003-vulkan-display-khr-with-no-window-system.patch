@@ -1,0 +1,21 @@
+--- a/SDL/SDLVulkanGraphicsContext.cpp
++++ b/SDL/SDLVulkanGraphicsContext.cpp
+@@ -122,6 +122,18 @@
+ 		vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
+ 		break;
+ #endif
++#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
++	case SDL_SYSWM_UNKNOWN:
++		/* A video driver that scans out straight to a display has no window
++		 * system to report, so SDL leaves the subsystem UNKNOWN -- fbdev
++		 * backends such as mali-fbdev do exactly this.  That is the same
++		 * situation as KMSDRM above from Vulkan's point of view: the surface
++		 * comes from VK_KHR_display, and the driver's own Vulkan_CreateSurface
++		 * supplies it.  Without this, a build that has display WSI compiled in
++		 * still exits here. */
++		vulkan_->InitSurface(WINDOWSYSTEM_DISPLAY, nullptr, nullptr);
++		break;
++#endif
+ 	default:
+ 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
+ 		exit(1);

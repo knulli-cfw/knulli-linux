@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Per-SoC runtime settings for the SMGEN image (one kernel, one cmdline for
+# every Qualcomm SM board).
+#
+case "$1" in
+    start)
+        case "$(/usr/bin/knulli-qcom-soc)" in
+            sm4450|sm6450)
+                # was mem_sleep_default=s2idle on the sm4450 cmdline
+                echo s2idle > /sys/power/mem_sleep 2>/dev/null
+                ;;
+        esac
+        ;;
+esac
+exit 0

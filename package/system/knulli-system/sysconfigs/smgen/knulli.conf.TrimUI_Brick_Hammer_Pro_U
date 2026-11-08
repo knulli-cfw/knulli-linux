@@ -1,0 +1,10 @@
+# TrimUI Brick Hammer Pro U default values
+
+# default suspend on handled boards
+system.suspendmode=suspend
+
+# Audio: the HiFi UCM verb (ROCKNIX TrimUI-TG4070 profile) provides the
+# speaker/headphone sink with jack switching and the headset mic; pro-audio
+# would bypass the amp enable sequences.
+audio.device=alsa_output._sys_devices_platform_sound_sound_card0.HiFi__Speaker__sink
+audio.profile=HiFi (Headset Mic, Speaker)@alsa_card._sys_devices_platform_sound_sound_card0

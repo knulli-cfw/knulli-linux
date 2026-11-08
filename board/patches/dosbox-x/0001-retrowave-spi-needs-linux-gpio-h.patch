@@ -1,0 +1,45 @@
+retrowave: spi needs linux/gpio.h
+
+Kernel headers before 4.8 lack the GPIO chardev API; fall back to the
+unsupported-SPI path there.
+
+--- a/src/hardware/RetroWaveLib/Platform/Linux_SPI.h
++++ b/src/hardware/RetroWaveLib/Platform/Linux_SPI.h
+@@ -19,7 +19,14 @@
+ 
+ #pragma once
+ 
+-#ifdef __linux
++/* GPIO chardev needs kernel headers >= 4.8 */
++#if defined(__linux) && defined(__has_include)
++#if __has_include(<linux/gpio.h>)
++#define RETROWAVE_HAVE_LINUX_SPI 1
++#endif
++#endif
++
++#ifdef RETROWAVE_HAVE_LINUX_SPI
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+--- a/src/hardware/RetroWaveLib/Platform/Linux_SPI.c
++++ b/src/hardware/RetroWaveLib/Platform/Linux_SPI.c
+@@ -19,7 +19,7 @@
+ 
+ #include "Linux_SPI.h"
+ 
+-#ifdef __linux
++#ifdef RETROWAVE_HAVE_LINUX_SPI
+ 
+ static const char log_tag[] = "retrowave platform linux_spi";
+ 
+--- a/src/hardware/RetroWaveLib/RetroWave_DOSBoX.cpp
++++ b/src/hardware/RetroWaveLib/RetroWave_DOSBoX.cpp
+@@ -45,7 +45,7 @@
+ 		rc = retrowave_init_win32_serialport(&retrowave_global_context, path.c_str());
+ #endif
+ 	} else if (bus == "spi") {
+-#if defined (__linux__)
++#ifdef RETROWAVE_HAVE_LINUX_SPI
+ 		auto scgs = string_split(spi_cs, ',');
+ 		int scg[2] = {0};
+ 

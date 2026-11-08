@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 eslog = logging.getLogger(__name__)
 
 _ROTATION_FILE: Final = Path("/var/run/rk-rotation")
+_DRM_DIR: Final = Path("/sys/class/drm")
+_CMDLINE: Final = Path("/proc/cmdline")
 _GLXINFO_BIN: Final = Path("/usr/bin/glxinfo")
 
 # Set a specific video mode
@@ -123,6 +125,28 @@ def supportSystemRotation() -> bool:
     proc = subprocess.Popen(["knulli-resolution supportSystemRotation"], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
     return proc.returncode == 0
+
+def getPanelRotation() -> int:
+    # How the panel is mounted, in degrees, taken from the same fbcon=rotate:N
+    # the kernel is given for the console -- N counts quarter turns.  Reading
+    # it here rather than listing devices means a board describes itself.
+    try:
+        match = re.search(r"\bfbcon=rotate:([0-3])\b", _CMDLINE.read_text())
+    except OSError:
+        return 0
+    return int(match.group(1)) * 90 if match else 0
+
+def isHdmiConnected() -> bool:
+    # A handheld sends its picture to the cable when one is plugged in, and the
+    # panel's own orientation stops applying.  A board with no DRM at all (the
+    # fbdev mali ones) has no external output to switch to, so it reads false.
+    try:
+        return any(
+            status.read_text().strip() == "connected"
+            for status in _DRM_DIR.glob("*-HDMI-*/status")
+        )
+    except OSError:
+        return False
 
 def isResolutionReversed():
     return _ROTATION_FILE.exists()

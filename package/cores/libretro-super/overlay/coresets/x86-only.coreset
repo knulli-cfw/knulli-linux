@@ -1,0 +1,21 @@
+# Cores knulli builds ONLY on x86, per package/system/knulli-system/Config.in.
+# Kept as a coreset rather than deleted so the recipe lines survive, and so the
+# reason is written down: every one of them wants a DESKTOP GL / X11 stack that
+# a GLES-only handheld sysroot does not have, which is why they FAILED on the
+# aarch64 profiles rather than merely being unwanted there.
+#
+#   blastem        X86_ANY          needs glew
+#   boom3          X86_64_ANY       Config.in says "Requires RA with OpenGL"
+#   bsnes_hd_beta  X86_64_ANY       needs X11/Xlib.h -- NOT the same core as
+#                                   bsnes, which IS built on A133/H700/SM8250/
+#                                   T527 and stays in tier3
+#   desmume        X86_ANY          needs GL/gl.h
+#   kronos         X86_ANY          needs desktop GL 4.2 symbols
+#
+# No profile lists this set.  If a knulli x86 target ever wants a drop, add it
+# to that profile's CORESETS.
+blastem libretro-blastem https://github.com/libretro/blastem.git libretro YES GENERIC Makefile.libretro .
+boom3 libretro-boom3 https://github.com/libretro/boom3.git master YES GENERIC Makefile neo
+bsnes_hd_beta libretro-bsnes_hd_beta https://github.com/DerKoun/bsnes-hd.git master YES GENERIC GNUmakefile bsnes
+desmume libretro-desmume https://github.com/libretro/desmume.git master YES GENERIC Makefile.libretro desmume/src/frontend/libretro
+kronos libretro-kronos https://github.com/libretro/yabause.git kronos YES GENERIC Makefile yabause/src/libretro

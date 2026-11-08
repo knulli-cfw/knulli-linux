@@ -5,7 +5,9 @@ config BR2_PACKAGE_MALI_LIBS
     depends on !BR2_STATIC_LIBS
     depends on BR2_INSTALL_LIBSTDCPP
     depends on BR2_TOOLCHAIN_GCC_AT_LEAST_4_9
-    depends on !BR2_PACKAGE_BATOCERA_WAYLAND || BR2_PACKAGE_WAYLAND
+    # no 'depends on WAYLAND': it closes a kconfig cycle back through
+    # cog/wpewebkit to HAS_LIBGLES, which this package provides.  knulli-system
+    # selects wayland unconditionally, so the dependency was always satisfied.
     select BR2_PACKAGE_LIBDRM
     help
       ARM Mali GPU userspace driver for Rockchip SoCs.

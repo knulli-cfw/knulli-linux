@@ -1,0 +1,97 @@
+--- a/extra_rwops.c
++++ b/extra_rwops.c
+@@ -43,7 +43,7 @@
+ 
+ 
+ /* Just pass through to the actual SDL_RWops's method... */
+-static int refcounter_seek(SDL_RWops *rw, int offset, int whence)
++static Sint64 refcounter_seek(SDL_RWops *rw, Sint64 offset, int whence)
+ {
+     RWRefCounterData *data = (RWRefCounterData *) rw->hidden.unknown.data1;
+     return(data->rw->seek(data->rw, offset, whence));
+@@ -51,7 +51,7 @@
+ 
+ 
+ /* Just pass through to the actual SDL_RWops's method... */
+-static int refcounter_read(SDL_RWops *rw, void *ptr, int size, int maxnum)
++static size_t refcounter_read(SDL_RWops *rw, void *ptr, size_t size, size_t maxnum)
+ {
+     RWRefCounterData *data = (RWRefCounterData *) rw->hidden.unknown.data1;
+     return(data->rw->read(data->rw, ptr, size, maxnum));
+@@ -59,7 +59,7 @@
+ 
+ 
+ /* Just pass through to the actual SDL_RWops's method... */
+-static int refcounter_write(SDL_RWops *rw, const void *ptr, int size, int num)
++static size_t refcounter_write(SDL_RWops *rw, const void *ptr, size_t size, size_t num)
+ {
+     RWRefCounterData *data = (RWRefCounterData *) rw->hidden.unknown.data1;
+     return(data->rw->write(data->rw, ptr, size, num));
+--- a/playsound/physfsrwops.c
++++ b/playsound/physfsrwops.c
+@@ -24,10 +24,10 @@
+ #include <stdio.h>  /* used for SEEK_SET, SEEK_CUR, SEEK_END ... */
+ #include "physfsrwops.h"
+ 
+-static int physfsrwops_seek(SDL_RWops *rw, int offset, int whence)
++static Sint64 physfsrwops_seek(SDL_RWops *rw, Sint64 offset, int whence)
+ {
+     PHYSFS_file *handle = (PHYSFS_file *) rw->hidden.unknown.data1;
+-    int pos = 0;
++    Sint64 pos = 0;
+ 
+     if (whence == SEEK_SET)
+     {
+@@ -44,7 +44,7 @@
+             return(-1);
+         } /* if */
+ 
+-        pos = (int) current;
++        pos = current;
+         if ( ((PHYSFS_sint64) pos) != current )
+         {
+             SDL_SetError("Can't fit current file position in an int!");
+@@ -66,7 +66,7 @@
+             return(-1);
+         } /* if */
+ 
+-        pos = (int) len;
++        pos = len;
+         if ( ((PHYSFS_sint64) pos) != len )
+         {
+             SDL_SetError("Can't fit end-of-file position in an int!");
+@@ -98,28 +98,28 @@
+ } /* physfsrwops_seek */
+ 
+ 
+-static int physfsrwops_read(SDL_RWops *rw, void *ptr, int size, int maxnum)
++static size_t physfsrwops_read(SDL_RWops *rw, void *ptr, size_t size, size_t maxnum)
+ {
+     PHYSFS_file *handle = (PHYSFS_file *) rw->hidden.unknown.data1;
+     PHYSFS_sint64 rc = PHYSFS_read(handle, ptr, size, maxnum);
+-    if (rc != maxnum)
++    if (rc != (PHYSFS_sint64) maxnum)
+     {
+         if (!PHYSFS_eof(handle)) /* not EOF? Must be an error. */
+             SDL_SetError("PhysicsFS error: %s", PHYSFS_getLastError());
+     } /* if */
+ 
+-    return((int) rc);
++    return((rc < 0) ? 0 : (size_t) rc);
+ } /* physfsrwops_read */
+ 
+ 
+-static int physfsrwops_write(SDL_RWops *rw, const void *ptr, int size, int num)
++static size_t physfsrwops_write(SDL_RWops *rw, const void *ptr, size_t size, size_t num)
+ {
+     PHYSFS_file *handle = (PHYSFS_file *) rw->hidden.unknown.data1;
+     PHYSFS_sint64 rc = PHYSFS_write(handle, ptr, size, num);
+-    if (rc != num)
++    if (rc != (PHYSFS_sint64) num)
+         SDL_SetError("PhysicsFS error: %s", PHYSFS_getLastError());
+ 
+-    return((int) rc);
++    return((rc < 0) ? 0 : (size_t) rc);
+ } /* physfsrwops_write */
+ 
+ 

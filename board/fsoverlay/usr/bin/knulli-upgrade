@@ -16,6 +16,11 @@ import time
 from pathlib import Path
 from datetime import datetime
 
+# Raw MMC offset (KiB) of boot0 on the Allwinner BSP layouts, per genimage.cfg.
+BOOT0_OFFSET_KB = {"h700": 256, "a133": 128, "a527": 128}
+BOOT0_OFFSET_KB_BY_BOARD = {"orangepi-4a": 8}
+BOOT0_MAGIC = b"eGON.BT0"
+
 sys.stdout = sys.__stdout__
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -360,6 +365,29 @@ class KnulliUpgrader:
 
         return True
 
+    def boot0_offset_kb(self):
+        """Raw offset of boot0 in KiB, verified against the eGON.BT0 signature"""
+        expected = BOOT0_OFFSET_KB_BY_BOARD.get(
+            self.board_name, BOOT0_OFFSET_KB.get(self.arch_name))
+        candidates = [expected] + [kb for kb in (8, 128, 256) if kb != expected]
+        try:
+            with open("/dev/mmcblk0", "rb") as dev:
+                for kb in candidates:
+                    if kb is None:
+                        continue
+                    dev.seek(kb * 1024)
+                    if dev.read(16)[4:12] == BOOT0_MAGIC:
+                        if expected is None:
+                            print(f"WARNING: unknown board layout, boot0 found at {kb}K")
+                        elif kb != expected:
+                            print(f"WARNING: boot0 found at {kb}K, expected {expected}K")
+                        return kb
+        except OSError as e:
+            print(f"ERROR: Cannot probe /dev/mmcblk0: {e}")
+            return None
+        print("ERROR: No eGON.BT0 signature on /dev/mmcblk0, refusing to write boot0")
+        return None
+
     def update_partition(self, partition_name, partition_file):
         """Update specific partition — dispatch based on architecture"""
         print(f"Writing {partition_name}...")
@@ -377,9 +405,12 @@ class KnulliUpgrader:
     def _update_partition_allwinner_bsp(self, partition_name, partition_file):
         """Update Allwinner BSP partitions (h700 / a133 / a527) via dd"""
         if partition_name == "boot0.img":
+            seek_kb = self.boot0_offset_kb()
+            if seek_kb is None:
+                return False
             subprocess.run([
                 "dd", f"if={partition_file}", "of=/dev/mmcblk0",
-                "seek=8", "bs=1024", "conv=fsync"
+                f"seek={seek_kb}", "bs=1024", "conv=fsync"
             ], check=True)
         elif partition_name == "boot_package.fex":
             subprocess.run([

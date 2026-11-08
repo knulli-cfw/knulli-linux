@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
-import evdev
-import pyudev
-
-from .batoceraPaths import ES_GAMES_METADATA
-
 if TYPE_CHECKING:
+    import evdev
+
     from collections.abc import Mapping
 
     from .types import DeviceInfoDict, DeviceInfoMapping, GunDict, GunMapping
@@ -59,6 +55,8 @@ def gunsBorderRatioType(guns: GunMapping, config: dict[str, str]) -> str | None:
     return None
 
 def getMouseButtons(device: evdev.InputDevice) -> list[str]:
+    import evdev
+
     caps = device.capabilities()
     caps_keys = caps[evdev.ecodes.EV_KEY]
     caps_filter = [evdev.ecodes.BTN_LEFT, evdev.ecodes.BTN_RIGHT, evdev.ecodes.BTN_MIDDLE, evdev.ecodes.BTN_1, evdev.ecodes.BTN_2, evdev.ecodes.BTN_3, evdev.ecodes.BTN_4, evdev.ecodes.BTN_5, evdev.ecodes.BTN_6, evdev.ecodes.BTN_7, evdev.ecodes.BTN_8]
@@ -89,6 +87,8 @@ def getMouseButtons(device: evdev.InputDevice) -> list[str]:
     return buttons
 
 def mouseButtonToCode(button: str) -> int | None:
+    import evdev
+
     if button == "left":
         return evdev.ecodes.BTN_LEFT
     if button == "right":
@@ -116,6 +116,7 @@ def mouseButtonToCode(button: str) -> int | None:
 def getGuns() -> GunDict:
     import re
 
+    import evdev
     import pyudev
 
     guns: GunDict = {}
@@ -157,61 +158,6 @@ def getGuns() -> GunDict:
 
     return guns
 
-def shortNameFromPath(path: str | Path) -> str:
-    redname = Path(path).stem.lower()
-    inpar   = False
-    inblock = False
-    ret = ""
-    for c in redname:
-        if not inpar and not inblock and ( (c >= 'a' and c <= 'z') or (c >= '0' and c <= '9') ):
-            ret += c
-        elif c == '(':
-            inpar = True
-        elif c == ')':
-            inpar = False
-        elif c == '[':
-            inblock = True
-        elif c == ']':
-            inblock = True
-    return ret
-
-def getGamesMetaData(system: str, rom: str | Path) -> dict[str, str]:
-    # load the database
-    tree = ET.parse(ES_GAMES_METADATA)
-    root = tree.getroot()
-    game = shortNameFromPath(rom)
-    res: dict[str, str] = {}
-    eslog.info("looking for game metadata ({}, {})".format(system, game))
-
-    targetSystem = system
-    # hardcoded list of system for arcade
-    # this list can be found in es_system.yml
-    # at this stage we don't know if arcade will be kept as one system only in metadata, so i hardcode this list for now
-    if system in ['naomi', 'naomi2', 'atomiswave', 'fbneo', 'mame', 'neogeo', 'triforce', 'hypseus-singe', 'model2', 'model3', 'hikaru', 'gaelco', 'cave3rd', 'namco2x6']:
-        targetSystem = 'arcade'
-
-    for nodesystem in root.findall(".//system"):
-        for sysname in nodesystem.get("name").split(','):
-            if sysname == targetSystem:
-                # search the game named default
-                for nodegame in nodesystem.findall(".//game"):
-                    if nodegame.get("name") == "default":
-                        for child in nodegame:
-                            for attribute in child.attrib:
-                                key = "{}_{}".format(child.tag, attribute)
-                                res[key] = child.get(attribute)
-                                eslog.info("found game metadata {}={} (system level)".format(key, res[key]))
-                        break
-                for nodegame in nodesystem.findall(".//game"):
-                    if nodegame.get("name") != "default" and nodegame.get("name") in game:
-                        for child in nodegame:
-                            for attribute in child.attrib:
-                                key = "{}_{}".format(child.tag, attribute)
-                                res[key] = child.get(attribute)
-                                eslog.info("found game metadata {}={}".format(key, res[key]))
-                        return res
-    return res
-
 def dev2int(dev: str) -> int | None:
     matches = re.match(r"^/dev/input/event([0-9]*)$", dev)
     if matches is None:
@@ -228,6 +174,8 @@ class _Device(TypedDict):
     wheel_rotation: NotRequired[int]
 
 def getDevicesInformation() -> DeviceInfoDict:
+    import pyudev
+
     groups: dict[str | None, list[str]] = {}
     devices: dict[int, _Device] = {}
     context   = pyudev.Context()

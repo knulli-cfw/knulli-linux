@@ -1,0 +1,34 @@
+Subject: [PATCH] cfg80211: mgmt_tx without a channel uses the current one
+
+WPA3-Personal goes through external auth: the driver asks wpa_supplicant
+to run SAE, and wpa_supplicant sends the commit and confirm frames with
+NL80211_CMD_FRAME and no frequency (freq=0).  mgmt_tx refused any frame
+without a channel with -EINVAL, so the commit never left and every SAE
+connection timed out after the driver's 8 s wait.
+
+The driver is already on the AP's channel at that point; when no channel
+is given, transmit on the operating channel.
+---
+--- a/os_dep/linux/ioctl_cfg80211.c
++++ b/os_dep/linux/ioctl_cfg80211.c
+@@ -8074,13 +8074,14 @@
+ 	wdev = ndev_to_wdev(ndev);
+ #endif
+ 
+-	if (chan == NULL) {
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+ 	rfctl = adapter_to_rfctl(padapter);
+-	tx_ch = (u8)ieee80211_frequency_to_channel(chan->center_freq);
++	/* No channel given: wpa_supplicant sends the SAE commit/confirm of
++	 * an external auth that way, while we already sit on the AP's
++	 * channel; use the one we are on. */
++	if (chan)
++		tx_ch = (u8)ieee80211_frequency_to_channel(chan->center_freq);
++	else
++		tx_ch = rtw_get_oper_ch(padapter);
+ 	if (IS_CH_WAITING(rfctl)) {
+ 		#ifdef CONFIG_DFS_MASTER
+ 		if (_rtw_rfctl_overlap_radar_detect_ch(rfctl, tx_ch, CHANNEL_WIDTH_20, HAL_PRIME_CHNL_OFFSET_DONT_CARE)) {

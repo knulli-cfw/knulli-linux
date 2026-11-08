@@ -1,0 +1,93 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: rebuild the fb layer on unblank when its saved copy is empty
+
+sunxi_fb_blank() re-enables the fb layer on unblank from g_fbi.config[].
+While the layer is blanked (disabled) any pan_display, which SDL issues
+every frame, reads the disabled layer back from the manager and stores that
+empty config as the copy, so unblank puts up a layer without a buffer: the
+DE scans address 0 ("DE invalid address: 0x0" flood) and the screen stays
+black.  knulli-brightness dispoff/dispon around suspend is exactly this
+blank/unblank cycle.  Snapshot the live layer before disabling it, and if the
+copy still has no buffer at unblank rebuild the layer from the fb itself.
+
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
+@@ -803,7 +803,10 @@
+ 
+ 	num_screens = bsp_disp_feat_get_num_screens();
+ 
+-	__inf("sunxi_fb_blank,mode:%d\n", blank_mode);
++	pr_debug("sunxi_fb_blank: mode %d fb%d fb_mode %d layer (%d,%d) saved addr %llx\n",
++		blank_mode, info->node, g_fbi.fb_mode[info->node],
++		g_fbi.layer_hdl[info->node][0], g_fbi.layer_hdl[info->node][1],
++		(unsigned long long)g_fbi.config[g_fbi.fb_mode[info->node]].info.fb.addr[0]);
+ 
+ 	for (sel = 0; sel < num_screens; sel++) {
+ 		if (sel == g_fbi.fb_mode[info->node]) {
+@@ -812,7 +815,57 @@
+ 			struct disp_layer_config config;
+ 			struct disp_manager *mgr = g_disp_drv.mgr[sel];
+ 
++			/*
++			 * g_fbi.config[] can be empty here (on a boot without
++			 * the U-Boot framebuffer handoff it is), and unblank
++			 * would then put up a layer without a buffer: the DE
++			 * scans address 0 and the screen stays black.  Take
++			 * the live layer as the copy to restore, and failing
++			 * that rebuild it from the fb itself.
++			 */
++			if (blank_mode == FB_BLANK_POWERDOWN && mgr &&
++			    mgr->get_layer_config) {
++				struct disp_layer_config live;
++
++				memset(&live, 0, sizeof(live));
++				live.channel = chan;
++				live.layer_id = layer_id;
++				if (mgr->get_layer_config(mgr, &live, 1) == 0 &&
++				    live.enable && live.info.fb.addr[0])
++					memcpy(&g_fbi.config[sel], &live,
++					       sizeof(live));
++				pr_debug("sunxi_fb_blank: live enable %d addr %llx\n",
++					live.enable,
++					(unsigned long long)live.info.fb.addr[0]);
++			}
+ 			memcpy(&config, &g_fbi.config[sel], sizeof(struct disp_layer_config));
++			if (blank_mode != FB_BLANK_POWERDOWN &&
++			    !config.info.fb.addr[0] && info->fix.smem_start) {
++				memset(&config, 0, sizeof(config));
++				config.info.mode = LAYER_MODE_BUFFER;
++				config.info.zorder = 16;
++				config.info.alpha_mode = 1;
++				config.info.alpha_value = 0xff;
++				config.info.fb.crop.width =
++				    ((long long)info->var.xres) << 32;
++				config.info.fb.crop.height =
++				    ((long long)info->var.yres) << 32;
++				config.info.screen_win.width = info->var.xres;
++				config.info.screen_win.height = info->var.yres;
++				var_to_disp_fb(&config.info.fb, &info->var,
++					       &info->fix);
++				config.info.fb.addr[0] = info->fix.smem_start;
++				config.info.fb.flags = DISP_BF_NORMAL;
++				config.info.fb.scan = DISP_SCAN_PROGRESSIVE;
++				config.info.fb.size[0].width = info->var.xres;
++				config.info.fb.size[0].height = info->var.yres;
++				config.info.fb.size[1] = config.info.fb.size[0];
++				config.info.fb.size[2] = config.info.fb.size[0];
++				config.info.fb.color_space = DISP_BT601;
++				pr_debug("sunxi_fb_blank: rebuilt fb%d layer from smem %llx\n",
++					info->node,
++					(unsigned long long)info->fix.smem_start);
++			}
+ 			if (blank_mode == FB_BLANK_POWERDOWN) {
+ 				if (mgr && mgr->set_layer_config) {
+ 					config.enable = 0;
+@@ -824,6 +877,8 @@
+ 					config.layer_id = layer_id;
+ 					config.enable = 1;
+ 					mgr->set_layer_config(mgr, &config, 1);
++					memcpy(&g_fbi.config[sel], &config,
++					       sizeof(config));
+ 				}
+ 			}
+ 		}

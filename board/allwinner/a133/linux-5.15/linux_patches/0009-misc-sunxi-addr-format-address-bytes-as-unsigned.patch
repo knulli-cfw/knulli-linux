@@ -1,0 +1,30 @@
+Subject: [PATCH] misc: sunxi-addr: format address bytes as unsigned
+
+With -fsigned-char a byte >= 0x80 prints as eight hex digits and
+overruns the 18-byte buffer in addr_*_show() (stack-protector panic
+when hciattach reads addr_bt).
+---
+--- a/bsp/drivers/misc/sunxi-addr/sunxi-addr.c
++++ b/bsp/drivers/misc/sunxi-addr/sunxi-addr.c
+@@ -152,8 +152,8 @@
+ 
+ 	if (fmt == ADDR_FMT_STR)
+ 		sprintf(addr, "%02X:%02X:%02X:%02X:%02X:%02X",
+-				t->addr[0], t->addr[1], t->addr[2],
+-				t->addr[3], t->addr[4], t->addr[5]);
++				(u8)t->addr[0], (u8)t->addr[1], (u8)t->addr[2],
++				(u8)t->addr[3], (u8)t->addr[4], (u8)t->addr[5]);
+ 	else
+ 		memcpy(addr, t->addr, ADDR_VAL_LEN);
+ 
+@@ -312,8 +312,8 @@
+ 		ret += sprintf(&buffer[ret],
+ 			"%4s  %d   %d  %02X:%02X:%02X:%02X:%02X:%02X\n",
+ 			info[i].name,   info[i].type_def, info[i].type_cur,
+-			info[i].addr[0], info[i].addr[1], info[i].addr[2],
+-			info[i].addr[3], info[i].addr[4], info[i].addr[5]);
++			(u8)info[i].addr[0], (u8)info[i].addr[1], (u8)info[i].addr[2],
++			(u8)info[i].addr[3], (u8)info[i].addr[4], (u8)info[i].addr[5]);
+ 	}
+ 	return ret;
+ }

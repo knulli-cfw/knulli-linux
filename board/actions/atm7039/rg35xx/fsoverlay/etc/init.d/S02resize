@@ -51,8 +51,6 @@ format_internal() {
 		# do nothing
     esac
 
-    # Allwinner H700 & A133
-    echo -e "r\nb\nc\nY\nw\nY\n" | gdisk ${DISK}
     partprobe ${DISK}
 }
 
@@ -139,8 +137,6 @@ if grep -qE '^[ ]*autoresize[ ]*=[ ]*true[ ]*$' "${BOOTCONF}"; then
     echo "remove_trigger autoresize" >> "$LOG"
     remove_trigger autoresize
 
-    # Allwinner H700
-    echo -e 'r\nb\nc\nY\nw\nY\n' | gdisk ${DISK}
     partprobe ${DISK}
 
     # We are going to reformat the internal partition as exfat

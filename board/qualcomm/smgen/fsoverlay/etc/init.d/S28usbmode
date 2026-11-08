@@ -1,0 +1,124 @@
+#!/bin/sh
+#
+# Start ADB or MTP (mass storage) over USB via configfs
+#
+
+product=$(cat /sys/firmware/devicetree/base/model 2>/dev/null | tr -d '\0' | sed -e s+"[^A-Za-z0-9]"+"_"+g)
+GADGET=/sys/kernel/config/usb_gadget/g1
+
+case "$1" in
+  start)
+    usbmode=$(/usr/bin/knulli-settings-get system.usbmode)
+    if [ -z "$usbmode" ] || [ "$usbmode" = "off" ]; then
+      "$0" stop
+      exit 1
+    fi
+
+    # UDC: get the first available UDC device
+    UDC=$(ls /sys/class/udc | head -n 1)
+    if [ -z "$UDC" ]; then
+        echo "No UDC found. Exiting."
+        exit 1
+    fi
+
+    #if [ "$usbmode" = "mtp" ]; then
+    #  printf "Starting MTP (mass storage) gadget: "
+
+    #  # mount configfs
+    #  mount -t configfs none /sys/kernel/config
+
+    #  # create gadget
+    #  mkdir -p $GADGET
+
+    #  # basic descriptors
+    #  echo 0x0200 > $GADGET/bcdUSB
+    #  mkdir -p $GADGET/strings/0x409
+    #  echo "0x1d6b" > $GADGET/idVendor
+    #  echo "0x0104" > $GADGET/idProduct
+    #  echo "0123456789" > $GADGET/strings/0x409/serialnumber
+    #  echo "KNULLI CFW" > $GADGET/strings/0x409/manufacturer
+    #  echo "$product" > $GADGET/strings/0x409/product
+
+    #  # find the SHARE partitionpartition
+    #  lastpart=$(-part share)
+
+    #  # create mass storage function
+    #  mkdir -p $GADGET/functions/mass_storage.0
+    #  echo 1 > $GADGET/functions/mass_storage.0/lun.0/removable
+    #  echo "$lastpart" > $GADGET/functions/mass_storage.0/lun.0/file
+
+    #  # create configuration
+    #  mkdir -p $GADGET/configs/b.1
+    #  mkdir -p $GADGET/configs/b.1/strings/0x409
+    #  echo "MTP (Mass Storage)" > $GADGET/configs/b.1/strings/0x409/configuration
+
+    #  # bind function into config
+    #  ln -s $GADGET/functions/mass_storage.0 $GADGET/configs/b.1
+
+    #  # attach to UDC
+    #  sleep 1
+    #  # replace with whatever UDC you have under /sys/class/udc/
+    #  echo "$UDC" > $GADGET/UDC
+
+    #  [ $? = 0 ] && echo "OK" || echo "FAIL"
+    #  exit 0
+    #fi
+
+    if [ "$usbmode" = "adb" ]; then
+      printf "Starting adb daemon: "
+
+      mount -t configfs none /sys/kernel/config
+
+      # Create the gadget directory
+      mkdir -p $GADGET
+
+      #USB 2.0
+      echo 0x0200 > $GADGET/bcdUSB
+      mkdir -p $GADGET/strings/0x409
+      echo 1 > $GADGET/os_desc/use 1
+      echo "0x1d6b" > $GADGET/idVendor
+      echo "0x0104" > $GADGET/idProduct
+      echo "0123456789" > $GADGET/strings/0x409/serialnumber
+      echo "KNULLI CFW" > $GADGET/strings/0x409/manufacturer
+      echo "$product" > $GADGET/strings/0x409/product
+
+      mkdir -p $GADGET/functions/ffs.adb
+      mkdir -p $GADGET/configs/b.1
+      mkdir -p $GADGET/configs/b.1/strings/0x409
+      echo "ffs.adb" > $GADGET/configs/b.1/strings/0x409/configuration
+
+      ln -s $GADGET/functions/ffs.adb $GADGET/configs/b.1
+
+      mkdir -p /dev/usb-ffs/adb
+      mount -t functionfs adb /dev/usb-ffs/adb
+
+      start-stop-daemon --start --background --oknodo --quiet --exec /usr/bin/adbd
+
+      echo 0x1 > $GADGET/os_desc/b_vendor_code
+      sleep 2
+      echo "$UDC" > $GADGET/UDC
+      [ $? = 0 ] && echo "OK" || echo "FAIL"
+    fi
+    ;;
+  stop)
+    printf "Stopping usb-gadget: "
+    # kill adbd if running
+    killall -9 adbd 2>/dev/null
+    # unbind gadget
+    if [ -d $GADGET ]; then
+      echo "" > $GADGET/UDC
+      umount /sys/kernel/config
+      rm -rf $GADGET
+    fi
+    [ $? = 0 ] && echo "OK" || echo "FAIL"
+    ;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

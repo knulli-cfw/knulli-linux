@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Mount the libretro cores squashfs over /usr/lib/libretro.
+#
+# The cores live in their own image beside the rootfs one (/boot/boot/knulli)
+# rather than inside it, so they can be replaced without rebuilding the rootfs.
+# Boards that still compile cores into the rootfs have no such file and fall
+# through untouched.
+
+CORES_IMG=/boot/boot/cores
+CORES_DIR=/usr/lib/libretro
+
+if [ ! -f "${CORES_IMG}" ]; then
+    exit 0
+fi
+
+mkdir -p "${CORES_DIR}"
+
+if mount -o ro "${CORES_IMG}" "${CORES_DIR}"; then
+    logger "cores: mounted ${CORES_IMG} on ${CORES_DIR}"
+else
+    # Not fatal: the system boots, emulationstation starts, and only libretro
+    # cores are missing.  Loud enough to find in the log.
+    logger "cores: FAILED to mount ${CORES_IMG} -- no libretro cores available"
+fi

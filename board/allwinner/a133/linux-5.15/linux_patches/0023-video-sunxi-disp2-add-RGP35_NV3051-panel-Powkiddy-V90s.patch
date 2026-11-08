@@ -1,0 +1,245 @@
+Subject: [PATCH] video: sunxi: disp2: add RGP35_NV3051 panel (Powkiddy V90s)
+
+No source was released for this panel; rebuilt from the stock V90s 4.9
+kernel: its power sequence and 27-entry NV3051 init table.
+---
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/rgp_nv3051.c
+@@ -0,0 +1,168 @@
++/* drivers/video/sunxi/disp2/disp/lcd/rgp_nv3051.c
++ *
++ * RGP35_NV3051 panel driver: the 640x480 4-lane NV3051 module of the
++ * Powkiddy V90s.  No source was released; rebuilt from the stock V90s 4.9
++ * kernel (lcd_driver_name "RGP35_NV3051"): its power sequence and init
++ * table.  The stock driver also sends a DSI "turn on peripheral" packet
++ * after the table; the Brick's NV3052 runs without it, so it is left out.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#include "rgp_nv3051.h"
++
++static void lcd_power_on(u32 sel);
++static void lcd_power_off(u32 sel);
++static void lcd_bl_open(u32 sel);
++static void lcd_bl_close(u32 sel);
++
++static void lcd_panel_init(u32 sel);
++static void lcd_panel_exit(u32 sel);
++
++#define panel_reset(sel, val) sunxi_lcd_gpio_set_value(sel, 0, val)
++
++static void lcd_cfg_panel_info(struct panel_extend_para *info)
++{
++}
++
++static s32 lcd_open_flow(u32 sel)
++{
++	LCD_OPEN_FUNC(sel, lcd_power_on, 10);
++	LCD_OPEN_FUNC(sel, lcd_panel_init, 10);
++	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 50);
++	LCD_OPEN_FUNC(sel, lcd_bl_open, 0);
++
++	return 0;
++}
++
++static s32 lcd_close_flow(u32 sel)
++{
++	LCD_CLOSE_FUNC(sel, lcd_bl_close, 0);
++	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 0);
++	LCD_CLOSE_FUNC(sel, lcd_panel_exit, 0);
++	LCD_CLOSE_FUNC(sel, lcd_power_off, 0);
++
++	return 0;
++}
++
++static void lcd_power_on(u32 sel)
++{
++	sunxi_lcd_power_enable(sel, 0);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_power_enable(sel, 1);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_pin_cfg(sel, 1);
++	sunxi_lcd_delay_ms(50);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(100);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(100);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(100);
++}
++
++static void lcd_power_off(u32 sel)
++{
++	sunxi_lcd_pin_cfg(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 1);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 0);
++}
++
++static void lcd_bl_open(u32 sel)
++{
++	sunxi_lcd_pwm_enable(sel);
++	sunxi_lcd_backlight_enable(sel);
++}
++
++static void lcd_bl_close(u32 sel)
++{
++	sunxi_lcd_backlight_disable(sel);
++	sunxi_lcd_pwm_disable(sel);
++}
++
++#define REGFLAG_DELAY		0xfe
++#define REGFLAG_END_OF_TABLE	0xfd
++
++struct lcm_setting_table {
++	u8 cmd;
++	u32 count;
++	u8 para_list[48];
++};
++
++static struct lcm_setting_table rgp35_nv3051_init[] = {
++	{ 0xe0, 2, {0xab, 0xba} },
++	{ 0xe1, 2, {0xba, 0xab} },
++	{ 0xb1, 4, {0x10, 0x01, 0x47, 0xff} },
++	{ 0xb2, 6, {0x0c, 0x08, 0x04, 0x50, 0x50, 0x14} },
++	{ 0xb3, 3, {0x56, 0x12, 0xe0} },
++	{ 0xb4, 3, {0x33, 0x30, 0x04} },
++	{ 0xb6, 7, {0xb0, 0x00, 0x00, 0x10, 0x00, 0x10, 0x00} },
++	{ 0xb8, 5, {0x05, 0x12, 0x29, 0x49, 0x48} },
++	{ 0xb9, 38, {0x7f, 0x63, 0x52, 0x45, 0x42, 0x34, 0x39, 0x24, 0x3e, 0x3d, 0x3c, 0x59, 0x46, 0x4d, 0x3e, 0x3d, 0x30, 0x22, 0x00, 0x7f, 0x63, 0x52, 0x45, 0x42, 0x34, 0x39, 0x24, 0x3e, 0x3d, 0x3c, 0x59, 0x46, 0x4d, 0x3e, 0x3d, 0x30, 0x22, 0x00} },
++	{ 0xc0, 16, {0x32, 0x10, 0x12, 0x34, 0x22, 0x22, 0x22, 0x22, 0x90, 0x04, 0x90, 0x04, 0x0f, 0x00, 0x00, 0xc1} },
++	{ 0xc1, 10, {0x12, 0x9f, 0x8e, 0x89, 0x90, 0x04, 0x90, 0x04, 0x54, 0x40} },
++	{ 0xc2, 12, {0x77, 0x09, 0x08, 0x89, 0x08, 0x11, 0x22, 0x33, 0x44, 0x87, 0x18, 0x00} },
++	{ 0xc3, 22, {0x88, 0x4a, 0x24, 0x24, 0x1e, 0x1f, 0x12, 0x0c, 0x0e, 0x10, 0x04, 0x06, 0x24, 0x24, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02} },
++	{ 0xc4, 22, {0x09, 0x0b, 0x24, 0x24, 0x1e, 0x1f, 0x13, 0x0d, 0x0f, 0x11, 0x05, 0x07, 0x24, 0x24, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02} },
++	{ 0xc6, 2, {0x46, 0x55} },
++	{ 0xc8, 6, {0x12, 0x00, 0x31, 0x42, 0x34, 0x16} },
++	{ 0xca, 2, {0x18, 0x43} },
++	{ 0xcd, 8, {0x0e, 0x64, 0x64, 0x2c, 0x16, 0x6b, 0x06, 0xb3} },
++	{ 0xd2, 4, {0xe3, 0x2b, 0x38, 0x08} },
++	{ 0xd4, 11, {0x00, 0x01, 0x00, 0x0e, 0x04, 0x44, 0x08, 0x10, 0x00, 0x00, 0x00} },
++	{ 0xe6, 8, {0x80, 0x09, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff} },
++	{ 0xf0, 5, {0x12, 0x03, 0x20, 0x00, 0xff} },
++	{ 0xf3, 1, {0x03} },
++	{ 0x11, 0, {} },
++	{ REGFLAG_DELAY, REGFLAG_DELAY, {120} },
++	{ 0x29, 0, {} },
++	{ REGFLAG_DELAY, REGFLAG_DELAY, {20} },
++	{ REGFLAG_END_OF_TABLE, REGFLAG_END_OF_TABLE, {} }
++};
++
++static void lcd_panel_init(u32 sel)
++{
++	struct lcm_setting_table *t;
++
++	sunxi_lcd_dsi_clk_enable(sel);
++	sunxi_lcd_delay_ms(120);
++	for (t = rgp35_nv3051_init; t->count != REGFLAG_END_OF_TABLE; t++) {
++		if (t->count == REGFLAG_DELAY)
++			sunxi_lcd_delay_ms(t->para_list[0]);
++		else
++			sunxi_lcd_dsi_dcs_write(sel, t->cmd, t->para_list, t->count);
++	}
++	sunxi_lcd_delay_ms(50);
++}
++
++static void lcd_panel_exit(u32 sel)
++{
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x28);
++	sunxi_lcd_delay_ms(20);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x10);
++	sunxi_lcd_delay_ms(120);
++}
++
++/*sel: 0:lcd0; 1:lcd1*/
++static s32 lcd_user_defined_func(u32 sel, u32 para1, u32 para2, u32 para3)
++{
++	return 0;
++}
++
++struct __lcd_panel rgp35_nv3051_panel = {
++	/* panel driver name, must mach the name of
++	 * lcd_drv_name in sys_config.fex
++	 */
++	.name = "RGP35_NV3051",
++	.func = {
++		.cfg_panel_info = lcd_cfg_panel_info,
++		.cfg_open_flow = lcd_open_flow,
++		.cfg_close_flow = lcd_close_flow,
++		.lcd_user_defined_func = lcd_user_defined_func,
++	},
++};
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/rgp_nv3051.h
+@@ -0,0 +1,19 @@
++/* drivers/video/sunxi/disp2/disp/lcd/rgp_nv3051.h
++ *
++ * Powkiddy NV3051 panels, rebuilt from the stock 4.9 kernel
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#ifndef _RGP_NV3051_H
++#define _RGP_NV3051_H
++
++#include "panels.h"
++
++extern struct __lcd_panel rgp35_nv3051_panel;
++
++extern s32 bsp_disp_get_panel_info(u32 screen_id, struct disp_panel_para *info);
++
++#endif /*End of file*/
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
+@@ -67,6 +67,9 @@
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_RTP32HD016A)
+ 	&RTP32HD016A_panel,
+ #endif
++#if IS_ENABLED(CONFIG_LCD_SUPPORT_RGP_NV3051)
++	&rgp35_nv3051_panel,
++#endif
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_HE0801A068)
+ 	&he0801a068_panel,
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
+@@ -92,6 +92,7 @@
+ extern struct __lcd_panel h028b23_panel;
+ extern struct __lcd_panel RTP40WV101B_panel;
+ extern struct __lcd_panel RTP32HD016A_panel;
++extern struct __lcd_panel rgp35_nv3051_panel;
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_INET_DSI_PANEL)
+ extern struct __lcd_panel inet_dsi_panel;
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
+@@ -50,6 +50,12 @@
+ 	help
+ 		The XU20 1024x768 2-lane MIPI panel (JD9168).
+ 
++config LCD_SUPPORT_RGP_NV3051
++	bool "LCD support Powkiddy NV3051 panels"
++	default n
++	help
++		The Powkiddy V90s 640x480 4-lane MIPI panel (RGP35_NV3051).
++
+ config LCD_SUPPORT_HE0801A068
+ 	bool "LCD support he0801a068 panel"
+ 	default y
+--- a/bsp/drivers/video/sunxi/disp2/disp/Makefile
++++ b/bsp/drivers/video/sunxi/disp2/disp/Makefile
+@@ -33,6 +33,7 @@
+ disp-$(CONFIG_LCD_SUPPORT_H028B23) += lcd/h028b23.o
+ disp-$(CONFIG_LCD_SUPPORT_RTP40WV101B) += lcd/RTP40WV101B.o
+ disp-$(CONFIG_LCD_SUPPORT_RTP32HD016A) += lcd/RTP32HD016A.o
++disp-$(CONFIG_LCD_SUPPORT_RGP_NV3051) += lcd/rgp_nv3051.o
+ disp-$(CONFIG_LCD_SUPPORT_HE0801A068) += lcd/he0801a068.o
+ disp-$(CONFIG_EINK_PANEL_USED) += lcd/default_eink.o
+ disp-$(CONFIG_LCD_SUPPORT_LT070ME05000) += lcd/lt070me05000.o

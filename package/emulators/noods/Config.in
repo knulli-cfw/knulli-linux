@@ -19,6 +19,4 @@ config BR2_PACKAGE_NOODS
       https://github.com/Hydr8gon/NooDS
 
 comment "noods needs a toolchain w/ C++, threads, dynamic library, EGL, GLES"
-    depends on !BR2_INSTALL_LIBSTDCPP || !BR2_TOOLCHAIN_HAS_THREADS || \
-        BR2_STATIC_LIBS || !BR2_PACKAGE_HAS_LIBEGL || !BR2_PACKAGE_HAS_LIBGLES
-        
+    depends on !BR2_INSTALL_LIBSTDCPP || !BR2_TOOLCHAIN_HAS_THREADS || BR2_STATIC_LIBS || !BR2_PACKAGE_HAS_LIBEGL || !BR2_PACKAGE_HAS_LIBGLES

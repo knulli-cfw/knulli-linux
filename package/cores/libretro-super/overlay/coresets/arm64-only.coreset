@@ -1,0 +1,60 @@
+# Cores restricted to 64-bit devices.  Listed in CORESETS only by the aarch64
+# profiles, so the armv7 ones can never pick them up -- coreset lines are raw
+# recipe lines and have no scope column, so exclusion is done by coreset
+# membership rather than by a per-line filter.
+#
+# mame (0.2xx): too heavy for the 32-bit devices (Cortex-A7/A9, Mali-400) --
+# they are not powerful enough to run it, so building it for them is waste.
+# It is the only core for a long tail of computers and consoles (the Sharp MZ
+# and NEC PC families, Loopy, Beena, TRS-80, ...), so the systems gated on
+# BR2_PACKAGE_LIBRETRO_MAME in es_systems.yml appear on aarch64 only.
+# Expect it to dominate the build time of a drop.
+mame libretro-mame https://github.com/libretro/mame.git master YES GENERIC Makefile.libretro .
+
+# dolphin: CMakeLists.txt:235 aborts on any 4-byte-pointer target --
+# "You're building on an unsupported platform: 'armv7l' with 4-byte
+# pointers" -- so it cannot be in a shared coreset.  CMAKE, unlike the
+# GENERIC cores above, so it also needs the profile's CMAKE_EXTRA_ARGS.
+dolphin libretro-dolphin https://github.com/libretro/dolphin.git master YES CMAKE Makefile build
+
+# play: PS2.  Its Framework hard-includes <GLES3/gl3.h>, which the ATM7039
+# sysroot does not have -- SGX540 is GLES2-only -- and a Cortex-A9 could not
+# run PS2 emulation anyway.  Needs NO_FAST_MATH (vendored sqlite #errors on
+# it) and the -D flags that select the core over the Qt desktop app; both
+# live in coreargs/cores.args.
+play libretro-play https://github.com/jpd002/Play-.git master YES CMAKE Makefile build
+
+# azahar: 3DS.  Same repo as the standalone azahar package -- the tree carries
+# both frontends and ENABLE_LIBRETRO picks the core (src/citra_libretro,
+# PREFIX "" -> azahar_libretro.so in the build dir).  64-bit only: the 3DS
+# needs a 64-bit host JIT and the 32-bit devices cannot run it anyway.
+azahar libretro-azahar https://github.com/johndoe6345789/azahar_libretro.git master YES CMAKE Makefile build
+
+# The Dreamcast forks.  All three -- upstream flycast (tier4-cmake), flycastvl
+# and flycast-xtreme -- build a .so named after TARGET_NAME, which defaults to
+# "flycast" in all of them.  dist/ is FLAT and make-drop keys renames on the
+# basename, so without overriding TARGET_NAME (in coreargs) the three would
+# overwrite each other in dist/ before make-drop ever sees them.
+#
+# 64-bit only: both forks want ARCH=arm64, and the 32-bit devices (Mali-400
+# GLESv2, SGX540) cannot run Dreamcast anyway.  Pinned to the same commits the
+# in-tree packages used, so this is the same code that shipped before.
+flycastvl libretro-flycastvl https://github.com/libretro/flycast.git master@4a913e063c95d1fae98afc64645831de0bcad57e YES GENERIC Makefile .
+flycast-xtreme libretro-flycast-xtreme https://github.com/metallic77/flycast.git master@603814c9f73b773c455d9a497f389d2f93a257fd YES GENERIC Makefile .
+
+# yabasanshiro: Saturn.  Lives on the "yabasanshiro" branch of libretro/yabause,
+# and the core builds out of yabause/src/libretro rather than the repo root.
+# The in-tree package picked a tuned platform per SoC (arm64_cortex_a53_gles3,
+# RK3326, sm8250, ...) but a drop is built once per ABI, so it takes that
+# package's own aarch64 fallback -- platform=unix, which is the profile default.
+yabasanshiro libretro-yabasanshiro https://github.com/libretro/yabause.git yabasanshiro@39535a6abcad5abf9f71c8b2a7975f005ee12ed6 YES GENERIC Makefile yabause/src/libretro
+
+# panda3ds: 3DS, second core for that system alongside azahar.  CMAKE, and the
+# aarch64 branch of the in-tree package disabled CryptoPP's asm and LuaJIT --
+# both are x86-only there.  GLES rather than desktop GL, like every other core
+# on these profiles.
+#
+# ENABLED=NO: it has never built here and 3ds is served by azahar, which does.
+# Parked rather than deleted -- the recipe, its cmake args in coreargs and its
+# cores.symbols row all stay valid, so flip NO -> YES to pick it back up.
+panda3ds libretro-panda3ds https://github.com/wheremyfoodat/Panda3DS.git v0.9 NO CMAKE Makefile build

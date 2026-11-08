@@ -1,0 +1,9 @@
+config BR2_PACKAGE_DSPERATE
+	bool "dsperate"
+	select BR2_PACKAGE_SDL2
+	help
+	  A Nintendo DS emulator reimplementing DraStic's JIT and NEON
+	  rendering techniques with melonDS-grade accuracy.  The
+	  recompiler and the NEON kernels are aarch64 only.
+
+	  https://github.com/beebono/DSperate

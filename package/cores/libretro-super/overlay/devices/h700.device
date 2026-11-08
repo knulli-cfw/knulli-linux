@@ -1,0 +1,17 @@
+# Device: Allwinner H700 (RG35XX-H/Plus/SP, RG40XX...)  Cortex-A53
+#
+# A .device is an INTEGRATION unit, not a build unit: it names the ABI profile
+# whose dist/ this device consumes.  Cores are built once per profile
+# (gen-recipe.sh <profile>), never once per device.
+
+PROFILE aarch64-v8a
+
+# GPU stack.  The emulators drop is keyed on PROFILE *and* this: emulators link
+# the vendor GL stack, so a Mali payload cannot run on an Adreno board (it needs
+# libmali.so.0, which such a board does not ship).  Cores are keyed on PROFILE
+# alone -- they link only libGLESv2/libEGL, which both stacks provide.
+GPU mali
+
+# Excluded cores for this device
+EXCLUDE_CORE play
+EXCLUDE_EMULATOR VITA3K

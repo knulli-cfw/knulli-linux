@@ -1,0 +1,75 @@
+From: knulli
+Subject: [PATCH] gl: load GLES entry points on EGL, and survive a failed load
+
+gladLoadGL() dlopens libGL.so.1, which does not exist on a GLES-only Mali or
+PowerVR board, so every GL pointer stays null and the following glGetString()
+segfaults -- the "crash incoming" the log warns about.  On an EGL context load
+through eglGetProcAddress with the GLES2 loader instead, and bail out rather
+than dereference a null glGetString.
+
+diff -urN a/src/gl/gl_hud.cpp b/src/gl/gl_hud.cpp
+--- a/src/gl/gl_hud.cpp	2026-08-19 19:24:22.874121116 +0000
++++ b/src/gl/gl_hud.cpp	2026-08-19 19:24:22.891121068 +0000
+@@ -112,10 +112,23 @@
+ 
+     imgui_init();
+ 
+-    if (!gladLoadGL())
+-        spdlog::error("Failed to initialize OpenGL context, crash incoming");
++    const int loaded = (plat == gl_wsi::GL_WSI_EGL)
++        ? gladLoadGLES2Loader((GLADloadproc)mangohud_get_egl_proc_address)
++        : gladLoadGL();
+ 
+-    deviceName = (char*)glGetString(GL_RENDERER);
++    if (!loaded) {
++        spdlog::error("Failed to initialize OpenGL context, no HUD will be drawn");
++        return;
++    }
++
++    const char* gl_renderer = (const char*)glGetString(GL_RENDERER);
++    const char* gl_vendor = (const char*)glGetString(GL_VENDOR);
++    if (!gl_renderer || !gl_vendor) {
++        spdlog::error("glGetString returned null, no HUD will be drawn");
++        return;
++    }
++
++    deviceName = gl_renderer;
+     // If we're running zink we want to rely on the vulkan loader for the hud instead.
+     if (deviceName.find("zink") != std::string::npos)
+         return;
+@@ -124,7 +137,7 @@
+         sw_stats.version_gl.minor,
+         sw_stats.version_gl.is_gles);
+ 
+-    std::string vendor = (char*)glGetString(GL_VENDOR);
++    std::string vendor = gl_vendor;
+     SPDLOG_DEBUG("vendor: {}, deviceName: {}", vendor, deviceName);
+     sw_stats.deviceName = deviceName;
+     if (vendor.find("AMD") != std::string::npos
+diff -urN a/src/gl/gl_hud.h b/src/gl/gl_hud.h
+--- a/src/gl/gl_hud.h	2026-08-19 19:24:22.872121121 +0000
++++ b/src/gl/gl_hud.h	2026-08-19 19:24:22.891121068 +0000
+@@ -21,4 +21,7 @@
+ 
+ }} // namespace
+ 
++// from inject_egl.cpp
++extern "C" void *mangohud_get_egl_proc_address(const char *name);
++
+ #endif //MANGOHUD_GL_IMGUI_HUD_H
+diff -urN a/src/gl/inject_egl.cpp b/src/gl/inject_egl.cpp
+--- a/src/gl/inject_egl.cpp	2026-08-19 19:24:22.870121127 +0000
++++ b/src/gl/inject_egl.cpp	2026-08-19 19:24:22.891121068 +0000
+@@ -87,6 +87,12 @@
+     return func;
+ }
+ 
++// Used by gl_hud.cpp to load GLES entry points for an EGL context.
++extern "C" void *mangohud_get_egl_proc_address(const char *name)
++{
++    return get_egl_proc_address(name);
++}
++
+ static gl_context *create_gl_context(void *ctx)
+ {
+     gl_context *gl_ctx;

@@ -18,7 +18,7 @@ UPDATES_DIR="${BASE_DIR}/updates"
 ################################
 
 ##### find images to build #####
-KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_ANY=" | grep -vE "_GLES[0-9]*=" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
+KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_(ANY|PLATFORM)=" | grep -vE "_GLES[0-9]*=" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
 KNULLI_LOWER_TARGET=$(echo "${KNULLI_TARGET}" | tr '[:upper:]' '[:lower:]')
 KNULLI_IMAGES_TARGETS=$(grep -E "^BR2_TARGET_KNULLI_IMAGES[ ]*=[ ]*\".*\"[ ]*$" "${BR2_CONFIG}" | sed -e s+"^BR2_TARGET_KNULLI_IMAGES[ ]*=[ ]*\"\(.*\)\"[ ]*$"+"\1"+)
 if test -z "${KNULLI_IMAGES_TARGETS}"
@@ -50,6 +50,43 @@ mkdir -p "${KNULLI_BINARIES_DIR}/images" || exit 1
 SUFFIXVERSION=$(awk '{if ($1 ~ /^[0-9\.]+$/) print $1; else print $1}' "${TARGET_DIR}/usr/share/knulli/knulli.version") # Handle numeric and codename strings versions
 
 SUFFIXDATE=$(date +%Y%m%d)
+
+##### build the cores squashfs ##
+# The libretro cores are staged outside TARGET_DIR by libretro-super and shipped
+# as their own image beside the rootfs one, mounted over /usr/lib/libretro by
+# S07mount-cores.  Absent on boards that build cores into the rootfs.
+CORES_ROOT="${BINARIES_DIR}/cores-root"
+CORES_SQUASHFS="${BINARIES_DIR}/cores.squashfs"
+if test -d "${CORES_ROOT}"
+then
+    # Match the rootfs compressor so the two images behave the same on a board.
+    CORES_COMP=gzip
+    for c in zstd xz lz4 lzo gzip
+    do
+        if grep -qE "^BR2_TARGET_ROOTFS_SQUASHFS4_$(echo "$c" | tr '[:lower:]' '[:upper:]')=y$" "${BR2_CONFIG}"
+        then
+            CORES_COMP="$c"
+            break
+        fi
+    done
+    echo "creating cores.squashfs (${CORES_COMP})"
+    rm -f "${CORES_SQUASHFS}" || exit 1
+    "${HOST_DIR}/bin/mksquashfs" "${CORES_ROOT}" "${CORES_SQUASHFS}" \
+        -noappend -all-root -comp "${CORES_COMP}" || exit 1
+elif grep -qE "^BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y$" "${BR2_CONFIG}"
+then
+    # Same rule as a missing drop: shipping an image with no cores at all is a
+    # build error, not something to discover on the device.
+    echo "post-image: ${CORES_ROOT} is missing, but this board uses external" >&2
+    echo "libretro cores -- the image would ship without any.  Re-run the" >&2
+    echo "install of the package that stages them (a plain build is a no-op" >&2
+    echo "once its stamps exist), then the ES system list built from it:" >&2
+    echo "  make <board>-pkg PKG=\"libretro-super-reinstall knulli-es-system-rebuild\"" >&2
+    exit 1
+else
+    rm -f "${CORES_SQUASHFS}"
+fi
+################################
 
 # the rootfs is the same for every image: hash it once for generate_signature.sh
 export KNULLI_ROOTFS_MD5=$(md5sum "${BINARIES_DIR}/rootfs.squashfs" | cut -d' ' -f1)
@@ -101,6 +138,13 @@ do
     # add some common files
     cp     "${BINARIES_DIR}/knulli-boot.conf" "${KNULLI_BINARIES_DIR}/boot/" || exit 1
     echo   "${KNULLI_SUBTARGET}" > "${KNULLI_BINARIES_DIR}/boot/boot/knulli.board" || exit 1
+
+    # the cores image, beside the rootfs one
+    if test -f "${CORES_SQUASHFS}"
+    then
+        cp "${CORES_SQUASHFS}" "${KNULLI_BINARIES_DIR}/boot/boot/cores" || exit 1
+        cp "${BINARIES_DIR}/cores.manifest" "${KNULLI_BINARIES_DIR}/boot/boot/cores.manifest" || exit 1
+    fi
 
     #### create the update signatures (after boot dir is assembled so we hash the actual on-device files) #####
     KNULLI_SIGNATURES_SCRIPT="${BR2_EXTERNAL_KNULLI_PATH}/board/scripts/generate_signature.sh"
@@ -181,7 +225,27 @@ do
     rm -f "${KNULLI_BINARIES_DIR}/boot.vfat" || exit 1
     rm -f "${KNULLI_BINARIES_DIR}/userdata.ext4" || exit 1
     mv "${KNULLI_BINARIES_DIR}/knulli.img" "${KNULLIIMG}" || exit 1
-    pigz "${KNULLIIMG}" || exit 1
+
+    # Boards whose images differ only in boot0 (a133: the DRAM family) keep one
+    # per family in boot0/<family>.img: each image is this one with that boot0
+    # written at the bootloader partition's offset; this one is not shipped.
+    if test -d "${GENIMAGEDIR}/boot0"
+    then
+        BOOT0_OFFSET=$(awk '/partition bootloader/ {p=1} p && /offset/ {print $3; exit}' "${GENIMAGEFILE}")
+        test -n "${BOOT0_OFFSET}" || { echo "no bootloader offset in ${GENIMAGEFILE}" >&2; exit 1; }
+        for BOOT0 in "${GENIMAGEDIR}"/boot0/*.img
+        do
+            FAMILY=$(basename "${BOOT0}" .img)
+            FAMILYIMG="$(dirname "${KNULLIIMG}")/knulli-${KNULLI_LOWER_TARGET}-${FAMILY}-${SUFFIXVERSION}-${SUFFIXDATE}.img"
+            echo "creating images/${KNULLI_SUBTARGET}/$(basename "${FAMILYIMG}")..." >&2
+            cp --sparse=always "${KNULLIIMG}" "${FAMILYIMG}" || exit 1
+            dd if="${BOOT0}" of="${FAMILYIMG}" bs=512 seek=$((BOOT0_OFFSET / 512)) conv=notrunc status=none || exit 1
+            pigz "${FAMILYIMG}" || exit 1
+        done
+        rm -f "${KNULLIIMG}" || exit 1
+    else
+        pigz "${KNULLIIMG}" || exit 1
+    fi
 
     # rename the boot to boot_arch
     mv "${KNULLI_BINARIES_DIR}/boot" "${BOOTNAMEDDIR}" || exit 1

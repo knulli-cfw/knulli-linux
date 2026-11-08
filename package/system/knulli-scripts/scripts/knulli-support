@@ -53,6 +53,11 @@ lsusb -v         	> "${DSYSTEM}/lsusb.txt" 2>/dev/null
 command -v tvservice >/dev/null && tvservice -m CEA 	> "${DSYSTEM}/tvservice-CEA.txt"
 command -v tvservice >/dev/null && tvservice -m DMT 	> "${DSYSTEM}/tvservice-DMT.txt"
 ifconfig -a             > "${DSYSTEM}/ifconfig.txt"
+ip a                    > "${DSYSTEM}/ip-addr.txt"
+ip r                    > "${DSYSTEM}/ip-route.txt"
+# wifi link state: connmanctl says whether it associated, these say how well
+iw dev                  > "${DSYSTEM}/iw-dev.txt" 2>/dev/null
+iw phy phy0 info        > "${DSYSTEM}/iw-phy0-info.txt" 2>/dev/null
 lspci                   > "${DSYSTEM}/lspci.txt"
 lspci -v                > "${DSYSTEM}/lspci_v.txt"
 hciconfig -a            > "${DSYSTEM}/bt-capabilities.txt"
@@ -70,6 +75,10 @@ knulli-systems        > "${DSYSTEM}/bios.txt"
 knulli-version        > "${DSYSTEM}/knulli.version"
 knulli-info           > "${DSYSTEM}/knulli.info"
 ldconfig -p             > "${DSYSTEM}/ldcache.txt"
+mount                   > "${DSYSTEM}/mount.txt"
+env                     > "${DSYSTEM}/environment.txt"
+top -b -n 1             > "${DSYSTEM}/top.txt"
+knulli-services list    > "${DSYSTEM}/services.txt"
 # get xrandr provider if x86 system only
 if [ "${V_ARCH}" = "x86" -o "${V_ARCH}" = "x86_64" ]; then
     xrandr --listproviders  > "${DSYSTEM}/xrandr-providers.txt"

@@ -1,0 +1,135 @@
+power: axp2202-battery: mcu_pwr for the Anbernic RGB LED MCU
+
+The RG40XX-H/V and RG CubeXX drive their stick LEDs from an MCU on uart5.
+The vendor 4.9 battery driver powered it through
+/sys/class/power_supply/axp2202-battery/mcu_pwr (silkyrgb writes it).
+The same file switches mcu-pwr-gpios; off across suspend and at shutdown.
+
+--- a/drivers/power/supply/axp2202_battery.c
++++ b/drivers/power/supply/axp2202_battery.c
+@@ -30,6 +30,7 @@
+ 
+ #include <linux/err.h>
+ #include "axp2202_charger.h"
++#include <linux/gpio/consumer.h>
+ 
+ struct axp2202_bat_power {
+ 	char                      *name;
+@@ -40,6 +41,71 @@
+ 	struct delayed_work        bat_power_curve;
+ 	struct axp_config_info     dts_info;
+ 	struct wakeup_source       *ws;
++	/* Anbernic RGB boards: power of the LED MCU on uart5 (mcu-pwr-gpios) */
++	struct gpio_descs         *mcu_pwr;
++	bool                       mcu_on;
++};
++
++static void axp2202_mcu_pwr_set(struct axp2202_bat_power *bat_power, bool on)
++{
++	int i;
++
++	if (!bat_power->mcu_pwr)
++		return;
++	for (i = 0; i < bat_power->mcu_pwr->ndescs; i++)
++		gpiod_set_value_cansleep(bat_power->mcu_pwr->desc[i], on);
++}
++
++/* the vendor 4.9 ABI silkyrgb uses: /sys/class/power_supply/axp2202-battery/mcu_pwr */
++static ssize_t mcu_pwr_show(struct device *dev, struct device_attribute *attr,
++			    char *buf)
++{
++	struct axp2202_bat_power *bat_power =
++		power_supply_get_drvdata(to_power_supply(dev));
++
++	return sprintf(buf, "%d\n", bat_power->mcu_on);
++}
++
++static ssize_t mcu_pwr_store(struct device *dev, struct device_attribute *attr,
++			     const char *buf, size_t count)
++{
++	struct axp2202_bat_power *bat_power =
++		power_supply_get_drvdata(to_power_supply(dev));
++	bool on;
++
++	if (!bat_power->mcu_pwr)
++		return -ENODEV;
++	if (kstrtobool(buf, &on))
++		return -EINVAL;
++	bat_power->mcu_on = on;
++	axp2202_mcu_pwr_set(bat_power, on);
++	return count;
++}
++static DEVICE_ATTR_RW(mcu_pwr);
++
++static struct attribute *axp2202_bat_attrs[] = {
++	&dev_attr_mcu_pwr.attr,
++	NULL,
++};
++
++static umode_t axp2202_bat_attr_visible(struct kobject *kobj,
++					struct attribute *attr, int n)
++{
++	struct device *dev = kobj_to_dev(kobj);
++	struct axp2202_bat_power *bat_power =
++		power_supply_get_drvdata(to_power_supply(dev));
++
++	return bat_power && bat_power->mcu_pwr ? attr->mode : 0;
++}
++
++static const struct attribute_group axp2202_bat_attr_group = {
++	.attrs = axp2202_bat_attrs,
++	.is_visible = axp2202_bat_attr_visible,
++};
++
++static const struct attribute_group *axp2202_bat_attr_groups[] = {
++	&axp2202_bat_attr_group,
++	NULL,
+ };
+ 
+ static enum power_supply_property axp2202_bat_props[] = {
+@@ -1443,8 +1509,17 @@
+ 		goto err;
+ 	}
+ 
++	bat_power->mcu_pwr = devm_gpiod_get_array_optional(&pdev->dev,
++							   "mcu-pwr", GPIOD_OUT_LOW);
++	if (IS_ERR(bat_power->mcu_pwr)) {
++		dev_warn(&pdev->dev, "mcu-pwr-gpios: %ld\n",
++			 PTR_ERR(bat_power->mcu_pwr));
++		bat_power->mcu_pwr = NULL;
++	}
++
+ 	psy_cfg.of_node = pdev->dev.of_node;
+ 	psy_cfg.drv_data = bat_power;
++	psy_cfg.attr_grp = axp2202_bat_attr_groups;
+ 
+ 	bat_power->bat_supply = devm_power_supply_register(bat_power->dev,
+ 			&axp2202_bat_desc, &psy_cfg);
+@@ -1586,7 +1661,7 @@
+ 	struct axp2202_bat_power *bat_power = platform_get_drvdata(pdev);
+ 
+ 	axp2202_charger_ichg_set(bat_power, bat_power->dts_info.pmu_shutdown_chgcur);
+-
++	axp2202_mcu_pwr_set(bat_power, false);
+ }
+ 
+ static int axp2202_bat_suspend(struct platform_device *pdev, pm_message_t state)
+@@ -1597,6 +1672,9 @@
+ 
+ 	axp2202_bat_virq_dts_set(bat_power, false);
+ 
++	/* LEDs off while asleep; mcu_on is kept for the resume */
++	axp2202_mcu_pwr_set(bat_power, false);
++
+ 	return 0;
+ }
+ 
+@@ -1610,6 +1688,8 @@
+ 
+ 	axp2202_bat_virq_dts_set(bat_power, true);
+ 
++	axp2202_mcu_pwr_set(bat_power, bat_power->mcu_on);
++
+ 	return 0;
+ }
+ 

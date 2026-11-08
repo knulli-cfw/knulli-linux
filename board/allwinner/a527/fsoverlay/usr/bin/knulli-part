@@ -30,8 +30,8 @@ determine_default_share_part() {
 
     XSHARE=$(expr ${XBOOT} + 1)
 #    echo "${BOOTPART}" | sed -e s+"${XBOOT}$"+"${XSHARE}"+
-    # FIXME: default for TSP-S, make it dynamic based on the gdisk partition name (userdata)
-    echo "/dev/mmcblk0p5"
+    # userdata is p5 on the disk /boot is on
+    echo "$(determine_part_prefix "${BOOTPART}")p5"
 }
 
 determine_default_share_part_num() {

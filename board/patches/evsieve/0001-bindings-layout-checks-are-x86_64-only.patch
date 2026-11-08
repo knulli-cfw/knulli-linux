@@ -1,0 +1,39 @@
+bindings: layout checks are x86_64 only
+
+The pregenerated bindings assert x86_64 struct sizes, which fail on
+32-bit targets; the definitions themselves are portable.
+
+--- a/src/bindings/libevdev.rs
++++ b/src/bindings/libevdev.rs
+@@ -56,6 +56,7 @@
+     pub tv_sec: __time_t,
+     pub tv_usec: __suseconds_t,
+ }
++#[cfg(target_arch = "x86_64")]
+ #[allow(clippy::unnecessary_operation, clippy::identity_op)]
+ const _: () = {
+     ["Size of timeval"][::std::mem::size_of::<timeval>() - 16usize];
+@@ -73,6 +74,7 @@
+     pub code: __u16,
+     pub value: __s32,
+ }
++#[cfg(target_arch = "x86_64")]
+ #[allow(clippy::unnecessary_operation, clippy::identity_op)]
+ const _: () = {
+     ["Size of input_event"][::std::mem::size_of::<input_event>() - 24usize];
+@@ -92,6 +94,7 @@
+     pub flat: __s32,
+     pub resolution: __s32,
+ }
++#[cfg(target_arch = "x86_64")]
+ #[allow(clippy::unnecessary_operation, clippy::identity_op)]
+ const _: () = {
+     ["Size of input_absinfo"][::std::mem::size_of::<input_absinfo>() - 24usize];
+@@ -632,6 +635,7 @@
+     pub overflow_arg_area: *mut ::std::os::raw::c_void,
+     pub reg_save_area: *mut ::std::os::raw::c_void,
+ }
++#[cfg(target_arch = "x86_64")]
+ #[allow(clippy::unnecessary_operation, clippy::identity_op)]
+ const _: () = {
+     ["Size of __va_list_tag"][::std::mem::size_of::<__va_list_tag>() - 24usize];

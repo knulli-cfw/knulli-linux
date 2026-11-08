@@ -52,6 +52,10 @@ updateurl="https://updates.knulli.org"
 
 board=$(cat /boot/boot/knulli.board)
 oldboard="$board"
+# the SMGEN image is one download for every Qualcomm SM device (knulli.board
+# holds the device name there)
+arch=$(cat /usr/share/knulli/knulli.arch 2>/dev/null)
+test "${arch}" = "smgen" && board=smgen
 test "${board}" = "rpi4" && board=rpi464 # "temporarly" download on rpi464 for rpi4
 
 updatetype="$(/usr/bin/knulli-settings-get updates.type)"

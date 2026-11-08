@@ -1,0 +1,494 @@
+Subject: [PATCH] input: joystick: add MagicX Zero 28/40 gamepad (simplepad)
+
+The vendor 4.9 "simplepad" driver read the stick MCU by opening
+/dev/ttyS3 from the kernel, which 5.15 no longer allows.  A serdev client
+for the UART frames plus polled GPIO buttons, with the vendor frame
+format and calibration; per-board stick count (0-2), calibration,
+inversion, axis swap, input name, product id and an optional rumble
+motor gpio (memless force feedback) come from the device tree.
+"knulli,gpio-gamepad" is the same pad without the UART (Powkiddy V90s,
+V20): its rumble motor may be on a PWM, its sticks behind an analog
+multiplexer on the GPADC.
+---
+--- /dev/null
++++ b/drivers/input/joystick/magicx-simplepad.c
+@@ -0,0 +1,451 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * MagicX Zero 28/40 and XU20 gamepad: buttons on GPIOs, sticks (if any) from an MCU
++ * on a UART.  Rewritten for serdev from the vendor's "simplepad" driver
++ * (Legendengen <denghaijian@gurobot.com>), which opened /dev/ttyS3 from the
++ * kernel; its frame format, calibration and deadzone are kept.
++ *
++ * "knulli,gpio-gamepad" is the same pad without the UART, for boards with
++ * buttons only (Powkiddy V90s); its rumble motor may be on a PWM.  Its sticks,
++ * if any, sit behind an analog multiplexer on the GPADC (Powkiddy V20):
++ * "mux-gpios" select the channel (LSB first), "mux-enable-gpios" turn it on,
++ * "mux-axes" names the channel of each axis (lx, ly, rx, ry); readings in mV.
++ *
++ * MCU frame, 115200 8N1, about every 10 ms:
++ *   'H' <lx> '|' <ly> '|' <rx> '|' <ry> '|' <xor> 'E' '\n'
++ * values are raw 12-bit ADC readings in decimal, <xor> is one byte: the XOR
++ * of every byte before it.
++ */
++#include <linux/gpio/consumer.h>
++#include <linux/input.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/pwm.h>
++#include <linux/serdev.h>
++#include <linux/delay.h>
++#include <sunxi_gpadc.h>
++#include <linux/workqueue.h>
++
++#define SP_FRAME_MAX	64
++#define SP_AXES		4
++#define SP_ABS_MAX	32767
++#define SP_DEADZONE	150
++#define SP_POLL_MS	10
++
++/* vendor calibration (Zero 28): centre and half range of the raw readings;
++ * "left-stick-center", "left-stick-range" etc. override it per board */
++static const int sp_center_def[SP_AXES] = { 2111, 2170, 2115, 1980 };
++static const int sp_range_def[SP_AXES] = { 600, 550, 550, 500 };
++static const unsigned int sp_abs[SP_AXES] = { ABS_X, ABS_Y, ABS_RX, ABS_RY };
++
++struct sp_button {
++	struct gpio_desc *gpiod;
++	unsigned int code;
++};
++
++struct simplepad {
++	struct device *dev;
++	struct input_dev *input;
++	bool seen_frame;
++	char frame[SP_FRAME_MAX];
++	int len;
++	int naxes;
++	int center[SP_AXES];
++	int range[SP_AXES];
++	bool invert[SP_AXES];
++	bool swap_left;
++	int deadzone;
++	struct gpio_descs *mux;		/* GPADC analog multiplexer, optional */
++	struct gpio_desc *mux_en;
++	u32 mux_axes[SP_AXES];
++	struct gpio_desc *rumble;	/* on/off vibration motor, optional */
++	struct pwm_device *rumble_pwm;	/* or one on a PWM */
++	struct work_struct rumble_work;
++	bool rumble_on;
++	int nbuttons;
++	struct sp_button buttons[];
++};
++
++static int sp_scale(struct simplepad *sp, int axis, int raw)
++{
++	int v = raw - sp->center[axis];
++
++	if (abs(v) < sp->deadzone)
++		return 0;
++	v = clamp(v, -sp->range[axis], sp->range[axis]);
++	v += v > 0 ? -sp->deadzone : sp->deadzone;
++	return v * SP_ABS_MAX / (sp->range[axis] - sp->deadzone);
++}
++
++/* raw readings in lx, ly, rx, ry order */
++static void sp_report_axes(struct simplepad *sp, int *raw)
++{
++	int i;
++
++	for (i = 0; i < SP_AXES; i++) {
++		raw[i] = sp_scale(sp, i, raw[i]);
++		if (sp->invert[i])
++			raw[i] = -raw[i];
++	}
++	if (sp->swap_left)
++		swap(raw[0], raw[1]);
++	for (i = 0; i < sp->naxes; i++)
++		input_report_abs(sp->input, sp_abs[i], raw[i]);
++}
++
++static void sp_parse(struct simplepad *sp)
++{
++	char *p = sp->frame + 1;
++	int raw[SP_AXES], i;
++	u8 xor = 0;
++
++	/* 'H' ... '|' <xor> 'E' */
++	if (sp->len < 4 || sp->frame[0] != 'H' || sp->frame[sp->len - 1] != 'E')
++		return;
++	for (i = 0; i < sp->len - 2; i++)
++		xor ^= sp->frame[i];
++	if (xor != (u8)sp->frame[sp->len - 2])
++		return;
++	/* boot scripts tell the boards apart by whether the MCU talks */
++	if (!sp->seen_frame) {
++		sp->seen_frame = true;
++		dev_info(sp->dev, "stick MCU frames received\n");
++	}
++
++	for (i = 0; i < SP_AXES; i++) {
++		char *sep = memchr(p, '|', sp->frame + sp->len - 2 - p);
++
++		if (!sep)
++			return;
++		*sep = '\0';
++		if (kstrtoint(p, 10, &raw[i]))
++			return;
++		p = sep + 1;
++	}
++
++	if (!sp->naxes)
++		return;
++	sp_report_axes(sp, raw);
++	input_sync(sp->input);
++}
++
++static void sp_rumble_work(struct work_struct *work)
++{
++	struct simplepad *sp = container_of(work, struct simplepad, rumble_work);
++
++	bool on = READ_ONCE(sp->rumble_on);
++	struct pwm_state state;
++
++	if (sp->rumble) {
++		gpiod_set_value_cansleep(sp->rumble, on);
++		return;
++	}
++	pwm_init_state(sp->rumble_pwm, &state);
++	pwm_set_relative_duty_cycle(&state, 1, 1);
++	state.enabled = on;
++	if (pwm_apply_state(sp->rumble_pwm, &state))
++		dev_warn_once(sp->dev, "rumble pwm: cannot apply state\n");
++}
++
++/* memless ff calls this from a timer: just record and defer */
++static int sp_play_effect(struct input_dev *input, void *data,
++			  struct ff_effect *effect)
++{
++	struct simplepad *sp = input_get_drvdata(input);
++
++	WRITE_ONCE(sp->rumble_on, effect->u.rumble.strong_magnitude ||
++				  effect->u.rumble.weak_magnitude);
++	schedule_work(&sp->rumble_work);
++	return 0;
++}
++
++static void sp_rumble_stop(void *data)
++{
++	struct simplepad *sp = data;
++
++	cancel_work_sync(&sp->rumble_work);
++	if (sp->rumble)
++		gpiod_set_value_cansleep(sp->rumble, 0);
++	else
++		pwm_disable(sp->rumble_pwm);
++}
++
++static int sp_receive(struct serdev_device *serdev, const unsigned char *buf,
++		      size_t count)
++{
++	struct simplepad *sp = serdev_device_get_drvdata(serdev);
++	size_t i;
++
++	/* the checksum byte can be any value, 'H' and '\n' included */
++	for (i = 0; i < count; i++) {
++		char c = buf[i];
++
++		if (!sp->len && c != 'H')
++			continue;
++		if (c == '\n' && sp->frame[sp->len - 1] == 'E') {
++			sp_parse(sp);
++			sp->len = 0;
++			continue;
++		}
++		if (sp->len == SP_FRAME_MAX) {
++			sp->len = 0;
++			continue;
++		}
++		sp->frame[sp->len++] = c;
++	}
++	return count;
++}
++
++static const struct serdev_device_ops sp_serdev_ops = {
++	.receive_buf = sp_receive,
++	.write_wakeup = serdev_device_write_wakeup,
++};
++
++static void sp_mux_read(struct simplepad *sp)
++{
++	DECLARE_BITMAP(sel, 2);
++	int raw[SP_AXES] = { }, i;
++
++	gpiod_set_value_cansleep(sp->mux_en, 1);
++	for (i = 0; i < sp->naxes; i++) {
++		sel[0] = sp->mux_axes[i];
++		gpiod_set_array_value_cansleep(sp->mux->ndescs, sp->mux->desc,
++					       sp->mux->info, sel);
++		usleep_range(200, 300);
++		raw[i] = sunxi_gpadc_read_channel_data(0, 0);
++	}
++	sp_report_axes(sp, raw);
++}
++
++static void sp_poll(struct input_dev *input)
++{
++	struct simplepad *sp = input_get_drvdata(input);
++	int i;
++
++	if (sp->mux)
++		sp_mux_read(sp);
++
++	for (i = 0; i < sp->nbuttons; i++) {
++		int v = gpiod_get_value_cansleep(sp->buttons[i].gpiod);
++
++		if (v >= 0)
++			input_report_key(input, sp->buttons[i].code, v);
++	}
++	input_sync(input);
++}
++
++static void sp_read_stick_config(struct device *dev, struct simplepad *sp)
++{
++	static const char * const inv[SP_AXES] = {
++		"invert-left-x", "invert-left-y", "invert-right-x", "invert-right-y"
++	};
++	u32 sticks = 2, v[2];
++	int i;
++
++	memcpy(sp->center, sp_center_def, sizeof(sp->center));
++	memcpy(sp->range, sp_range_def, sizeof(sp->range));
++	if (!device_property_read_u32_array(dev, "left-stick-center", v, 2)) {
++		sp->center[0] = v[0];
++		sp->center[1] = v[1];
++	}
++	if (!device_property_read_u32_array(dev, "left-stick-range", v, 2)) {
++		sp->range[0] = v[0];
++		sp->range[1] = v[1];
++	}
++	if (!device_property_read_u32_array(dev, "right-stick-center", v, 2)) {
++		sp->center[2] = v[0];
++		sp->center[3] = v[1];
++	}
++	if (!device_property_read_u32_array(dev, "right-stick-range", v, 2)) {
++		sp->range[2] = v[0];
++		sp->range[3] = v[1];
++	}
++	for (i = 0; i < SP_AXES; i++)
++		sp->invert[i] = device_property_read_bool(dev, inv[i]);
++	if (device_property_read_bool(dev, "invert-left-stick"))
++		sp->invert[0] = sp->invert[1] = true;
++	if (device_property_read_bool(dev, "invert-right-stick"))
++		sp->invert[2] = sp->invert[3] = true;
++	sp->swap_left = device_property_read_bool(dev, "swap-left-xy");
++	device_property_read_u32(dev, "sticks", &sticks);
++	sp->naxes = 2 * min_t(u32, sticks, 2);
++	sp->deadzone = SP_DEADZONE;
++	device_property_read_u32(dev, "deadzone", &sp->deadzone);
++}
++
++static struct simplepad *sp_setup(struct device *dev)
++{
++	struct fwnode_handle *child;
++	struct simplepad *sp;
++	struct input_dev *input;
++	int n, i = 0, ret;
++	u32 pid;
++
++	n = device_get_child_node_count(dev);
++	sp = devm_kzalloc(dev, struct_size(sp, buttons, n), GFP_KERNEL);
++	if (!sp)
++		return ERR_PTR(-ENOMEM);
++
++	input = devm_input_allocate_device(dev);
++	if (!input)
++		return ERR_PTR(-ENOMEM);
++	sp->input = input;
++	sp->dev = dev;
++	input_set_drvdata(input, sp);
++
++	input->name = "MagicX Zero 28 Controller";
++	device_property_read_string(dev, "label", &input->name);
++	input->phys = "simplepad/input0";
++	input->id.bustype = BUS_HOST;
++	input->id.vendor = 0xb412;
++	input->id.product = 0x6666;
++	/* its own product id per board: SDL keys mappings on the GUID */
++	if (!device_property_read_u32(dev, "product-id", &pid))
++		input->id.product = pid;
++	input->id.version = 0x0100;
++
++	device_for_each_child_node(dev, child) {
++		struct sp_button *b = &sp->buttons[i];
++
++		if (fwnode_property_read_u32(child, "linux,code", &b->code)) {
++			fwnode_handle_put(child);
++			return ERR_PTR(dev_err_probe(dev, -EINVAL, "button without linux,code\n"));
++		}
++		b->gpiod = devm_fwnode_gpiod_get(dev, child, NULL, GPIOD_IN,
++						 fwnode_get_name(child));
++		if (IS_ERR(b->gpiod)) {
++			ret = PTR_ERR(b->gpiod);
++			dev_err_probe(dev, ret, "%pfwP: gpio\n", child);
++			fwnode_handle_put(child);
++			return ERR_PTR(ret);
++		}
++		input_set_capability(input, EV_KEY, b->code);
++		i++;
++	}
++	sp->nbuttons = i;
++
++	sp_read_stick_config(dev, sp);
++	for (i = 0; i < sp->naxes; i++)
++		input_set_abs_params(input, sp_abs[i], -SP_ABS_MAX, SP_ABS_MAX, 0, 0);
++
++	sp->mux = devm_gpiod_get_array_optional(dev, "mux", GPIOD_OUT_LOW);
++	if (IS_ERR(sp->mux))
++		return ERR_CAST(sp->mux);
++	if (sp->mux) {
++		if (sp->mux->ndescs != 2 ||
++		    device_property_read_u32_array(dev, "mux-axes", sp->mux_axes, SP_AXES))
++			return ERR_PTR(dev_err_probe(dev, -EINVAL, "mux: 2 gpios and mux-axes\n"));
++		sp->mux_en = devm_gpiod_get_optional(dev, "mux-enable", GPIOD_OUT_LOW);
++		if (IS_ERR(sp->mux_en))
++			return ERR_CAST(sp->mux_en);
++	}
++
++	sp->rumble = devm_gpiod_get_optional(dev, "rumble", GPIOD_OUT_LOW);
++	if (IS_ERR(sp->rumble))
++		return ERR_CAST(sp->rumble);
++	if (!sp->rumble && device_property_present(dev, "pwms")) {
++		sp->rumble_pwm = devm_pwm_get(dev, NULL);
++		if (IS_ERR(sp->rumble_pwm))
++			return ERR_PTR(dev_err_probe(dev, PTR_ERR(sp->rumble_pwm), "rumble pwm\n"));
++		pwm_disable(sp->rumble_pwm);
++	}
++	if (sp->rumble || sp->rumble_pwm) {
++		INIT_WORK(&sp->rumble_work, sp_rumble_work);
++		ret = devm_add_action_or_reset(dev, sp_rumble_stop, sp);
++		if (ret)
++			return ERR_PTR(ret);
++		input_set_capability(input, EV_FF, FF_RUMBLE);
++		ret = input_ff_create_memless(input, NULL, sp_play_effect);
++		if (ret)
++			return ERR_PTR(ret);
++	}
++
++	ret = input_setup_polling(input, sp_poll);
++	if (ret)
++		return ERR_PTR(ret);
++	input_set_poll_interval(input, SP_POLL_MS);
++
++	ret = input_register_device(input);
++	if (ret)
++		return ERR_PTR(ret);
++	return sp;
++}
++
++static int sp_probe(struct serdev_device *serdev)
++{
++	struct device *dev = &serdev->dev;
++	struct simplepad *sp;
++	int ret;
++
++	sp = sp_setup(dev);
++	if (IS_ERR(sp))
++		return PTR_ERR(sp);
++	serdev_device_set_drvdata(serdev, sp);
++
++	serdev_device_set_client_ops(serdev, &sp_serdev_ops);
++	ret = devm_serdev_device_open(dev, serdev);
++	if (ret)
++		return dev_err_probe(dev, ret, "open uart\n");
++	serdev_device_set_baudrate(serdev, 115200);
++	serdev_device_set_flow_control(serdev, false);
++	return serdev_device_set_parity(serdev, SERDEV_PARITY_NONE);
++}
++
++static const struct of_device_id sp_of_match[] = {
++	{ .compatible = "magicx,simplepad" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sp_of_match);
++
++static struct serdev_device_driver sp_driver = {
++	.probe = sp_probe,
++	.driver = {
++		.name = "magicx-simplepad",
++		.of_match_table = sp_of_match,
++	},
++};
++
++/* buttons only: no stick MCU, no UART */
++static int sp_gpio_probe(struct platform_device *pdev)
++{
++	return PTR_ERR_OR_ZERO(sp_setup(&pdev->dev));
++}
++
++static const struct of_device_id sp_gpio_of_match[] = {
++	{ .compatible = "knulli,gpio-gamepad" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sp_gpio_of_match);
++
++static struct platform_driver sp_gpio_driver = {
++	.probe = sp_gpio_probe,
++	.driver = {
++		.name = "knulli-gpio-gamepad",
++		.of_match_table = sp_gpio_of_match,
++	},
++};
++
++static int __init sp_init(void)
++{
++	int ret = serdev_device_driver_register(&sp_driver);
++
++	if (ret)
++		return ret;
++	ret = platform_driver_register(&sp_gpio_driver);
++	if (ret)
++		serdev_device_driver_unregister(&sp_driver);
++	return ret;
++}
++module_init(sp_init);
++
++static void __exit sp_exit(void)
++{
++	platform_driver_unregister(&sp_gpio_driver);
++	serdev_device_driver_unregister(&sp_driver);
++}
++module_exit(sp_exit);
++
++MODULE_DESCRIPTION("MagicX Zero 28/40 gamepad (GPIO buttons, UART sticks)");
++MODULE_LICENSE("GPL");
+--- a/drivers/input/joystick/Kconfig
++++ b/drivers/input/joystick/Kconfig
+@@ -16,6 +16,15 @@
+ 
+ if INPUT_JOYSTICK
+ 
++config JOYSTICK_MAGICX_SIMPLEPAD
++	tristate "MagicX Zero 28 gamepad"
++	depends on SERIAL_DEV_BUS && GPIOLIB && OF && AW_GPADC
++	select INPUT_FF_MEMLESS
++	help
++	  Buttons on GPIOs and two analog sticks read from a microcontroller
++	  on a UART, as on the MagicX Zero 28 (A133P); or, without the UART,
++	  from an analog multiplexer on the GPADC (Powkiddy V20).
++
+ config JOYSTICK_ANALOG
+ 	tristate "Classic PC analog joysticks and gamepads"
+ 	select GAMEPORT
+--- a/drivers/input/joystick/Makefile
++++ b/drivers/input/joystick/Makefile
+@@ -10,6 +10,7 @@
+ obj-$(CONFIG_JOYSTICK_ADI)		+= adi.o
+ obj-$(CONFIG_JOYSTICK_AMIGA)		+= amijoy.o
+ obj-$(CONFIG_JOYSTICK_AS5011)		+= as5011.o
++obj-$(CONFIG_JOYSTICK_MAGICX_SIMPLEPAD)	+= magicx-simplepad.o
+ obj-$(CONFIG_JOYSTICK_ANALOG)		+= analog.o
+ obj-$(CONFIG_JOYSTICK_COBRA)		+= cobra.o
+ obj-$(CONFIG_JOYSTICK_DB9)		+= db9.o

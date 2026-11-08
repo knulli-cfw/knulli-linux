@@ -31,11 +31,21 @@ class EsSystemConf:
     default_parentpath = "/userdata/roms"
     default_command    = "emulatorlauncher %CONTROLLERSCONFIG% -system %SYSTEM% -rom %ROM% -gameinfoxml %GAMEINFOXML% -systemname %SYSTEMNAME%"
 
+    # Names of the libretro cores installed on the target, without the
+    # "_libretro.so" suffix, or None when unknown.  None means "trust the
+    # config symbols", which is the buildroot-compiles-the-cores case.  A set
+    # narrows the symbols down to the cores really present: configgen loads
+    # /usr/lib/libretro/<core>_libretro.so, so a core listed here and missing
+    # there is a system the user can select and cannot run.
+    libretroCores = None
+
     # Generate the es_systems.cfg file by searching the information in the es_system.yml file
     @staticmethod
-    def generate(rulesYaml, featuresYaml, configFile, esSystemFile, esFeaturesFile, esTranslationFile, esKeysTranslationFile, esKeysParentFolder, esBlacklistedWordsFile, systemsConfigFile, archSystemsConfigFile, romsdirsource, romsdirtarget, arch):
+    def generate(rulesYaml, featuresYaml, configFile, esSystemFile, esFeaturesFile, esTranslationFile, esKeysTranslationFile, esKeysParentFolder, esBlacklistedWordsFile, systemsConfigFile, archSystemsConfigFile, romsdirsource, romsdirtarget, arch, extraConfigFiles = None, libretroCoresFile = None):
         rules = yaml.safe_load(open(rulesYaml, "r"))
-        config = EsSystemConf.loadConfig(configFile)
+        config = EsSystemConf.loadConfig(configFile, extraConfigFiles)
+        if libretroCoresFile is not None:
+            EsSystemConf.libretroCores = EsSystemConf.loadLibretroCores(libretroCoresFile)
         es_system = ""
 
         archSystemsConfig = yaml.safe_load(open(archSystemsConfigFile, "r"))
@@ -109,21 +119,53 @@ class EsSystemConf:
         for emulator in sorted(data["emulators"]):
             emulatorData = data["emulators"][emulator]
             for core in sorted(emulatorData):
-                if EsSystemConf.isValidRequirements(config, emulatorData[core]["requireAnyOf"]):
+                if EsSystemConf.coreEnabled(config, emulator, core, emulatorData[core]):
                     return True
         return False
 
-    # Loads the .config file
+    # Whether a core is usable on the target: its requirements are met, and --
+    # when the installed core list is known -- it is actually installed.
     @staticmethod
-    def loadConfig(configFile):
+    def coreEnabled(config, emulator, core, coreData):
+        if not EsSystemConf.isValidRequirements(config, coreData["requireAnyOf"]):
+            return False
+        if emulator == "libretro" and EsSystemConf.libretroCores is not None:
+            return core in EsSystemConf.libretroCores
+        return True
+
+    # Loads the list of installed libretro cores (one "<core>_libretro.so" per line)
+    @staticmethod
+    def loadLibretroCores(coresFile):
+        if not os.path.exists(coresFile):
+            print("missing libretro core list " + coresFile + " - ignored")
+            return None
+        cores = set()
+        with open(coresFile) as fp:
+            for line in fp:
+                line = line.strip()
+                if line == "" or line.startswith("#"):
+                    continue
+                cores.add(re.sub("_libretro\\.so$", "", line))
+        return cores
+
+    # Loads the .config file, plus any extra fragments in the same format.
+    # Cores built outside buildroot have no symbol in .config; the fragment
+    # written by libretro-super is how their BR2_PACKAGE_LIBRETRO_* symbols get
+    # here, so the yml rules do not have to know where a core came from.
+    @staticmethod
+    def loadConfig(configFile, extraConfigFiles = None):
         config = {}
-        with open(configFile) as fp:
-            line = fp.readline()
-            while line:
-                m = re.search("^([^ ]+)=y$", line)
-                if m:
-                    config[m.group(1)] = 1
+        for path in [configFile] + list(extraConfigFiles or []):
+            if path != configFile and not os.path.exists(path):
+                print("missing config fragment " + path + " - ignored")
+                continue
+            with open(path) as fp:
                 line = fp.readline()
+                while line:
+                    m = re.search("^([^ ]+)=y$", line)
+                    if m:
+                        config[m.group(1)] = 1
+                    line = fp.readline()
         return config
 
     # Generate emulator system
@@ -649,7 +691,7 @@ class EsSystemConf:
             # CORES
             coresTxt = ""
             for core in sorted(emulatorData):
-                if EsSystemConf.isValidRequirements(config, emulatorData[core]["requireAnyOf"]):
+                if EsSystemConf.coreEnabled(config, emulator, core, emulatorData[core]):
                     incompatible_extensionsTxt = ""
                     if "incompatible_extensions" in emulatorData[core]:
                         for ext in emulatorData[core]["incompatible_extensions"]:
@@ -714,5 +756,7 @@ if __name__ == "__main__":
     parser.add_argument("romsdirsource", help="emulationstation roms directory")
     parser.add_argument("romsdirtarget", help="emulationstation roms directory")
     parser.add_argument("arch", help="arch")
+    parser.add_argument("--extra-config", action="append", default=[], help="additional .config-format fragment (repeatable), e.g. the libretro cores installed from a prebuilt drop")
+    parser.add_argument("--libretro-cores", help="list of installed <core>_libretro.so files; libretro cores not in it are left out")
     args = parser.parse_args()
-    EsSystemConf.generate(args.yml, args.features, args.config, args.es_systems, args.es_features, args.es_translations, args.es_keys_translations, args.es_keys_parent_folder, args.blacklisted_words, args.gen_defaults_global, args.gen_defaults_arch, args.romsdirsource, args.romsdirtarget, args.arch)
+    EsSystemConf.generate(args.yml, args.features, args.config, args.es_systems, args.es_features, args.es_translations, args.es_keys_translations, args.es_keys_parent_folder, args.blacklisted_words, args.gen_defaults_global, args.gen_defaults_arch, args.romsdirsource, args.romsdirtarget, args.arch, args.extra_config, args.libretro_cores)

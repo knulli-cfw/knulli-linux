@@ -1,0 +1,13 @@
+# Device: Anbernic RG35XX / Actions ATM7039  Cortex-A9
+#
+# A .device is an INTEGRATION unit, not a build unit: it names the ABI profile
+# whose dist/ this device consumes.  Cores are built once per profile
+# (gen-recipe.sh <profile>), never once per device.
+
+PROFILE armv7-neon-cortexa9-hf
+
+# GPU stack.  The emulators drop is keyed on PROFILE *and* this: emulators link
+# the vendor GL stack, so a Mali payload cannot run on an Adreno board (it needs
+# libmali.so.0, which such a board does not ship).  Cores are keyed on PROFILE
+# alone -- they link only libGLESv2/libEGL, which both stacks provide.
+GPU powervr

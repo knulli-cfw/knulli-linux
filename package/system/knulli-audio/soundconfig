@@ -151,8 +151,9 @@ mixer $card 'AIU SPDIF SRC SEL' 'SPDIF'
 # Amlogic S812
 mixer $card 'HDMI CTRL SRC' 'I2S'
 
-# Odroid Go Advance Speaker
-mixer $card 'Playback Path' 'SPK'
+# rk817 (Odroid Go Advance and the rk3326 handhelds): the route is per
+# board and owned by knulli-audio; setting SPK here raced the boot-time
+# config and left boards whose speaker sits on the HP stage silent.
 
 # ES8316 headphone jack
 mixer $card 'Right Headphone Mixer Right DAC' on

@@ -1,0 +1,11 @@
+config BR2_PACKAGE_KNULLI_OVERLAY
+	bool "knulli-overlay"
+	depends on !BR2_STATIC_LIBS
+	help
+	  GL-injected status overlay: volume, brightness, battery,
+	  wifi/bluetooth, clock and emulator bezels.
+
+	  https://github.com/knulli-cfw/knulli-overlay
+
+comment "knulli-overlay needs a toolchain w/ dynamic library support"
+	depends on BR2_STATIC_LIBS

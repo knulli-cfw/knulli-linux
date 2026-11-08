@@ -1,0 +1,241 @@
+ASoC: sun50iw9-codec: headphone jack and amplifier rail
+
+diff --git a/sound/soc/sunxi_v2/snd_sun50iw9_codec.c b/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
+index e73203913..5af92d6b0 100644
+--- a/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
++++ b/sound/soc/sunxi_v2/snd_sun50iw9_codec.c
+@@ -21,7 +21,9 @@
+ #include <linux/regmap.h>
+ #include <linux/of_address.h>
+ #include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
+ #include <sound/soc.h>
++#include <sound/jack.h>
+ #include <sound/tlv.h>
+ #include <sound/pcm.h>
+ #include <sound/pcm_params.h>
+@@ -368,6 +370,52 @@ static int sunxi_codec_playback_event(struct snd_soc_dapm_widget *w,
+ 	return 0;
+ }
+ 
++/*
++ * Speaker amplifier: on while LINEOUT is powered and no headphone is in.
++ * The enable GPIO(s) come from pa_pin_N, the rail from an optional
++ * pa-supply, the jack from an optional hp-det-gpios.
++ */
++static void sunxi_pa_update(struct sunxi_codec_info *codec_info)
++{
++	bool on;
++
++	mutex_lock(&codec_info->pa_mutex);
++	on = codec_info->lineout_on && !codec_info->hp_in;
++	if (on != codec_info->pa_on) {
++		if (on) {
++			if (codec_info->pa_supply &&
++			    regulator_enable(codec_info->pa_supply))
++				SND_LOG_ERR(HLOG, "pa supply enable failed\n");
++			snd_sunxi_pa_pin_enable(codec_info->pa_cfg,
++						codec_info->pa_pin_max);
++		} else {
++			snd_sunxi_pa_pin_disable(codec_info->pa_cfg,
++						 codec_info->pa_pin_max);
++			if (codec_info->pa_supply)
++				regulator_disable(codec_info->pa_supply);
++		}
++		codec_info->pa_on = on;
++	}
++	mutex_unlock(&codec_info->pa_mutex);
++}
++
++static void sunxi_lineout_set(struct sunxi_codec_info *codec_info, bool on)
++{
++	codec_info->lineout_on = on;
++	sunxi_pa_update(codec_info);
++}
++
++static int sunxi_hp_jack_status_check(void *data)
++{
++	struct sunxi_codec_info *codec_info = data;
++
++	codec_info->hp_in =
++		gpiod_get_value_cansleep(codec_info->hp_jack_gpio.desc);
++	sunxi_pa_update(codec_info);
++
++	return codec_info->hp_in ? SND_JACK_HEADPHONE : 0;
++}
++
+ static int sunxi_lineout_event(struct snd_soc_dapm_widget *w,
+ 			       struct snd_kcontrol *k, int event)
+ {
+@@ -376,7 +424,6 @@ static int sunxi_lineout_event(struct snd_soc_dapm_widget *w,
+ 	struct sunxi_codec_info *codec_info =
+ 				snd_soc_component_get_drvdata(component);
+ 	struct regmap *regmap = codec_info->mem_info.regmap;
+-	struct pa_config *pa_cfg = codec_info->pa_cfg;
+ 
+ 	SND_LOG_DEBUG(HLOG, "\n");
+ 
+@@ -388,7 +435,7 @@ static int sunxi_lineout_event(struct snd_soc_dapm_widget *w,
+ 		regmap_update_bits(regmap, AC_RAMP_REG,
+ 				    0x1 << RDEN, 0x1 << RDEN);
+ 
+-		snd_sunxi_pa_pin_enable(pa_cfg, codec_info->pa_pin_max);
++		sunxi_lineout_set(codec_info, true);
+ 
+ 		break;
+ 
+@@ -399,7 +446,7 @@ static int sunxi_lineout_event(struct snd_soc_dapm_widget *w,
+ 				   (0x1 << LINEOUTL_EN) | (0x1 << LINEOUTR_EN),
+ 				   (0x0 << LINEOUTL_EN) | (0x0 << LINEOUTR_EN));
+ 
+-		snd_sunxi_pa_pin_disable(pa_cfg, codec_info->pa_pin_max);
++		sunxi_lineout_set(codec_info, false);
+ 
+ 		break;
+ 
+@@ -546,9 +593,45 @@ static int sunxi_internal_codec_probe(struct snd_soc_component *component)
+ 
+ 	sunxi_internal_codec_init(component);
+ 
++	/* headphone jack, optional */
++	if (of_find_property(component->dev->of_node, "hp-det-gpios", NULL)) {
++		struct snd_soc_jack_gpio *jack_gpio = &codec_info->hp_jack_gpio;
++
++		jack_gpio->name = "hp-det";
++		jack_gpio->report = SND_JACK_HEADPHONE;
++		jack_gpio->debounce_time = 150;
++		jack_gpio->gpiod_dev = component->dev;
++		jack_gpio->data = codec_info;
++		jack_gpio->jack_status_check = sunxi_hp_jack_status_check;
++
++		ret = snd_soc_card_jack_new(component->card, "Headphone",
++					    SND_JACK_HEADPHONE,
++					    &codec_info->hp_jack, NULL, 0);
++		if (ret) {
++			SND_LOG_ERR(HLOG, "headphone jack new failed\n");
++			return 0;
++		}
++		ret = snd_soc_jack_add_gpios(&codec_info->hp_jack, 1, jack_gpio);
++		if (ret)
++			SND_LOG_ERR(HLOG, "headphone jack gpio failed\n");
++		else
++			codec_info->hp_jack_added = true;
++	}
++
+ 	return 0;
+ }
+ 
++static void sunxi_internal_codec_remove(struct snd_soc_component *component)
++{
++	struct sunxi_codec_info *codec_info = snd_soc_component_get_drvdata(component);
++
++	if (codec_info->hp_jack_added) {
++		snd_soc_jack_free_gpios(&codec_info->hp_jack, 1,
++					&codec_info->hp_jack_gpio);
++		codec_info->hp_jack_added = false;
++	}
++}
++
+ static int sunxi_internal_codec_suspend(struct snd_soc_component *component)
+ {
+ 	struct sunxi_codec_info *codec_info =
+@@ -558,7 +641,7 @@ static int sunxi_internal_codec_suspend(struct snd_soc_component *component)
+ 	SND_LOG_DEBUG(HLOG, "\n");
+ 
+ 	snd_sunxi_save_reg(regmap, g_reg_labels);
+-	snd_sunxi_pa_pin_disable(codec_info->pa_cfg, codec_info->pa_pin_max);
++	sunxi_lineout_set(codec_info, false);
+ #if 0
+ 	snd_sunxi_regulator_disable(codec_info->pdev, &codec_info->rglt_info);
+ #endif
+@@ -576,7 +659,7 @@ static int sunxi_internal_codec_resume(struct snd_soc_component *component)
+ 
+ 	SND_LOG_DEBUG(HLOG, "\n");
+ 
+-	snd_sunxi_pa_pin_disable(codec_info->pa_cfg, codec_info->pa_pin_max);
++	sunxi_lineout_set(codec_info, false);
+ 	ret = snd_sunxi_clk_enable(codec_info->pdev, &codec_info->clk_info);
+ 	if (ret) {
+ 		SND_LOG_ERR(HLOG, "clk enable failed\n");
+@@ -598,6 +681,7 @@ static int sunxi_internal_codec_resume(struct snd_soc_component *component)
+ static struct snd_soc_component_driver sunxi_internal_codec_dev = {
+ 	.name		= DRV_NAME,
+ 	.probe		= sunxi_internal_codec_probe,
++	.remove		= sunxi_internal_codec_remove,
+ 	.suspend	= sunxi_internal_codec_suspend,
+ 	.resume		= sunxi_internal_codec_resume,
+ };
+@@ -918,6 +1002,7 @@ static int sunxi_internal_codec_dev_probe(struct platform_device *pdev)
+ 		goto err_devm_kzalloc;
+ 	}
+ 	dev_set_drvdata(dev, codec_info);
++	codec_info->pdev = pdev;
+ 	mem_info = &codec_info->mem_info;
+ 	clk_info = &codec_info->clk_info;
+ 	/* rglt_info = &codec_info->rglt_info; */
+@@ -955,9 +1040,35 @@ static int sunxi_internal_codec_dev_probe(struct platform_device *pdev)
+ 	/* dts_params init */
+ 	snd_sunxi_dts_params_init(pdev, dts_info);
+ 
++	/* the amp and jack pins may sit on a gpio controller not up yet */
++	{
++		struct gpio_desc *desc;
++
++		desc = devm_gpiod_get_optional(dev, "hp-det", GPIOD_IN);
++		if (IS_ERR(desc)) {
++			ret = PTR_ERR(desc);
++			goto err_pa_supply;
++		}
++		if (desc)
++			devm_gpiod_put(dev, desc);
++		ret = of_get_named_gpio(np, "pa_pin_0", 0);
++		if (ret == -EPROBE_DEFER)
++			goto err_pa_supply;
++	}
++
+ 	/* pa_pin init */
+ 	codec_info->pa_cfg = snd_sunxi_pa_pin_init(pdev,
+ 						   &codec_info->pa_pin_max);
++	mutex_init(&codec_info->pa_mutex);
++
++	/* amplifier rail, optional */
++	codec_info->pa_supply = devm_regulator_get_optional(dev, "pa");
++	if (IS_ERR(codec_info->pa_supply)) {
++		ret = PTR_ERR(codec_info->pa_supply);
++		codec_info->pa_supply = NULL;
++		if (ret == -EPROBE_DEFER)
++			goto err_pa_supply;
++	}
+ 
+ 	/* alsa component register */
+ 	ret = snd_soc_register_component(dev,
+@@ -974,6 +1085,7 @@ static int sunxi_internal_codec_dev_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ err_register_component:
++err_pa_supply:
+ #if 0
+ 	snd_sunxi_regulator_exit(pdev, rglt_info);
+ err_regulator_init:
+diff --git a/sound/soc/sunxi_v2/snd_sun50iw9_codec.h b/sound/soc/sunxi_v2/snd_sun50iw9_codec.h
+index b2d1a0739..5a47d230c 100644
+--- a/sound/soc/sunxi_v2/snd_sun50iw9_codec.h
++++ b/sound/soc/sunxi_v2/snd_sun50iw9_codec.h
+@@ -167,6 +167,16 @@ struct sunxi_codec_info {
+ 
+ 	unsigned int pa_pin_max;
+ 	struct pa_config *pa_cfg;
++
++	/* the amplifier follows LINEOUT unless a headphone is plugged in */
++	struct regulator *pa_supply;
++	struct mutex pa_mutex;
++	bool lineout_on;
++	bool hp_in;
++	bool pa_on;
++	struct snd_soc_jack hp_jack;
++	struct snd_soc_jack_gpio hp_jack_gpio;
++	bool hp_jack_added;
+ };
+ 
+ #endif /* __SND_SUN50IW9_CODEC_H */
+\ No newline at end of file

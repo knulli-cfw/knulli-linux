@@ -43,6 +43,14 @@ endif
 #    AZAHAR_CONF_OPTS += -DENABLE_VULKAN=OFF
 #endif
 
+# upstream defaults OpenGL off on aarch64 Linux; 0001/0002 are the GLES path
+AZAHAR_CONF_OPTS += -DENABLE_OPENGL=ON
+
+# vulkan-hpp casts vk:: structs to Vk* structs by reinterpret_cast; GCC 14
+# reorders the copy ahead of field stores (ImageCreateInfo.usage lost -> VMA -8)
+AZAHAR_CONF_OPTS += -DCMAKE_C_FLAGS="$(TARGET_CFLAGS) -fno-strict-aliasing"
+AZAHAR_CONF_OPTS += -DCMAKE_CXX_FLAGS="$(TARGET_CXXFLAGS) -fno-strict-aliasing"
+
 AZAHAR_CONF_ENV += LDFLAGS=-lpthread
 
 # Override cmake to use the host-cmake version
@@ -56,7 +64,7 @@ endef
 
 define AZAHAR_EVMAPY
 	mkdir -p $(TARGET_DIR)/usr/share/evmapy
-	cp -prn $(BR2_EXTERNAL_KNULLI_PATH)/package/emulators/azahar/3ds.azahar.keys \
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_KNULLI_PATH)/package/emulators/azahar/3ds.azahar.keys \
 		$(TARGET_DIR)/usr/share/evmapy
 endef
 

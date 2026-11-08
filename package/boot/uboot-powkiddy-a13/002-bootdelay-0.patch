@@ -1,0 +1,8 @@
+diff --git a/configs/powkiddy-a13-rk3128_defconfig b/configs/powkiddy-a13-rk3128_defconfig
+--- a/configs/powkiddy-a13-rk3128_defconfig
++++ b/configs/powkiddy-a13-rk3128_defconfig
+@@ -117,3 +117,4 @@
+ CONFIG_AVB_LIBAVB_USER=y
+ CONFIG_RK_AVB_LIBAVB_USER=y
+ CONFIG_TEST_ROCKCHIP=y
++CONFIG_BOOTDELAY=0

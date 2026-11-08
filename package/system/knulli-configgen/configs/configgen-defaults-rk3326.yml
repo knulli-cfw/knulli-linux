@@ -13,8 +13,8 @@ psp:
   options:
     ppsspp.General.InternalScreenRotation: 0 # for people upgrading
 nds:
-  emulator: drastic
-  core:     drastic
+  emulator: advanced_drastic
+  core:     advanced_drastic
 fmtowns:
   emulator: libretro
   core:     mame
@@ -34,6 +34,6 @@ cdi:
   emulator: libretro
   core:     same_cdi
 mpv:
-  emulator: mpv
-  core:     mpv
+  emulator: sh
+  core:     sh
 

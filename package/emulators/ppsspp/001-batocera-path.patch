@@ -1,8 +1,8 @@
-diff --git a/Core/System.cpp b/Core/System.cpp
-index fc4d207f..4b753c8b 100644
---- a/Core/System.cpp
-+++ b/Core/System.cpp
-@@ -633,26 +633,21 @@ std::string PSP_GetLoading() {
+diff --git a/Core/Util/PathUtil.cpp b/Core/Util/PathUtil.cpp
+index 96be0ea..70a5d96 100644
+--- a/Core/Util/PathUtil.cpp
++++ b/Core/Util/PathUtil.cpp
+@@ -43,26 +43,21 @@ Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool
  }
  
  Path GetSysDirectory(PSPDirectories directoryType) {
@@ -14,11 +14,10 @@ index fc4d207f..4b753c8b 100644
 -	} else {
 -		pspDirectory = memStickDirectory / "PSP";
 -	}
--
 +	// batocera - set config directories
 +	Path memStickDirectory = Path("/userdata/saves/psp/");
-+ 	Path pspDirectory = Path("/userdata/system/configs/ppsspp/PSP/");
-+	
++	Path pspDirectory = Path("/userdata/system/configs/ppsspp/PSP/");
+ 
  	switch (directoryType) {
  	case DIRECTORY_PSP:
  		return pspDirectory;
@@ -36,7 +35,7 @@ index fc4d207f..4b753c8b 100644
  	case DIRECTORY_SYSTEM:
  		return pspDirectory / "SYSTEM";
  	case DIRECTORY_PAUTH:
-@@ -662,9 +657,9 @@ Path GetSysDirectory(PSPDirectories directoryType) {
+@@ -72,9 +67,9 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  	case DIRECTORY_DUMP:
  		return pspDirectory / "SYSTEM/DUMP";
  	case DIRECTORY_SAVESTATE:
@@ -48,7 +47,7 @@ index fc4d207f..4b753c8b 100644
  	case DIRECTORY_TEXTURES:
  		return pspDirectory / "TEXTURES";
  	case DIRECTORY_PLUGINS:
-@@ -688,22 +688,22 @@ Path GetSysDirectory(PSPDirectories directoryType) {
+@@ -83,22 +78,22 @@ Path GetSysDirectory(PSPDirectories directoryType) {
  		if (!g_Config.appCacheDirectory.empty()) {
  			return g_Config.appCacheDirectory;
  		}
@@ -67,7 +66,7 @@ index fc4d207f..4b753c8b 100644
  	case DIRECTORY_MEMSTICK_ROOT:
 -		return g_Config.memStickDirectory;
 +		return memStickDirectory;
- 	// Just return the memory stick root if we run into some sort of problem.
+ 		// Just return the memory stick root if we run into some sort of problem.
  	default:
  		ERROR_LOG(Log::FileSystem, "Unknown directory type.");
 -		return g_Config.memStickDirectory;
@@ -76,7 +75,7 @@ index fc4d207f..4b753c8b 100644
  }
  
 diff --git a/SDL/SDLJoystick.cpp b/SDL/SDLJoystick.cpp
-index 2f6b4717..4feccfc1 100644
+index 290cf57..82378bd 100644
 --- a/SDL/SDLJoystick.cpp
 +++ b/SDL/SDLJoystick.cpp
 @@ -24,7 +24,7 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
@@ -89,10 +88,10 @@ index 2f6b4717..4feccfc1 100644
  
  	size_t size;
 diff --git a/UI/NativeApp.cpp b/UI/NativeApp.cpp
-index e1f858c2..418c7742 100644
+index 4a26924..69373dd 100644
 --- a/UI/NativeApp.cpp
 +++ b/UI/NativeApp.cpp
-@@ -433,7 +433,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
+@@ -367,7 +367,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
  	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory()));
  	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
  	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
@@ -101,7 +100,7 @@ index e1f858c2..418c7742 100644
  	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
  #endif
  
-@@ -512,7 +512,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
+@@ -479,7 +479,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
  	else // Just in case
  		config = "./config";
  

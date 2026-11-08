@@ -35,8 +35,9 @@ endif
 KNULLI_SPLASH_POST_INSTALL_TARGET_HOOKS += KNULLI_SPLASH_INSTALL_SCRIPT
 
 ifeq ($(KNULLI_SPLASH_MEDIA),image)
-    KNULLI_SPLASH_POST_INSTALL_TARGET_HOOKS += KNULLI_SPLASH_INSTALL_IMAGE
+    # the version-stamped images are drawn on the generated logos
     KNULLI_SPLASH_POST_INSTALL_TARGET_HOOKS += KNULLI_SPLASH_INSTALL_BOOT_LOGO
+    KNULLI_SPLASH_POST_INSTALL_TARGET_HOOKS += KNULLI_SPLASH_INSTALL_IMAGE
 endif
 
 ifeq ($(KNULLI_SPLASH_MEDIA),video)
@@ -64,26 +65,26 @@ define KNULLI_SPLASH_INSTALL_SCRIPT
     sed -i -e s+"%PLAYER_OPTIONS%"+"$(KNULLI_SPLASH_PLAYER_OPTIONS)"+g $(TARGET_DIR)/etc/init.d/S28splash
 endef
 
+# Every logo is generated from the one 1920x1080 images/logo.png by
+# make-logo.sh: boot-logo-<entry>.png, entry = <W>x<H>[-left][,rotate[,fit%]]
+# (see make-logo.sh).  The rotate angles are what the devices were
+# tested with, not a convention.
+KNULLI_SPLASH_LOGO = $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo.png
+KNULLI_SPLASH_MAKE_LOGO = $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/make-logo.sh
+KNULLI_SPLASH_LOGOS = \
+	320x240 640x480 1024x768 1280x720 720x720 \
+	480x640,-90 480x640-left,90 320x480,-90 480x854,-90 720x1280,-90 \
+	1080x1920,90 1080x1920-left,-90 \
+	480x800,0,60
+
 define KNULLI_SPLASH_INSTALL_BOOT_LOGO
     mkdir -p $(TARGET_DIR)/usr/share/knulli/splash
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo.png"               "${TARGET_DIR}/usr/share/knulli/splash/boot-logo.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-240.png"           "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-320x240.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-480p.png"          "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-640x480.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-480p-rotate.png"   "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-480x640.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-480p-rotate-left.png"   "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-480x640-left.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-720p.png"          "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1280x720.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-768p.png"          "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1024x768.png"
-    
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-720p-square.png"   "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-720x720.png"
-
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-3-2-480-rotate.png"    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-320x480.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-16-9-480-rotate.png"   "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-480x854.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-720p-rotate.png"	    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-720x1280.png"
-#    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-800p-rotate.png"	    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-800x1280.png"
-#    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-1152-rotate.png"	    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1152x1920.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-1080p-rotate.png"	    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1080x1920.png"
-    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-1080p-rotate-left.png" "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1080x1920-left.png"
-#    cp "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-1200p-rotate.png"	    "${TARGET_DIR}/usr/share/knulli/splash/boot-logo-1200x1920.png"
+    cp "$(KNULLI_SPLASH_LOGO)" "${TARGET_DIR}/usr/share/knulli/splash/boot-logo.png"
+    for e in $(KNULLI_SPLASH_LOGOS); do \
+        set -- $$(echo "$$e" | tr , ' '); \
+        $(KNULLI_SPLASH_MAKE_LOGO) "$(KNULLI_SPLASH_LOGO)" "$(TARGET_DIR)/usr/share/knulli/splash/boot-logo-$$1.png" \
+            "$${1%-left}" "$$2" "$$3" || exit 1; \
+    done
 endef
 
 define KNULLI_SPLASH_INSTALL_VIDEO
@@ -101,11 +102,11 @@ endef
 
 define KNULLI_SPLASH_INSTALL_IMAGE
     mkdir -p $(TARGET_DIR)/usr/share/knulli/splash
-    convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo.png" -fill white -pointsize 30 -annotate +50+1020 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version.png"
-    convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-3-2-480-rotate.png" -fill white -pointsize 15 -annotate 270x270+300+440 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-320x480.png"
-    convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-16-9-480-rotate.png" -fill white -pointsize 20 -annotate 270x270+440+814 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-480x854.png"
-    convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-480p.png" -fill white -pointsize 20 -annotate +40+440 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-640x480.png"
-    convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-240.png" -fill white -pointsize 15 -annotate +20+220 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-320x240.png"
+    convert "$(KNULLI_SPLASH_LOGO)" -fill white -pointsize 30 -annotate +50+1020 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version.png"
+    convert "$(TARGET_DIR)/usr/share/knulli/splash/boot-logo-320x480.png" -fill white -pointsize 15 -annotate 270x270+300+440 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-320x480.png"
+    convert "$(TARGET_DIR)/usr/share/knulli/splash/boot-logo-480x854.png" -fill white -pointsize 20 -annotate 270x270+440+814 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-480x854.png"
+    convert "$(TARGET_DIR)/usr/share/knulli/splash/boot-logo-640x480.png" -fill white -pointsize 20 -annotate +40+440 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-640x480.png"
+    convert "$(TARGET_DIR)/usr/share/knulli/splash/boot-logo-320x240.png" -fill white -pointsize 15 -annotate +20+220 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-320x240.png"
 #     convert "$(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-splash/images/logo-480-dmg.png" -fill white -pointsize 20 -annotate +40+440 "$(KNULLI_SPLASH_TGVERSION)" "${TARGET_DIR}/usr/share/knulli/splash/logo-version-640x480-dmg.png"
 endef
 

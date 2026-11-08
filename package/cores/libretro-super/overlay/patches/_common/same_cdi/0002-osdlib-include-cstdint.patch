@@ -1,0 +1,21 @@
+osdlib.h uses std::uint8_t and std::size_t but includes neither <cstdint> nor
+<cstddef>; it only worked because some other header happened to drag them in
+transitively.  GCC 13 tightened its libstdc++ include graph, so the transitive
+path is gone and the header no longer compiles:
+
+  osdlib.h:111:68: error: 'uint8_t' in namespace 'std' does not name a type
+
+Include what is used.  Unrelated to cross-compiling -- this breaks on any
+GCC 13 host too.
+
+--- a/src/osd/modules/lib/osdlib.h
++++ b/src/osd/modules/lib/osdlib.h
+@@ -16,6 +16,8 @@
+ #ifndef __OSDLIB__
+ #define __OSDLIB__
+ 
++#include <cstddef>
++#include <cstdint>
+ #include <initializer_list>
+ #include <string>
+ #include <type_traits>

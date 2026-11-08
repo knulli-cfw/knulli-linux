@@ -1,0 +1,82 @@
+--- a/Common/GPU/Vulkan/VulkanContext.cpp
++++ b/Common/GPU/Vulkan/VulkanContext.cpp
+@@ -1049,6 +1049,7 @@
+ 		VkDisplayModePropertiesKHR* mode_props = NULL;
+ 
+ 		VkExtent2D image_size;
++		VkExtent2D mode_extent{};
+ 		// This is the chosen physical_device, it has been chosen elsewhere.
+ 		VkPhysicalDevice phys_device = physical_devices_[physical_device_];
+ 		VkDisplayModeKHR display_mode = VK_NULL_HANDLE;
+@@ -1101,8 +1102,13 @@
+ 		mode_props = new VkDisplayModePropertiesKHR[mode_count];
+ 		vkGetDisplayModePropertiesKHR(phys_device, myDisplay, &mode_count, mode_props);
+ 
+-		// See if there's an appropiate mode available on the display 
++		// See if there's an appropiate mode available on the display.
++		// A panel mounted rotated only ever reports its native orientation
++		// here, while the size we were handed has already been swapped for
++		// us, so a transposed mode is the one to take.  The image then still
++		// needs rotating, which InitSwapchain arranges.
+ 		display_mode = VK_NULL_HANDLE;
++		displayModeTransposed_ = false;
+ 		for (i = 0; i < mode_count; ++i)
+ 		{
+ 			const VkDisplayModePropertiesKHR* mode = &mode_props[i];
+@@ -1111,11 +1117,32 @@
+ 			    mode->parameters.visibleRegion.height == g_display.pixel_yres)
+ 			{
+ 				display_mode = mode->displayMode;
++				mode_extent = mode->parameters.visibleRegion;
+ 				mode_found = true;
+ 				break;
+ 			}
+ 		}
+ 
++		if (display_mode == VK_NULL_HANDLE) {
++			for (i = 0; i < mode_count; ++i)
++			{
++				const VkDisplayModePropertiesKHR* mode = &mode_props[i];
++
++				if (mode->parameters.visibleRegion.width == g_display.pixel_yres &&
++				    mode->parameters.visibleRegion.height == g_display.pixel_xres)
++				{
++					INFO_LOG(Log::G3D, "DISPLAY Vulkan: no %dx%d mode, using the transposed %dx%d",
++						g_display.pixel_xres, g_display.pixel_yres,
++						mode->parameters.visibleRegion.width, mode->parameters.visibleRegion.height);
++					display_mode = mode->displayMode;
++					mode_extent = mode->parameters.visibleRegion;
++					displayModeTransposed_ = true;
++					mode_found = true;
++					break;
++				}
++			}
++		}
++
+ 		// Free the mode list now.
+ 		delete [] mode_props;
+ 
+@@ -1187,8 +1214,9 @@
+ 		}
+ 	
+ 		// Finally, create the vulkan surface.
+-		image_size.width = g_display.pixel_xres;
+-		image_size.height = g_display.pixel_yres;
++		// Must match the mode we actually got, which is not necessarily the
++		// size that was asked for.
++		image_size = mode_extent;
+ 
+ 		display.displayMode = display_mode;
+ 		display.imageExtent = image_size;
+--- a/Common/GPU/Vulkan/VulkanContext.h
++++ b/Common/GPU/Vulkan/VulkanContext.h
+@@ -527,6 +527,9 @@
+ 	PhysicalDeviceFeatures deviceFeatures_;
+ 
+ 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
++	// Set when the display only offered the transpose of the size we asked
++	// for, i.e. a panel mounted rotated.
++	bool displayModeTransposed_ = false;
+ 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
+ 
+ 	VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;

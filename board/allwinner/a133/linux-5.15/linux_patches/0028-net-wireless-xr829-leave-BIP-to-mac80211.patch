@@ -1,0 +1,61 @@
+Subject: [PATCH] net: wireless: xr829: leave BIP to mac80211
+
+With PMF negotiated, installing the IGTK in the firmware and enabling
+its protected management policy breaks unicast data: on SAE nothing is
+transmitted, on PSK-SHA256 every received frame is dropped before it
+reaches the stack, while the link stays authorized.  WPA3 networks,
+which require PMF, could not be used at all.
+
+Return -EOPNOTSUPP for AES-CMAC so mac80211 does BIP in software; the
+pairwise and group keys stay in hardware.  Keep flagging the connection
+as MFP so unprotected deauth/disassoc frames are still ignored.
+---
+--- a/bsp/drivers/net/wireless/xr829/wlan/sta.c
++++ b/bsp/drivers/net/wireless/xr829/wlan/sta.c
+@@ -1141,7 +1141,6 @@
+ 	int ret = -EOPNOTSUPP;
+ 	struct xradio_common *hw_priv = dev->priv;
+ 	struct xradio_vif *priv = xrwl_get_vif_from_ieee80211(vif);
+-	struct wsm_protected_mgmt_policy mgmt_policy;
+ 	int suspend_lock_state;
+ 	sta_printk(XRADIO_DBG_TRC, "%s\n", __func__);
+ 
+@@ -1280,30 +1279,14 @@
+ 			break;
+ #endif /* CONFIG_XRADIO_WAPI_SUPPORT */
+ 		case WLAN_CIPHER_SUITE_AES_CMAC:
+-			if (pairwise) {
+-				sta_printk(XRADIO_DBG_ERROR, "%s: WLAN_CIPHER_SUITE_AES_CMAC but pairwise %d\n",
+-					__func__, pairwise);
+-				ret = -EINVAL;
+-				goto finally;
+-			} else {
+-				wsm_key->type = WSM_KEY_TYPE_IGTK_GROUP;
+-				memcpy(wsm_key->igtkGroupKey.igtkKeyData, &key->key[0], 16);
+-				wsm_key->igtkGroupKey.keyId = key->keyidx;
+-				memset(wsm_key->igtkGroupKey.ipn, 0, 8);
+-				memcpy(wsm_key->igtkGroupKey.ipn, &key->tx_pn, 6);
+-				sta_printk(XRADIO_DBG_NIY, "%s: IGTK_GROUP keylen=%d!\n",
+-				       __func__, key->keylen);
+-
+-				mgmt_policy.protectedMgmtEnable = 1;
+-				mgmt_policy.unprotectedMgmtFramesAllowed = 1;
+-				mgmt_policy.encryptionForAuthFrame = 1;
+-				wsm_set_protected_mgmt_policy(hw_priv, &mgmt_policy, priv->if_id);
+-
+-				if (priv->join_status == XRADIO_JOIN_STATUS_STA) {
+-					priv->is_mfp_connect = true;
+-				}
+-			}
+-			break;
++			/* Leave BIP to mac80211: with the IGTK in the firmware and
++			 * its protected management policy on, unicast data stops
++			 * flowing (no TX on SAE, every RX dropped on PSK-SHA256). */
++			if (!pairwise && priv->join_status == XRADIO_JOIN_STATUS_STA)
++				priv->is_mfp_connect = true;
++			xradio_free_key(hw_priv, idx);
++			ret = -EOPNOTSUPP;
++			goto finally;
+ 		default:
+ 			sta_printk(XRADIO_DBG_ERROR, "%s: key->cipher unknown(%d)!\n",
+ 				   __func__, key->cipher);

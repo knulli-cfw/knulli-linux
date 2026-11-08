@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# system-splash is intentionally DISABLED on rk3576: progressbar_rk (started
+# from /etc/init.d/rcS) draws the boot logo and the bar to /dev/fb0, and the
+# knulli-splash fbv would fight it for the framebuffer.
+#
+exit 0

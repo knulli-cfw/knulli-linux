@@ -26,15 +26,15 @@ BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3566/linux-defconfig-fragment.config"
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 
-# U-Boot blobs for RK3566 BSP boards
+# U-Boot, built from source (knulli-cfw/rk356x-uboot) with the pinned Linaro 6.3.1
 BR2_PACKAGE_UBOOT_RK3566=y
+BR2_TOOLCHAIN_OPTIONAL_LINARO_AARCH64=y
 
 # Build the DTB from the kernel sources
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-anbernic-rg-arc-s rockchip/rk3566-anbernic-rg-ds rockchip/rk3566-miniloong rockchip/rk3566-miyoo-flip rockchip/rk3566-powkiddy-rgb30 rockchip/rk3566-powkiddy-x55"
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-anbernic-rg-arc-s rockchip/rk3566-anbernic-rg-ds rockchip/rk3566-anbernic-rg-ds-plus rockchip/rk3566-miniloong rockchip/rk3566-miyoo-flip rockchip/rk3566-powkiddy-rgb30 rockchip/rk3566-powkiddy-x55"
 
 # Bootloader
-BR2_PACKAGE_UBOOT_ANBERNIC_RGXX3=y
 
 # U-Boot
 BR2_PACKAGE_HOST_UBOOT_TOOLS_FIT_SUPPORT=y
@@ -45,10 +45,11 @@ BR2_PACKAGE_HOST_MTOOLS=y
 BR2_PACKAGE_HOST_UBOOT_TOOLS=y
 BR2_PACKAGE_ROCKCHIP_RKBIN=y
 BR2_PACKAGE_ROCKCHIP_RKBIN_TPL_FILENAME="bin/rk35/rk3566_ddr_1056MHz_v1.23.bin"
-BR2_PACKAGE_ROCKCHIP_RKBIN_BL31_FILENAME="bin/rk35/rk3568_bl31_v1.44.elf"
+BR2_PACKAGE_ROCKCHIP_RKBIN_BL31_FILENAME="bin/rk35/rk3568_bl31_v1.45.elf"
 
 # System
 BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
+# BR2_PACKAGE_LVM2_STANDARD_INSTALL is not set
 
 # GPU - Using proprietary Mali blob via mali-libs package (kernel has no Panfrost support)
 BR2_PACKAGE_MALI_LIBS=y
@@ -85,5 +86,26 @@ BR2_PACKAGE_XUTIL_UTIL_MACROS=y
 BR2_PACKAGE_ANDROID_TOOLS=y
 BR2_PACKAGE_ANDROID_TOOLS_ADBD=y
 
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="rk3566"
+BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS=y
+BR2_PACKAGE_IPUTILS=y
+BR2_PACKAGE_MPV=y
+
+# 32-bit (armhf) runtime for the 32-bit emulators this 64-bit image ships.
+# Installed from armhf-cache/drop/rk3566, built by "make rk3566-armhf-drop".
+BR2_PACKAGE_KNULLI_ARMHF_DROP=y
+BR2_PACKAGE_KNULLI_ARMHF_DROP_DEVICE="rk3566"
+
 # Miyoo Flip USB WiFi (RTL8733BU, 0bda:b733) out-of-tree vendor driver
 BR2_PACKAGE_RTL8733BU=y
+# RG DS Plus speaker amps (AW883xx 2066)
+BR2_PACKAGE_AW883XX=y

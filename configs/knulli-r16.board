@@ -8,14 +8,13 @@ BR2_ARM_FPU_NEON_VFPV4=y
 BR2_PACKAGE_BATOCERA_TARGET_SUNXI_R16=y
 
 # Toolchain definition
-BR2_GCC_VERSION_12_X=y
+# BR2_GCC_VERSION_12_X is not set
 # required for utf-8
 BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char"
 #BR2_TARGET_GENERIC_GETTY_PORT="tty1"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
 BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/acm/patches"
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/miyoo-a30/fsoverlay"
-BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
 
 # Bootloader
 #BR2_PACKAGE_UBOOT_SUNXI_R16=y
@@ -33,7 +32,6 @@ BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/acm-cfw/linux-z7213.git"
 BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="10fe95c50bbb905612493eb2a507bbb4b8d3e98d"
 BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/acm/linux_patches"
-BR2_LINUX_KERNEL_USE_DEFCONFIG=y
 BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
 #BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/miyoo-a30/linux-defconfig.config"
 BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwinner/r16/acm/linux-defconfig.config"
@@ -43,7 +41,6 @@ BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_KNULLI_PATH)/board/allwin
 # GPU
 BR2_PACKAGE_SUNXI_CEDARX=y
 BR2_PACKAGE_MALI_MP400_SUNXI_DRIVER=y
-BR2_PACKAGE_MALI_MP400_SUNXI=y
 
 # Filesystem tools
 BR2_PACKAGE_HOST_DOSFSTOOLS=y
@@ -56,8 +53,6 @@ BR2_PACKAGE_MTD=y
 # Batocera Splash Support
 BR2_PACKAGE_BATOCERA_SPLASH_MPV=y
 BR2_TARGET_ROOTFS_SQUASHFS4_XZ=y
-BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=n
-BR2_TARGET_ROOTFS_TAR=n
 
 BR2_PACKAGE_STRACE=y
 BR2_PACKAGE_ANDROID_TOOLS=y
@@ -85,6 +80,16 @@ BR2_PACKAGE_SDL12_COMPAT=y
 BR2_PACKAGE_FFMPEG4=y
 BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_AUDIO=n
 BR2_PACKAGE_BLUEZ5_UTILS=n
-BR2_PACKAGE_IPUTILS=n
 BR2_PACKAGE_MPV=n
 BR2_PACKAGE_SOCKPP=n
+
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="r16"

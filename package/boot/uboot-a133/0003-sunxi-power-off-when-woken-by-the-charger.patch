@@ -1,0 +1,21 @@
+Subject: [PATCH] sunxi: power off when woken by the charger
+
+The PMIC powers up when a charger is plugged into a switched-off device;
+go back off instead of booting, as the stock TrimUI U-Boot does.
+---
+diff --git a/board/sunxi/board_common.c b/board/sunxi/board_common.c
+index 6b62fa4db3..667a6c27b2 100644
+--- a/board/sunxi/board_common.c
++++ b/board/sunxi/board_common.c
+@@ -635,6 +635,11 @@ int board_env_late_init(void)
+ 
+ #ifdef CONFIG_SUNXI_POWER
+ 		sunxi_update_axp_info();
++		/* woken by plugging in a charger: the PMIC charges while off */
++		if (gd->chargemode == 1) {
++			pr_force("bootreason=charger: power off\n");
++			sunxi_board_shutdown();
++		}
+ #endif
+ 
+ #ifdef CONFIG_BOOT_GUI

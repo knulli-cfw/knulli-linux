@@ -1,0 +1,168 @@
+diff -rupbN linux.orig/arch/arm64/boot/dts/qcom/sm8250.dtsi linux/arch/arm64/boot/dts/qcom/sm8250.dtsi
+diff --git a/arch/arm64/boot/dts/qcom/sm8250.dtsi b/arch/arm64/boot/dts/qcom/sm8250.dtsi
+index 06e911c90..338133d6b 100644
+--- a/arch/arm64/boot/dts/qcom/sm8250.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8250.dtsi
+@@ -3255,6 +3255,8 @@ stm@6002000 {
+ 			clocks = <&aoss_qmp>;
+ 			clock-names = "apb_pclk";
+ 
++			status = "disabled";
++
+ 			out-ports {
+ 				port {
+ 					stm_out: endpoint {
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index 1222f9780..266254ad2 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -860,8 +860,8 @@ static void device_woke_up(struct hci_uart *hu)
+ 	switch (qca->tx_ibs_state) {
+ 	case HCI_IBS_TX_AWAKE:
+ 		/* Expect one if we send 2 WAKEs */
+-		BT_DBG("Received HCI_IBS_WAKE_ACK in tx state %d",
+-		       qca->tx_ibs_state);
++		//BT_DBG("Received HCI_IBS_WAKE_ACK in tx state %d",
++		//       qca->tx_ibs_state);
+ 		break;
+ 
+ 	case HCI_IBS_TX_WAKING:
+@@ -878,8 +878,8 @@ static void device_woke_up(struct hci_uart *hu)
+ 
+ 	case HCI_IBS_TX_ASLEEP:
+ 	default:
+-		BT_ERR("Received HCI_IBS_WAKE_ACK in tx state %d",
+-		       qca->tx_ibs_state);
++		//BT_ERR("Received HCI_IBS_WAKE_ACK in tx state %d",
++		//       qca->tx_ibs_state);
+ 		break;
+ 	}
+ 
+@@ -1288,7 +1288,7 @@ static int qca_recv(struct hci_uart *hu, const void *data, int count)
+ 				  qca_recv_pkts, ARRAY_SIZE(qca_recv_pkts));
+ 	if (IS_ERR(qca->rx_skb)) {
+ 		int err = PTR_ERR(qca->rx_skb);
+-		bt_dev_err(hu->hdev, "Frame reassembly failed (%d)", err);
++		//bt_dev_err(hu->hdev, "Frame reassembly failed (%d)", err);
+ 		qca->rx_skb = NULL;
+ 		return err;
+ 	}
+diff --git a/drivers/clk/qcom/clk-alpha-pll.c b/drivers/clk/qcom/clk-alpha-pll.c
+index f8313f9d0..54bbab5d4 100644
+--- a/drivers/clk/qcom/clk-alpha-pll.c
++++ b/drivers/clk/qcom/clk-alpha-pll.c
+@@ -1820,7 +1820,7 @@ static int __alpha_pll_trion_set_rate(struct clk_hw *hw, unsigned long rate,
+ 	udelay(1);
+ 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &val);
+ 	if (!(val & latch_ack)) {
+-		pr_err("Lucid PLL latch failed. Output may be unstable!\n");
++		//pr_err("Lucid PLL latch failed. Output may be unstable!\n");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index e73bae6cb..5681dca02 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -167,9 +167,9 @@ int psci_set_osi_mode(bool enable)
+ 			PSCI_1_0_SUSPEND_MODE_PC;
+ 
+ 	err = invoke_psci_fn(PSCI_1_0_FN_SET_SUSPEND_MODE, suspend_mode, 0, 0);
+-	if (err < 0)
+-		pr_info(FW_BUG "failed to set %s mode: %d\n",
+-				enable ? "OSI" : "PC", err);
++	//if (err < 0)
++	//	pr_info(FW_BUG "failed to set %s mode: %d\n",
++	//			enable ? "OSI" : "PC", err);
+ 	return psci_to_linux_errno(err);
+ }
+ 
+diff --git a/drivers/remoteproc/remoteproc_core.c b/drivers/remoteproc/remoteproc_core.c
+index 527996e8e..38cebb31b 100644
+--- a/drivers/remoteproc/remoteproc_core.c
++++ b/drivers/remoteproc/remoteproc_core.c
+@@ -1291,7 +1291,7 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
+ 	/* power up the remote processor */
+ 	ret = rproc->ops->start(rproc);
+ 	if (ret) {
+-		dev_err(dev, "can't start rproc %s: %d\n", rproc->name, ret);
++		//dev_err(dev, "can't start rproc %s: %d\n", rproc->name, ret);
+ 		goto unprepare_subdevices;
+ 	}
+ 
+diff --git a/drivers/usb/typec/tcpm/qcom/qcom_pmic_typec_pdphy.c b/drivers/usb/typec/tcpm/qcom/qcom_pmic_typec_pdphy.c
+index 926fa017e..a68f499fe 100644
+--- a/drivers/usb/typec/tcpm/qcom/qcom_pmic_typec_pdphy.c
++++ b/drivers/usb/typec/tcpm/qcom/qcom_pmic_typec_pdphy.c
+@@ -379,7 +379,7 @@ static irqreturn_t qcom_pmic_typec_pdphy_isr(int irq, void *dev_id)
+ 
+ 	switch (irq_data->virq) {
+ 	case PMIC_PDPHY_SIG_TX_IRQ:
+-		dev_err(dev, "isr: tx_sig\n");
++		//dev_err(dev, "isr: tx_sig\n");
+ 		break;
+ 	case PMIC_PDPHY_SIG_RX_IRQ:
+ 		schedule_work(&pmic_typec_pdphy->reset_work);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1ad41904d..84a17f02c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1566,8 +1566,8 @@ int sk_setsockopt(struct sock *sk, int level, int optname,
+ 	case SO_PASSSEC:
+ 		if (IS_ENABLED(CONFIG_SECURITY_NETWORK) && sk_may_scm_recv(sk))
+ 			sk->sk_scm_security = valbool;
+-		else
+-			ret = -EOPNOTSUPP;
++		//else
++		//	ret = -EOPNOTSUPP;
+ 		break;
+ 
+ 	case SO_PASSPIDFD:
+@@ -2002,7 +2002,7 @@ int sk_getsockopt(struct sock *sk, int level, int optname,
+ 
+ 	case SO_PASSSEC:
+ 		if (!IS_ENABLED(CONFIG_SECURITY_NETWORK) || !sk_may_scm_recv(sk))
+-			return -EOPNOTSUPP;
++		//	return -EOPNOTSUPP;
+ 
+ 		v.val = sk->sk_scm_security;
+ 		break;
+diff --git a/sound/soc/codecs/lpass-va-macro.c b/sound/soc/codecs/lpass-va-macro.c
+index 58a579882..3be43b8dd 100644
+--- a/sound/soc/codecs/lpass-va-macro.c
++++ b/sound/soc/codecs/lpass-va-macro.c
+@@ -1565,7 +1565,7 @@ static int va_macro_probe(struct platform_device *pdev)
+ 	ret = of_property_read_u32(dev->of_node, "qcom,dmic-sample-rate",
+ 				   &sample_rate);
+ 	if (ret) {
+-		dev_err(dev, "qcom,dmic-sample-rate dt entry missing\n");
++		//dev_err(dev, "qcom,dmic-sample-rate dt entry missing\n");
+ 		va->dmic_clk_div = VA_MACRO_CLK_DIV_2;
+ 	} else {
+ 		ret = va_macro_validate_dmic_sample_rate(sample_rate, va);
+diff --git a/sound/soc/qcom/qdsp6/q6asm.c b/sound/soc/qcom/qdsp6/q6asm.c
+index de0bd8fd0..99a9b0034 100644
+--- a/sound/soc/qcom/qdsp6/q6asm.c
++++ b/sound/soc/qcom/qdsp6/q6asm.c
+@@ -658,8 +658,8 @@ static int32_t q6asm_stream_callback(struct apr_device *adev,
+ 			/* response as result of close stream */
+ 			goto done;
+ 		default:
+-			dev_err(ac->dev, "command[0x%x] not expecting rsp\n",
+-				result->opcode);
++			//dev_err(ac->dev, "command[0x%x] not expecting rsp\n",
++			//	result->opcode);
+ 			break;
+ 		}
+ 
+@@ -779,8 +779,8 @@ static int q6asm_srvc_callback(struct apr_device *adev,
+ 			wake_up(&a->mem_wait);
+ 			break;
+ 		default:
+-			dev_err(&adev->dev, "command[0x%x] not expecting rsp\n",
+-				 result->opcode);
++			//dev_err(&adev->dev, "command[0x%x] not expecting rsp\n",
++			//	 result->opcode);
+ 			break;
+ 		}
+ 		goto done;

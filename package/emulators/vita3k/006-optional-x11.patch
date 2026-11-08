@@ -1,0 +1,25 @@
+app: do not require X11 on a Wayland-only sysroot
+
+vita3k/app/CMakeLists.txt does find_package(X11 REQUIRED) and links
+${X11_LIBRARIES}, but nothing in the tree includes an X11 header or calls an X11
+function -- windowing goes through SDL3 and the native file dialog through GTK.
+No knulli board ships X11, so configure fails on a library nothing uses.
+
+Look for X11 without requiring it, and link it only when present.
+
+--- a/vita3k/app/CMakeLists.txt
++++ b/vita3k/app/CMakeLists.txt
+@@ -21,6 +21,11 @@
+ endif()
+ 
+ if (LINUX)
+-    find_package(X11 REQUIRED)
+-    target_link_libraries(app PRIVATE ${X11_LIBRARIES})
++    # Not REQUIRED: nothing here includes an X11 header or calls an X11 function
++    # -- windowing is SDL3 and the file dialog is GTK -- so a Wayland-only or
++    # fbdev-only sysroot has no X11 to find.  Still linked where it exists.
++    find_package(X11)
++    if (X11_FOUND)
++        target_link_libraries(app PRIVATE ${X11_LIBRARIES})
++    endif()
+ endif()

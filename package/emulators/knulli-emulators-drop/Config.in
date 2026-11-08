@@ -1,0 +1,25 @@
+config BR2_PACKAGE_KNULLI_EMULATORS_DROP
+	bool "knulli emulators drop (standalone emulators and ports, built out of tree)"
+	depends on BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
+	default y if BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS
+	help
+	  Install the standalone emulators and ports from a prebuilt drop
+	  instead of compiling them here.
+
+	  The drop is keyed on the ABI profile, so every board sharing an ABI
+	  installs the same binaries.  What the payload needs from the image is
+	  checked against this board's rootfs once it is complete, so a board
+	  whose config does not provide something fails the build rather than
+	  shipping an emulator that dies at launch.
+
+config BR2_PACKAGE_KNULLI_EMULATORS_DROP_DEVICE
+	string "device name"
+	depends on BR2_PACKAGE_KNULLI_EMULATORS_DROP
+	default BR2_PACKAGE_LIBRETRO_SUPER_DEVICE
+	help
+	  Which devices/<name>.device file describes this board.  That file
+	  names the ABI profile, and hence which drop to install.
+
+	  It defaults to the device already set for libretro-super, because the
+	  device -> profile map is one file shared by both: cores and emulators
+	  cannot disagree about which ABI a board is.

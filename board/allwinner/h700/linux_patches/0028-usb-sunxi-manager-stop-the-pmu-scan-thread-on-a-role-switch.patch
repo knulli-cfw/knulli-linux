@@ -1,0 +1,61 @@
+usb: sunxi manager: stop the pmu scan thread on a role switch
+
+The role switch sysfs files stop the gpio scan thread and wait for it;
+on a VBUS_PMU port the pmu scan thread runs instead, so they waited
+forever.  Clear its run flag too.
+
+--- a/drivers/usb/sunxi_usb/manager/usbc_platform.h
++++ b/drivers/usb/sunxi_usb/manager/usbc_platform.h
+@@ -18,6 +18,7 @@
+ 
+ extern struct usb_cfg g_usb_cfg;
+ extern __u32 thread_run_flag;
++extern int thread_pmu_run_flag;
+ 
+ #endif /* __USBC_PLATFORM_H__ */
+ 
+--- a/drivers/usb/sunxi_usb/manager/usbc0_platform.c
++++ b/drivers/usb/sunxi_usb/manager/usbc0_platform.c
+@@ -43,8 +43,9 @@
+ static ssize_t device_chose(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+-	/* stop usb scan */
++	/* stop usb scan (the pmu scan thread on VBUS_PMU ports) */
+ 	thread_run_flag = 0;
++	thread_pmu_run_flag = 0;
+ 
+ 	while (!thread_stopped_flag)
+ 		msleep(1000);
+@@ -62,8 +63,9 @@
+ static ssize_t host_chose(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+-	/* stop usb scan */
++	/* stop usb scan (the pmu scan thread on VBUS_PMU ports) */
+ 	thread_run_flag = 0;
++	thread_pmu_run_flag = 0;
+ 
+ 	while (!thread_stopped_flag)
+ 		msleep(1000);
+@@ -83,8 +85,9 @@
+ static ssize_t null_chose(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+-	/* stop usb scan */
++	/* stop usb scan (the pmu scan thread on VBUS_PMU ports) */
+ 	thread_run_flag = 0;
++	thread_pmu_run_flag = 0;
+ 
+ 	while (!thread_stopped_flag)
+ 		msleep(1000);
+--- a/drivers/usb/sunxi_usb/manager/usb_manager.c
++++ b/drivers/usb/sunxi_usb/manager/usb_manager.c
+@@ -537,6 +537,7 @@
+ #endif
+ 
+ 		thread_run_flag = 0;
++		thread_pmu_run_flag = 0;
+ 		while (!thread_stopped_flag) {
+ 			DMSG_INFO("waitting for usb_hardware_scan_thread stop\n");
+ 			msleep(20);

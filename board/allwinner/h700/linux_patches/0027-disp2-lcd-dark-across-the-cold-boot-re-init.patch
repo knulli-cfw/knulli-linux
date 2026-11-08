@@ -1,0 +1,39 @@
+disp2: lcd: keep the panel dark across the cold boot re-init
+
+U-Boot hands over a lit panel; the re-init stops the tcon and re-clocks it,
+so drop the backlight duty before it and move tcon-lcd0 off pll-video0-4x
+at enable time instead of at probe.
+--- a/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/de/disp_lcd.c
+@@ -679,6 +679,15 @@
+ 	}
+ 	dsi_rate = pll_rate / clk_info.dsi_div;
+ 
++	/* U-Boot leaves the tcon on pll-video0-4x, which cannot go below 288 MHz */
++	if (lcdp->clk_parent &&
++	    !strcmp(__clk_get_name(lcdp->clk_parent), "pll-video0-4x")) {
++		struct clk *p = clk_get_parent(lcdp->clk_parent);
++
++		if (p && !clk_set_parent(lcdp->clk_tcon_lcd, p))
++			lcdp->clk_parent = p;
++	}
++
+ 	if (lcdp->clk_parent) {
+ 		clk_set_rate(lcdp->clk_parent, pll_rate);
+ 		pll_rate_set = clk_get_rate(lcdp->clk_parent);
+@@ -2068,6 +2077,15 @@
+ 
+ 	lcdp->panel_extend_info.lcd_gamma_en = lcdp->panel_info.lcd_gamma_en;
+ 	disp_lcd_gpio_init(lcd);
++	/* dark until the open flow's backlight step: the re-init stops the tcon */
++	if (lcdp->panel_info.lcd_pwm_used) {
++		if (!lcdp->pwm_info.dev)
++			lcdp->pwm_info.dev =
++				disp_sys_pwm_request(lcdp->panel_info.lcd_pwm_ch);
++		lcdp->pwm_info.duty_ns = 0;
++		disp_sys_pwm_config(lcdp->pwm_info.dev, 0,
++				    lcdp->pwm_info.period_ns);
++	}
+ 	ret = lcd_clk_enable(lcd);
+ 	if (ret != 0)
+ 		return DIS_FAIL;

@@ -89,9 +89,27 @@ define KNULLI_AUDIO_STEAM_DECK_OLED
 	    $(TARGET_DIR)/usr/share/alsa/ucm2/
 endef
 
+# T618 / UMS512: the SC2730 codec hangs off the AGDSP-mediated VBC path, so the
+# card comes up with every mixer control at zero and no routing -- the BootSequence
+# in the UCM is what makes it audible at all.  Only the two files this card needs
+# are installed, rather than the whole ucm2 tree, so nothing leaks onto other
+# targets.
+define KNULLI_AUDIO_T618_UCM
+	mkdir -p $(TARGET_DIR)/usr/share/alsa/ucm2/Unisoc/sprdphone-sc2730 \
+		$(TARGET_DIR)/usr/share/alsa/ucm2/conf.d/sprdphone-sc273
+	cp $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-audio/ucm2/Unisoc/sprdphone-sc2730/HiFi.conf \
+		$(TARGET_DIR)/usr/share/alsa/ucm2/Unisoc/sprdphone-sc2730/HiFi.conf
+	cp $(BR2_EXTERNAL_KNULLI_PATH)/package/system/knulli-audio/ucm2/conf.d/sprdphone-sc273/sprdphone-sc2730.conf \
+		$(TARGET_DIR)/usr/share/alsa/ucm2/conf.d/sprdphone-sc273/sprdphone-sc2730.conf
+endef
+
 ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_X86_ANY),y)
     KNULLI_AUDIO_POST_INSTALL_TARGET_HOOKS += KNULLI_AUDIO_X86_INTEL_DSP
     KNULLI_AUDIO_POST_INSTALL_TARGET_HOOKS += KNULLI_AUDIO_STEAM_DECK_OLED
+endif
+
+ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_T618),y)
+    KNULLI_AUDIO_POST_INSTALL_TARGET_HOOKS += KNULLI_AUDIO_T618_UCM
 endif
 
 $(eval $(generic-package))

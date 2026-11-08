@@ -1,0 +1,32 @@
+#!/bin/sh
+
+DEBUG_FLAG=/boot/boot/bootmode.debug
+
+case "$1" in
+    status)
+        if [ -f "$DEBUG_FLAG" ]; then
+            echo enabled
+        else
+            echo disabled
+        fi
+        exit 0
+        ;;
+    enable|disable)
+        mount -o remount,rw /boot || exit 1
+
+        if [ "$1" = "enable" ]; then
+            touch "$DEBUG_FLAG"
+        else
+            rm -f "$DEBUG_FLAG"
+        fi
+        RESULT=$?
+
+        mount -o remount,ro /boot || RESULT=1
+        sync
+        exit "$RESULT"
+        ;;
+    *)
+        echo "Usage: knulli-boot-debug {enable|disable|status}" >&2
+        exit 1
+        ;;
+esac

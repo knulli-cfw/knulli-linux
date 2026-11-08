@@ -17,7 +17,11 @@ touch "${REBOOT_FLAG}" || exit 1
 # environment
 export HOME=/userdata/system
 
-knulli-switch-screen-checker --init
+# only DRM connectors can hotplug; fbdev boards have none
+if ls /sys/class/drm/card*-* >/dev/null 2>&1
+then
+    knulli-switch-screen-checker --init &
+fi
 
 GAMELAUNCH=1
 while test -e "${REBOOT_FLAG}"
@@ -69,10 +73,13 @@ do
     #   output n-1 must be defined
     #   output must be different from n-x outputs
 
+    # outputs do not change within one iteration
+    all_outputs=$(knulli-resolution listOutputs)
+
     # validate output 1
     if test -n "${settings_output}"
     then
-	if ! knulli-resolution listOutputs | grep -qE '^'"${settings_output}"'$'
+	if ! echo "${all_outputs}" | grep -qE '^'"${settings_output}"'$'
 	then
 	    settings_output=
 	fi
@@ -84,7 +91,7 @@ do
 	then
 	    settings_output2=
 	else
-	    if ! knulli-resolution listOutputs | grep -qE '^'"${settings_output2}"'$'
+	    if ! echo "${all_outputs}" | grep -qE '^'"${settings_output2}"'$'
 	    then
 		settings_output2=
 	    fi
@@ -97,7 +104,7 @@ do
 	then
 	    settings_output3=
 	else
-	    if ! knulli-resolution listOutputs | grep -qE '^'"${settings_output3}"'$'
+	    if ! echo "${all_outputs}" | grep -qE '^'"${settings_output3}"'$'
 	    then
 		settings_output3=
 	    fi
@@ -109,9 +116,9 @@ do
     then
 	settings_output=$(knulli-resolution currentOutput)
 	# currentOutput may be unplugged after an event of type unplugging it (/var/run/switch_screen_request)
-	if ! knulli-resolution listOutputs | grep -qE "^${settings_output}$"
+	if ! echo "${all_outputs}" | grep -qE "^${settings_output}$"
 	then
-	    settings_output=$(knulli-resolution listOutputs | head -1)
+	    settings_output=$(echo "${all_outputs}" | head -1)
 	fi
     fi
     # if screen2 is empty, take the first one found which is not screen1
@@ -120,7 +127,7 @@ do
 	user_output2="$(knulli-settings-get global.videooutput2)"
 	if test "${user_output2}" != "none"
 	then
-	    settings_output2=$(knulli-resolution listOutputs | grep -vE "^${settings_output}$" | head -1)
+	    settings_output2=$(echo "${all_outputs}" | grep -vE "^${settings_output}$" | head -1)
 	fi
     fi
 
@@ -288,7 +295,7 @@ do
     fi
 
     # save the current output in which es is started (used to switch screen, when unplugged)
-    knulli-resolution currentOutput > "/var/run/switch_screen_current"
+    echo "${effective_output}" > "/var/run/switch_screen_current"
 
     # dbus launch is required for the gio/gvfs/trash:///...
     eval "$(dbus-launch --sh-syntax --exit-with-session)"

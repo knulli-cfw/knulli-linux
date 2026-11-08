@@ -20,6 +20,7 @@ if os.path.exists("/var/run/emulatorlauncher.perf"):  # noqa: PTH110
 
 ### import always needed ###
 import argparse
+import contextlib
 import json
 import logging
 import signal
@@ -30,12 +31,13 @@ from sys import exit
 from typing import TYPE_CHECKING
 
 from . import controllersConfig as controllers
-from .batoceraPaths import SAVES, SYSTEM_SCRIPTS, USER_SCRIPTS
+from .batoceraPaths import ES_GAMES_METADATA, SAVES, SYSTEM_SCRIPTS, USER_SCRIPTS
 from .controller import Controller
 from .Emulator import Emulator
 from .generators import get_generator
-from .utils import bezels as bezelsUtil, videoMode, device
+from .utils import bezels as bezelsUtil, metadata as metadataUtils, videoMode, device
 from .utils.logger import setup_logging
+from .utils.overlayfs import mount_overlayfs
 from .utils.squashfs import squashfs_rom
 
 if TYPE_CHECKING:
@@ -46,6 +48,26 @@ if TYPE_CHECKING:
     from .types import DeviceInfoDict, GunDict, Resolution
 
 eslog = logging.getLogger(__name__)
+
+# By soname, not by path: the loader then picks /usr/lib32 for a 32-bit emulator.
+OVERLAY_LIB = "libknulli-overlay.so"
+
+# Emulators that turn their own picture for a rotated panel and must not be
+# turned again by the overlay's Vulkan layer.  PPSSPP reaches the display
+# through VK_KHR_display and is patched to rotate there instead.
+SELF_ROTATING = {"ppsspp"}
+
+def getRotationOpt(system, name, fallback):
+    # Quarter turns only; anything else in knulli.conf is a typo, not a request.
+    if system.isOptSet(name):
+        try:
+            value = int(system.config[name])
+        except ValueError:
+            value = -1
+        if value in (0, 90, 180, 270):
+            return value
+        eslog.warning(f"{name} must be 0, 90, 180 or 270, ignoring {system.config[name]}")
+    return fallback
 
 def main(args: argparse.Namespace, maxnbplayers: int) -> int:
     # squashfs roms if squashed
@@ -62,6 +84,8 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
     systemName = args.system
     eslog.debug(f"Running system: {systemName}")
     system = Emulator(systemName, romConfiguration)
+    if system.getOptBoolean("configgen.debug"):
+        logging.getLogger(__name__.split('.')[0]).setLevel(logging.DEBUG)
 
     if args.emulator is not None:
         system.config["emulator"] = args.emulator
@@ -80,7 +104,7 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
             eslog.debug(f'emulator: {system.config["emulator"]}')
 
     # metadata
-    metadata = controllers.getGamesMetaData(systemName, rom)
+    metadata = metadataUtils.get_games_meta_data(ES_GAMES_METADATA, systemName, rom)
 
     # search guns in case use_guns is enabled for this game
     # force use_guns in case es tells it has a gun
@@ -119,7 +143,15 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
     resolutionChanged = False
     mouseChanged = False
     exitCode = -1
+    # A squashfs rom is mounted read-only, which breaks the emulators that keep
+    # saves and configs inside the game directory.  Those get a writable
+    # overlay on top, kept under the system's saves area so the user can drop
+    # it to reset a game.
+    romOverlay = contextlib.ExitStack()
     try:
+        if Path(romConfiguration).suffix == ".squashfs" and generator.writesToRom(system.config):
+            rom = str(romOverlay.enter_context(
+                mount_overlayfs(Path(rom), SAVES / systemName / Path(romConfiguration).stem)))
         # lower the resolution if mode is auto
         newsystemMode = systemMode # newsystemmode is the mode after minmax (ie in 1K if tv was in 4K), systemmode is the mode before (ie in es)
         if system.config["videomode"] == "" or system.config["videomode"] == "default":
@@ -207,15 +239,76 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
 
             cmd = generator.generate(system, rom, player_controllers, metadata, guns, wheels, gameResolution)
 
-            if device.hasBoardCapability('hud') and system.isOptSet('hud_support') and system.getOptBoolean('hud_support'):
-                hud_bezel = getHudBezel(system, generator, rom, gameResolution, controllers.gunsBordersSizeName(guns, system.config), controllers.gunsBorderRatioType(guns, system.config))
-                if (system.isOptSet('hud') and system.config['hud'] != "" and system.config['hud'] != "none") or hud_bezel is not None:
-                    gameinfos = extractGameInfosFromXml(args.gameinfoxml)
+            # knulli-overlay draws the status panels in every emulator and the
+            # bezel in the ones that do not draw their own.  Preloaded by soname
+            # so a 32-bit emulator picks up the copy in /usr/lib32.
+            if not (system.isOptSet('overlay.enabled') and not system.getOptBoolean('overlay.enabled')):
+                preload = [OVERLAY_LIB]
+                previous = cmd.env.get("LD_PRELOAD", os.environ.get("LD_PRELOAD"))
+                if previous:
+                    preload.append(str(previous))
+                cmd.env["LD_PRELOAD"] = ":".join(preload)
+                # A panel mounted rotated is put straight by the display stack
+                # for GL, but Vulkan bypasses it, so the overlay's Vulkan layer
+                # turns the whole presented frame -- the emulator, its menus and
+                # the overlay alike.  Not over HDMI: that picture goes to a
+                # screen that is the right way up already.
+                # Which knob names the backend depends on the emulator:
+                # retroarch.video_driver for the libretro cores, gfxbackend for
+                # the standalones.
+                usesVulkan = 'vulkan' in (
+                    system.config.get('retroarch.video_driver'),
+                    system.config.get('gfxbackend'),
+                )
+                # fbcon=rotate: on the kernel command line is the starting
+                # point, but a single image now serves every device on a SoC
+                # and u-boot fills that in, so a panel whose mount does not
+                # match it needs saying so: overlay.rotation in knulli.conf,
+                # global or under a system name for one emulator only.
+                panelRotation = getRotationOpt(system, 'overlay.rotation', videoMode.getPanelRotation())
+                if (usesVulkan
+                        and device.hasBoardCapability('rotatedpanel')
+                        and not videoMode.isHdmiConnected()):
+                    if system.config['emulator'] in SELF_ROTATING:
+                        # The emulator turns its own picture and the overlay is
+                        # drawn into the result, so the two angles are separate.
+                        # Setting it always, zero included, keeps PPSSPP from
+                        # falling back to its own guess of a fixed 270.
+                        appRotation = getRotationOpt(system, 'overlay.app_rotation', panelRotation)
+                        cmd.env["PPSSPP_DISPLAY_ROTATION"] = str(appRotation)
+                        if panelRotation:
+                            cmd.env["OV_ROTATE"] = str(panelRotation)
+                    elif panelRotation:
+                        # The layer turns the whole frame, overlay included.
+                        cmd.env["OV_VK_ROTATE"] = str(panelRotation)
+            else:
+                # The Vulkan layer is implicit, so the loader picks it up on its
+                # own and it has to be turned off by name.
+                cmd.env["OV_DISABLE_VK_LAYER"] = "1"
+
+            # The bezel is knulli-overlay's to draw, so it is resolved whatever
+            # the board can do about a performance HUD.
+            hud_bezel = getHudBezel(system, generator, rom, gameResolution, controllers.gunsBordersSizeName(guns, system.config), controllers.gunsBorderRatioType(guns, system.config))
+            want_hud = (
+                device.hasBoardCapability('hud')
+                and system.isOptSet('hud_support') and system.getOptBoolean('hud_support')
+                and system.isOptSet('hud') and system.config['hud'] != "" and system.config['hud'] != "none"
+            )
+
+            if want_hud or hud_bezel is not None:
+                gameinfos = extractGameInfosFromXml(args.gameinfoxml)
+                hudconfig = getHudConfig(system, args.systemname, system.config['emulator'], effectiveCore, rom, gameinfos, hud_bezel, gameResolution)
+                hud_config_file = Path('/var/run/hud.config')
+                with hud_config_file.open('w') as f:
+                    f.write(hudconfig)
+                cmd.env["OV_HUD_CONFIG"] = hud_config_file
+
+                if want_hud:
                     cmd.env["MANGOHUD_DLSYM"] = "1"
-                    hudconfig = getHudConfig(system, args.systemname, system.config['emulator'], effectiveCore, rom, gameinfos, hud_bezel, gameResolution)
-                    hud_config_file = Path('/var/run/hud.config')
-                    with hud_config_file.open('w') as f:
-                        f.write(hudconfig)
+                    # libEGL.so.1 is a symbol-less stub in front of libmali on the mali
+                    # boards, and mangohud's elfhacks lookup only reads one object's own
+                    # symbol table.  Simple load uses dlopen/dlsym, which follows NEEDED.
+                    cmd.env["MANGOHUD_EGL_SIMPLE_LOAD"] = "1"
                     cmd.env["MANGOHUD_CONFIGFILE"] = hud_config_file
                     if not generator.hasInternalMangoHUDCall():
                         cmd.array.insert(0, "mangohud")
@@ -231,6 +324,9 @@ def start_rom(args: argparse.Namespace, maxnbplayers: int, rom: str, romConfigur
         callExternalScripts(SYSTEM_SCRIPTS, "gameStop", [systemName, system.config['emulator'], effectiveCore, effectiveRom])
 
     finally:
+        # unmount the writable overlay before anything else touches the rom
+        romOverlay.close()
+
         # always restore the resolution
         if resolutionChanged:
             try:

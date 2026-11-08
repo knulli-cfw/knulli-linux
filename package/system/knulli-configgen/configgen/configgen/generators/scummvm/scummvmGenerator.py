@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -50,21 +51,21 @@ class ScummVMGenerator(Generator):
 
         # Find rom path
         if rom_path.is_dir():
-          # rom is a directory: must contains a <game name>.scummvm file
-          romPath = rom_path
-          romName = next(rom_path.glob("*.scummvm")).stem
-        elif rom_path.stat().st_size == 0:
-          # Legacy Batocera ScummVM file (game ID as name)
-          # rom is a file: split in directory and file name
-          romPath = rom_path.parent
-          # Get rom name without extension
-          romName = rom_path.stem
+            # squashfs: the directory should hold a <game id>.scummvm file
+            romFile = next(rom_path.glob("*.scummvm"), None)
+            romPath = rom_path
         else:
-          # Knulli auto-generated ScummVM file with target inside:
-          # Split into directory and file content (target)
-          romName = Path(rom_path).read_text()
-          romName = romName.replace('\r', '').replace('\n', '').replace(' ', '')
-          romPath = rom_path.parent
+            romFile = rom_path
+            romPath = rom_path.parent
+
+        # The file either holds the target (knulli auto-generated) or is empty
+        # and named after it (legacy batocera).  Anything that is not a game id
+        # is handed to scummvm's own detection rather than passed through.
+        romName = "--auto-detect"
+        if romFile is not None:
+            gameId = romFile.read_text().strip().lower() or romFile.stem
+            if re.match(r'^(?:[a-z0-9-]+:)?[a-z0-9-]+$', gameId) is not None:
+                romName = gameId
 
         # pad number
         nplayer = 1

@@ -1,0 +1,125 @@
+From: knulli
+Subject: [PATCH] mali-fbdev: allocate the pixmap buffers from a dma-buf heap
+
+The 5.4 BSP kernel has dma-buf heaps and no legacy ION (its ION, when
+enabled, is the handle-less 4.12+ ABI).  Take the buffers from
+/dev/dma_heap/reserved (the default CMA area) or /dev/dma_heap/system, and
+keep the legacy ION path for the vendor 4.9 kernels.
+
+--- a/src/video/mali-fbdev/SDL_malivideo.h
++++ b/src/video/mali-fbdev/SDL_malivideo.h
+@@ -42,8 +42,19 @@
+ #include "mali.h"
+ #include "ion.h"
+ 
++/* dma-buf heaps (linux/dma-heap.h, 5.6+; backported to the 5.4 BSP kernel).
++ * The toolchain headers are older, so define the ioctl here. */
++struct mali_dma_heap_allocation_data {
++    unsigned long long len;
++    unsigned int fd;
++    unsigned int fd_flags;
++    unsigned long long heap_flags;
++};
++#define MALI_DMA_HEAP_IOCTL_ALLOC _IOWR('H', 0x0, struct mali_dma_heap_allocation_data)
++
+ typedef struct SDL_DisplayData
+ {
++    int heap_fd; /* dma-buf heap, preferred over ion_fd when open */
+     int ion_fd;
+     struct MALI_Blitter *blitter;
+     fbdev_window_s native_display;
+--- a/src/video/mali-fbdev/SDL_malivideo.c
++++ b/src/video/mali-fbdev/SDL_malivideo.c
+@@ -138,9 +138,17 @@
+         return SDL_SetError("mali-fbdev: Could not open framebuffer device");
+     }
+ 
+-    data->ion_fd = open("/dev/ion", O_RDWR, 0);
+-    if (data->ion_fd < 0) {
+-        return SDL_SetError("mali-fbdev: Could not open ion device");
++    /* Newer kernels export the CMA area as a dma-buf heap and have no legacy
++     * ION; the vendor 4.9 kernels only have ION. */
++    data->ion_fd = -1;
++    data->heap_fd = open("/dev/dma_heap/reserved", O_RDWR | O_CLOEXEC, 0);
++    if (data->heap_fd < 0)
++        data->heap_fd = open("/dev/dma_heap/system", O_RDWR | O_CLOEXEC, 0);
++    if (data->heap_fd < 0) {
++        data->ion_fd = open("/dev/ion", O_RDWR, 0);
++        if (data->ion_fd < 0) {
++            return SDL_SetError("mali-fbdev: Could not open a dma-buf heap or the ion device");
++        }
+     }
+ 
+     if (ioctl(fd, FBIOGET_VSCREENINFO, &vinfo) < 0) {
+@@ -310,27 +318,41 @@
+         };
+ 
+         /* Allocate framebuffer data */
+-        allocation_data = (struct ion_allocation_data){
+-            .len = surf->pixmap.planes[0].size,
+-            .heap_id_mask = (1 << ION_HEAP_TYPE_DMA),
+-            .flags = 1 << ION_FLAG_CACHED
+-        };
+-
+-        io = ioctl(displaydata->ion_fd, ION_IOC_ALLOC, &allocation_data);
+-        if (io != 0) {
+-            SDL_SetError("mali-fbdev: Unable to create backing ION buffers");
+-            return EGL_NO_SURFACE;
+-        }
+-
+-        /* Export DMA_BUF handle for the framebuffer */
+-        ion_data = (struct ion_fd_data){
+-            .handle = allocation_data.handle
+-        };
++        if (displaydata->heap_fd >= 0) {
++            struct mali_dma_heap_allocation_data heap_data = {
++                .len = surf->pixmap.planes[0].size,
++                .fd_flags = O_RDWR | O_CLOEXEC,
++            };
++
++            if (ioctl(displaydata->heap_fd, MALI_DMA_HEAP_IOCTL_ALLOC, &heap_data) != 0) {
++                SDL_SetError("mali-fbdev: Unable to allocate dma-buf heap buffers");
++                return EGL_NO_SURFACE;
++            }
++            ion_data.fd = heap_data.fd;
++            allocation_data.handle = -1;
++        } else {
++            allocation_data = (struct ion_allocation_data){
++                .len = surf->pixmap.planes[0].size,
++                .heap_id_mask = (1 << ION_HEAP_TYPE_DMA),
++                .flags = 1 << ION_FLAG_CACHED
++            };
++
++            io = ioctl(displaydata->ion_fd, ION_IOC_ALLOC, &allocation_data);
++            if (io != 0) {
++                SDL_SetError("mali-fbdev: Unable to create backing ION buffers");
++                return EGL_NO_SURFACE;
++            }
+ 
+-        io = ioctl(displaydata->ion_fd, ION_IOC_SHARE, &ion_data);
+-        if (io != 0) {
+-            SDL_SetError("mali-fbdev: Failure exporting ION buffer handle");
+-            return EGL_NO_SURFACE;
++            /* Export DMA_BUF handle for the framebuffer */
++            ion_data = (struct ion_fd_data){
++                .handle = allocation_data.handle
++            };
++
++            io = ioctl(displaydata->ion_fd, ION_IOC_SHARE, &ion_data);
++            if (io != 0) {
++                SDL_SetError("mali-fbdev: Failure exporting ION buffer handle");
++                return EGL_NO_SURFACE;
++            }
+         }
+ 
+         /* Recall fd and handle for teardown later */
+@@ -412,7 +434,8 @@
+             .handle = data->surface[i].dmabuf_handle
+         };
+ 
+-        ioctl(displaydata->ion_fd, ION_IOC_FREE, &handle_data);
++        if (data->surface[i].dmabuf_handle >= 0)
++            ioctl(displaydata->ion_fd, ION_IOC_FREE, &handle_data);
+         data->surface[i].dmabuf_fd = -1;
+     }
+ 

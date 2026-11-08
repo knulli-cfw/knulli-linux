@@ -1,0 +1,58 @@
+# Core filename map: OUR dist/ filename -> the filename knulli expects in
+# /usr/lib/libretro/.
+#
+# Most cores need no row here: 86 of ours already land on the exact name
+# knulli's package installed.  This file is only the disagreements, and they
+# are disagreements about NAMING, not about content -- both sides are the same
+# upstream core.
+#
+# The name matters beyond tidiness.  es_systems.cfg and configgen reference
+# cores by .so basename, and libretro-core-info (which we do NOT replace, it
+# keeps building) ships compatibility symlinks built around knulli's spelling:
+# pce_libretro.info -> mednafen_pce_libretro.info, and so on.  Ship the .so as
+# mednafen_pce_libretro.so and the info symlink points at a core that, from the
+# frontend's perspective, is not installed.
+#
+# FORMAT   <dist filename>  <target filename>
+#
+# Cores with no row ship under their own name.  That includes the ones we build
+# that knulli never packaged (2048, cannonball, chimerasnes, doublecherrygb,
+# frodo, sameboy, snes9x2005*, vba_next, nekop2, fbalpha2012_cps1/cps2/neogeo,
+# mame2003, vitaquake2): harmless extras, and libretro-core-info carries their
+# .info under those same upstream names.
+
+# dist filename                     target filename
+
+# mednafen cores knulli renames.  Note the OTHER mednafen_* cores
+# (lynx, ngp, psx, supergrafx, wswan, supafaust) keep the mednafen_ prefix on
+# both sides and so are deliberately absent from this list.
+mednafen_pce_libretro.so            pce_libretro.so
+mednafen_pce_fast_libretro.so       pce_fast_libretro.so
+mednafen_pcfx_libretro.so           pcfx_libretro.so
+mednafen_vb_libretro.so             vb_libretro.so
+mednafen_saturn_libretro.so         beetle-saturn_libretro.so
+
+# genesis_plus_gx: underscores upstream, none in knulli's spelling.
+genesis_plus_gx_libretro.so         genesisplusgx_libretro.so
+genesis_plus_gx_wide_libretro.so    genesisplusgx-wide_libretro.so
+
+# ep128emu-core: an underscore in the name the repo builds, a hyphen in the
+# spelling es_systems.yml and libretro-core-info use.
+ep128emu_core_libretro.so           ep128emu-core_libretro.so
+
+# MAME family.  knulli names these by MAME version rather than by core:
+# mame2010 is MAME 0.139, mame2003-plus is 0.78+.  post-build-script.sh also
+# symlinks mame0139_libretro.info from mame2010_libretro.info, so the target
+# name here is what makes that symlink resolve.
+mame2010_libretro.so                mame0139_libretro.so
+mame2003_plus_libretro.so           mame078plus_libretro.so
+mame2000_libretro.so                imame4all_libretro.so
+
+# snes9x forks.
+snes9x2002_libretro.so              pocketsnes_libretro.so
+snes9x2010_libretro.so              snes9x_next_libretro.so
+
+vbam_libretro.so                    vba-m_libretro.so
+fbalpha2012_libretro.so             fbalpha_libretro.so
+mupen64plus_next_libretro.so        mupen64plus-next_libretro.so
+km_mame2003_xtreme_amped_libretro.so mame2003_xtreme_libretro.so

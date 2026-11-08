@@ -1,0 +1,5 @@
+#!/bin/sh
+
+knulli-power-led low off
+
+exit 0

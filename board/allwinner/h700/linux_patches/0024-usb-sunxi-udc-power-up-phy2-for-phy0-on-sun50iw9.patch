@@ -1,0 +1,59 @@
+usb: sunxi udc: power up phy2 for phy0 on sun50iw9
+
+On the H616 PHY0 stays dead unless PHY2 is clocked and out of SIDDQ,
+as mainline handles with needs_phy2_siddq.
+
+--- a/drivers/usb/sunxi_usb/udc/sunxi_udc.c
++++ b/drivers/usb/sunxi_usb/udc/sunxi_udc.c
+@@ -3563,6 +3563,40 @@
+ 	return is_enable;
+ }
+ 
++#if defined(CONFIG_ARCH_SUN50IW9)
++/* phy0 needs phy2 out of siddq, as mainline's needs_phy2_siddq */
++static void sunxi_udc_power_phy2(struct platform_device *pdev)
++{
++	struct clk *clk_phy2, *clk_bus;
++	struct reset_control *rst_phy2, *rst_bus;
++	void __iomem *pmu2;
++	u32 val;
++
++	clk_phy2 = devm_clk_get(&pdev->dev, "phy2");
++	clk_bus = devm_clk_get(&pdev->dev, "bus_ehci2");
++	rst_phy2 = devm_reset_control_get_shared(&pdev->dev, "phy2");
++	rst_bus = devm_reset_control_get_shared(&pdev->dev, "ehci2");
++	pmu2 = of_iomap(pdev->dev.of_node, 2);
++	if (IS_ERR(clk_phy2) || IS_ERR(clk_bus) || IS_ERR(rst_phy2)
++			|| IS_ERR(rst_bus) || !pmu2) {
++		dev_warn(&pdev->dev, "no phy2 resources, phy0 may stay down\n");
++		if (pmu2)
++			iounmap(pmu2);
++		return;
++	}
++
++	clk_prepare_enable(clk_phy2);
++	reset_control_deassert(rst_phy2);
++	clk_prepare_enable(clk_bus);
++	reset_control_deassert(rst_bus);
++
++	val = readl(pmu2 + 0x10);
++	val &= ~(0x1 << 3);
++	writel(val, pmu2 + 0x10);
++	iounmap(pmu2);
++}
++#endif
++
+ static int sunxi_get_udc_resource(struct platform_device *pdev,
+ 		sunxi_udc_io_t *sunxi_udc_io)
+ {
+@@ -3582,6 +3616,10 @@
+ 		goto err0;
+ 	}
+ 
++#if defined(CONFIG_ARCH_SUN50IW9)
++	sunxi_udc_power_phy2(pdev);
++#endif
++
+ 	charger_mode = of_property_read_bool(pdev->dev.of_node, "charger_mode");
+ 
+ 	return 0;

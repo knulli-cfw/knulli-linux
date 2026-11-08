@@ -1,0 +1,26 @@
+flycast: include <unistd.h> outside Apple for getpid()
+
+The bundled libzip's mkstemp.c calls getpid() unconditionally, but only pulls
+in <unistd.h> under "#ifdef __APPLE__".  Every other POSIX target got the
+declaration by luck through another header; gcc 14 no longer allows the
+implicit declaration and the build stops:
+
+  core/deps/libzip/mkstemp.c:70:15: error: implicit declaration of function
+                                   'getpid' [-Wimplicit-function-declaration]
+
+Widen the guard to "#ifndef _WIN32", which is where <unistd.h> genuinely does
+not exist.  Apple keeps the include it already had.
+
+Build-enablement only -- no behaviour change.
+
+--- a/core/deps/libzip/mkstemp.c
++++ b/core/deps/libzip/mkstemp.c
+@@ -43,7 +43,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ 
+-#ifdef __APPLE__
++#ifndef _WIN32
+ #include <unistd.h>
+ #endif
+ 

@@ -3,8 +3,17 @@
 # We need to load the mali driver before progressbar can work
 insmod /lib/modules/5.15.147/mali_kbase.ko
 
-# Start the progress bar
-/usr/bin/progressbar &
+# Start the progress bar; the TSP-S panel is portrait (fb 720x1280), which
+# progressbar_rk turns, with the landscape splash logo turned along
+read -r BOARD < /boot/boot/knulli.board
+case "$BOARD" in
+    trimui-smart-pro-s)
+        /usr/bin/progressbar_rk --pan --logo /usr/share/knulli/splash/boot-logo-1280x720.png & ;;
+    # Action Pi panel is turned the other way
+    helegaly-action-pi)
+        /usr/bin/progressbar_rk --rotate 180 & ;;
+    *)                  /usr/bin/progressbar & ;;
+esac
 
 # Start all init scripts in /etc/init.d
 # executing them in numerical order.
@@ -28,7 +37,7 @@ for i in /etc/init.d/S??* ; do
             ;;
         *)
             case "$i" in
-                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06audio | *S06modprobe | *S11share | *S12populateshare) # Don't run these in background
+                *S00bootcustom | *S01dbus | *S02resize | *S03modules | *S04populate | *S05udev | *S06audio | *S06modprobe | *S11share | *S12populateshare | *S13boarddefaults) # Don't run these in background
                     $i start
                     ;;
                 *)

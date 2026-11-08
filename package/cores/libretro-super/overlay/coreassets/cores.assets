@@ -1,0 +1,155 @@
+# Non-core payload manifest.
+#
+# A libretro package in knulli installs more than a .so: BIOS metadata, DAT
+# files, evmapy key maps, .info files, game data.  When the knulli build stops
+# compiling cores (BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES), those installs
+# disappear with the packages.  This file is the inventory of what they were,
+# so the drop we hand knulli can carry it instead.
+#
+# FORMAT   core  origin  src  dest  opts
+#
+#   core     the libretro core the payload belongs to, named as KNULLI names it
+#            (its package name), not as our recipe names it.  Repeats are fine:
+#            one core may have several rows.
+#
+#   origin   where src is rooted:
+#
+#     core     a checkout under this repo -- libretro-super already clones every
+#              core it builds, and these files are TRACKED upstream content, so
+#              "git clean -xdf" (which the buildbot runs before and after every
+#              build) does not remove them.  No fetch is needed anywhere: this
+#              is the whole reason the payload can move out of the knulli build
+#              without reintroducing a source download there.
+#     build    produced by the core's BUILD, not present in a clean checkout.
+#              Only resolvable after that core builds successfully, so it is
+#              reported as pending -- never as a failure -- when absent.
+#     static   a file this repo carries itself, under coreassets/static/.  For
+#              payload the upstream tree does not contain -- knulli generated it
+#              inline with echo/touch.
+#     knulli   the file lives in the KNULLI tree, at a path relative to the
+#              knulli-linux checkout root (so it is unambiguous regardless of
+#              which BR2_EXTERNAL owns it).  Not here, and we do NOT copy it
+#              into the drop -- it is knulli's own
+#              content and would drift.  Listed so the knulli-side package has
+#              one complete inventory, and so nothing is silently lost.
+#     mkdir    no file at all -- the package only created an empty directory.
+#              Kept because something on target may stat it.
+#
+#   src      path relative to the origin root.  "-" for mkdir.
+#
+#   dest     path under TARGET_DIR, no leading slash.
+#
+#            dest is always the FINAL path of what src becomes:
+#              src is a dir  -> dest is that dir (dest's contents = src's)
+#              src is a file -> dest is that file
+#            so "cp -r metadata/* .../bios/fbneo" is written as
+#            src=libretro-fbneo/metadata dest=.../bios/fbneo, and
+#            "cp -R assets .../ppsspp/PPSSPP" as
+#            src=libretro-ppsspp/assets dest=.../ppsspp/PPSSPP.
+#
+#   opts     "-" or comma-separated:
+#
+#     exclude=<glob>  drop matching entries while copying.
+#     so=<file>       the .so this core installs, when it is NOT
+#                     "<core>_libretro.so".  Used to GATE the row: a profile
+#                     that did not build the core does not get its payload.
+#                     Without this, every profile shipped mame's 113 MB hash/
+#                     tree and ppsspp's 23 MB of assets whether or not those
+#                     cores existed in its dist -- on a handheld image that is
+#                     not a rounding error.  Names here are knulli's installed
+#                     names (post coreassets/cores.map), because that is what
+#                     the drop's cores/ directory contains.
+#
+# WHY THE PATHS ARE NOT COPIED FROM KNULLI'S .mk FILES
+#
+# knulli pins each core at its own revision, and ours are newer.  Two rows below
+# would be wrong if transcribed: knulli's libretro-mame2003-plus (pinned
+# 3bfa9f89) and libretro-mame2010 (pinned 5f524dd5) both copy from
+# "metadata-install/", but in the revisions WE build the directory is
+# "metadata/".  Since we build the core, our checkout is the correct source for
+# its payload -- the assets have to match the binary they ship with.  Every src
+# below was verified to exist in the checkout named.
+#
+# NOT IN HERE
+#
+# libretro-core-info.  It owns all of usr/share/libretro/info -- 18 compat
+# symlinks (pce_libretro -> mednafen_pce, genesisplusgx -> genesis_plus_gx, ...)
+# plus 4 touched-empty .info files.  It is a separate package and is NOT one of
+# the 121 "select BR2_PACKAGE_LIBRETRO_*" lines, so the gate does not disable
+# it.  Leave it building.  The per-core .info rows below are the handful of
+# cores that ship an info file the upstream info repo does not carry.
+
+# core              origin  src                                                dest                                                       opts
+
+# --- evmapy key maps.  knulli/batocera authored, live in the package dirs. ---
+81                  knulli  batocera/package/batocera/emulators/retroarch/libretro/libretro-81/zx81.keys                              usr/share/evmapy/zx81.keys                                 -
+cap32               knulli  batocera/package/batocera/emulators/retroarch/libretro/libretro-cap32/amstradcpc.keys                     usr/share/evmapy/amstradcpc.keys                           -
+wasm4               knulli  batocera/package/batocera/emulators/retroarch/libretro/libretro-wasm4/wasm4.keys                          usr/share/evmapy/wasm4.keys                                -
+# crocods: its .mk copies from package/knulli/emulators/retroarch/libretro/
+# libretro-crocods/, a path that DOES NOT EXIST in the tree.  The real file is
+# package/cores/libretro-crocods/amstradcpc.keys.  Pre-existing bug, recorded
+# here with the working path so the replacement does not inherit it.
+crocods             knulli  package/cores/libretro-crocods/amstradcpc.keys          usr/share/evmapy/amstradcpc.keys                           -
+
+# --- .info files the upstream libretro-core-info repo does not carry ---
+flycastvl           knulli  package/cores/libretro-flycastvl/flycastvl_libretro.info         usr/share/libretro/info/flycastvl_libretro.info            -
+flycast-xtreme      knulli  package/cores/libretro-flycast-xtreme/flycast-xtreme_libretro.info usr/share/libretro/info/flycast-xtreme_libretro.info     -
+holani              core    libretro-holani/res/holani_libretro.info           usr/share/libretro/info/holani_libretro.info               -
+panda3ds            core    libretro-panda3ds/docs/libretro/panda3ds_libretro.info usr/share/libretro/info/panda3ds_libretro.info         -
+armgba              core    libretro-armgba/libretro/armgba_libretro.info      usr/share/libretro/info/armgba_libretro.info               -
+armgba              core    libretro-armgba/shaders                            usr/share/knulli/shaders/armgba                            -
+# melonds-ds's .info is GENERATED by its cmake build, so it cannot be harvested
+# from a clean checkout -- hence origin "build".  Note our checkout is named
+# libretro-melondsds (no hyphen) while knulli's package is libretro-melonds-ds.
+# configure_file writes it to CMAKE_CURRENT_BINARY_DIR, i.e. the cmake build dir,
+# which for this core is build/ ("buildroot-build" is what knulli's buildroot
+# package calls it and never existed here).  STILL PENDING: the core builds and
+# the .so is copied, but by the time the asset collector runs the build dir has
+# been cleaned down to _deps/, so the generated .info is already gone.  Fixing
+# it means collecting origin=build assets right after the build, not after.
+melonds-ds          build   libretro-melondsds/build/melondsds_libretro.info usr/share/libretro/info/melondsds_libretro.info   so=melondsds_libretro.so
+
+# --- BIOS / DAT / metadata payloads, harvested from our checkouts ---
+fbneo               core    libretro-fbneo/metadata                            usr/share/batocera/datainit/bios/fbneo                     -
+# 25 MB.  "light" is the n3ds build's DAT set, unused here -- knulli excludes it
+# and so do we.
+fbneo               core    libretro-fbneo/dats                                usr/share/batocera/datainit/bios/fbneo                     exclude=light
+fbneo               mkdir   -                                                  usr/share/batocera/datainit/bios/fbneo/samples             -
+mame2003-plus       core    libretro-mame2003-plus/metadata                    usr/share/batocera/datainit/bios/mame2003-plus             so=mame078plus_libretro.so
+mame2003-plus       mkdir   -                                                  usr/share/batocera/datainit/bios/mame2003-plus/samples     so=mame078plus_libretro.so
+mame2010            core    libretro-mame2010/metadata                         usr/share/knulli/datainit/bios/mame2010                    so=mame0139_libretro.so
+mame2010            mkdir   -                                                  usr/share/knulli/datainit/bios/mame2010/samples            so=mame0139_libretro.so
+bluemsx             core    libretro-bluemsx/system/bluemsx                    usr/share/batocera/datainit/bios                           -
+nestopia            core    libretro-nestopia/NstDatabase.xml                  usr/share/batocera/datainit/bios/NstDatabase.xml           -
+dinothawr           core    libretro-dinothawr/dinothawr                       usr/share/batocera/datainit/roms/dinothawr/dinothawr        -
+# 23 MB.  The core will not draw its menus without this.
+ppsspp              core    libretro-ppsspp/assets                             usr/share/ppsspp/PPSSPP                                    -
+
+# --- mame (0.2xx).  Largest payload; the hash/ tree is the software list DB. ---
+mame                core    libretro-mame/hash                                 usr/share/lr-mame/hash                                     -
+mame                core    libretro-mame/plugins                              usr/bin/mame/plugins                                       -
+mame                knulli  batocera/package/batocera/emulators/mame/blank.fmtowns                           usr/share/mame/blank.fmtowns                               -
+mame                knulli  batocera/package/batocera/emulators/mame/coindrop                                usr/bin/mame/plugins/coindrop                              -
+
+# --- generated inline by the package; carried as static files instead ---
+px68k               static  px68k/config                                       usr/share/batocera/datainit/bios/keropi/config             -
+
+# --- packages whose entire non-.so payload was an empty directory ---
+pc88                mkdir   -                                                  usr/share/batocera/datainit/bios/quasi88                   so=quasi88_libretro.so
+pc98                mkdir   -                                                  usr/share/batocera/datainit/bios/np2kai                    so=np2kai_libretro.so
+
+# imame: knulli's package name.  The core is upstream's mame2000, which is what
+# our checkout and dist/ are named -- coreassets/cores.map renames the .so to
+# imame4all_libretro.so on the way into the drop, and the src below points at
+# the checkout we actually have.  Getting this wrong is silent: the core ships
+# and only its BIOS metadata goes missing.
+imame               core    libretro-mame2000/metadata                         usr/share/batocera/datainit/bios/imame4all                 so=imame4all_libretro.so
+imame               mkdir   -                                                  usr/share/batocera/datainit/bios/imame4all/samples         so=imame4all_libretro.so
+mame2003-xtreme     core    libretro-mame2003-xtreme/metadata                  usr/share/knulli/datainit/bios/mame2003-xtreme             so=mame2003_xtreme_libretro.so
+mame2003-xtreme     mkdir   -                                                  usr/share/knulli/datainit/bios/mame2003-xtreme/samples     so=mame2003_xtreme_libretro.so
+
+# --- cores whose payload CANNOT be harvested yet: no checkout in this repo,
+#     because the core is not in any coreset (or is disabled).  Rows are kept
+#     so the inventory stays complete and the collector can warn rather than
+#     silently omit.  Add the core to a coreset to make these resolvable.
+ps2                 core    libretro-ps2/bin/resources/GameIndex.yaml          usr/share/batocera/datainit/bios/pcsx2/resources/GameIndex.yaml so=pcsx2_libretro.so

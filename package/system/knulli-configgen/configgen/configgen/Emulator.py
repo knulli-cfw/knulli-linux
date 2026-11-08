@@ -42,6 +42,12 @@ class Emulator():
         for opt in displaySettings:
             self.config["display." + opt] = displaySettings[opt]
 
+        # knulli-overlay: the injected library reads knulli.conf itself, we only
+        # need overlay.enabled here to decide whether to preload it at all
+        overlaySettings = recalSettings.load_all('overlay')
+        for opt in overlaySettings:
+            self.config["overlay." + opt] = overlaySettings[opt]
+
         # update config
         Emulator.updateConfiguration(self.config, controllersSettings)
         Emulator.updateConfiguration(self.config, globalSettings)

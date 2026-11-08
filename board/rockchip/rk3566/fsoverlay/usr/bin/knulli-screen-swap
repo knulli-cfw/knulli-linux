@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# knulli-screen-swap: move EmulationStation to the other internal panel of a
+# dual-screen board (RG DS Plus back button, RG DS sw18 key; KEY_SWITCHVIDEOMODE).
+# The choice is kept in global.videooutput; ES restarts on the new output
+# through emulationstation-standalone's switch_screen_request.
+
+# only from the menu: a running game owns the screens
+ps -ef 2>/dev/null | grep -q '[e]mulatorlauncher' && exit 0
+
+current=$(cat /var/run/drmConn 2>/dev/null)
+next=$(knulli-resolution listOutputs | grep -v "^${current} " | head -1)
+[ -n "${next}" ] || exit 0
+
+knulli-settings-set global.videooutput "${next}"
+echo "${next}" > /var/run/switch_screen_request
+curl -s http://localhost:1234/quit >/dev/null

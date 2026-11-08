@@ -1,0 +1,14 @@
+config BR2_PACKAGE_POWERVR_PRESENT_LAYER
+	bool "powervr-present-layer"
+	depends on BR2_PACKAGE_POWERVR_GE8300_DRIVER
+	select BR2_PACKAGE_VULKAN_HEADERS
+	select BR2_PACKAGE_VULKAN_LOADER
+	help
+	  Implicit Vulkan layer working around the PowerVR Rogue
+	  VK_KHR_display present path, which latches the flip one
+	  vblank after vkQueuePresentKHR returns.  With only two
+	  swapchain images that leaves no free buffer, so applications
+	  render into the image being scanned out.  The layer gives
+	  them private images and copies into the swapchain at present.
+
+	  Set KNULLI_DISABLE_POWERVR_PRESENT_LAYER=1 to bypass it.

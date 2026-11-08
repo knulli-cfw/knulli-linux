@@ -1,0 +1,16 @@
+--- a/src/backends/lsopengl.h
++++ b/src/backends/lsopengl.h
+@@ -24,6 +24,13 @@
+ 	#include <EGL/egl.h>
+ 	#include <GLES2/gl2.h>
+ 	#include <GLES2/gl2ext.h>
++	// Vendor GLES2 header sets are not all complete: the Allwinner Mali MP400
++	// (sunxi-mali utgard) gl2ext.h carries only the DXT1 half of
++	// GL_EXT_texture_compression_dxt1, so lightspark's DXT5 uses below do not
++	// compile there. The token is fixed by Khronos, so declare it when missing.
++#ifndef GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
++#define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
++#endif
+ 	//Texture formats
+ 	#ifdef GL_EXT_texture_format_BGRA8888
+ 		#define GL_RGBA8 GL_RGBA

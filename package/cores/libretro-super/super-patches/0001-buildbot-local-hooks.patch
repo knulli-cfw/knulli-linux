@@ -1,0 +1,384 @@
+diff --git a/libretro-buildbot-recipe.sh b/libretro-buildbot-recipe.sh
+index febc63f..cabe940 100644
+--- a/libretro-buildbot-recipe.sh
++++ b/libretro-buildbot-recipe.sh
+@@ -115,6 +115,20 @@
+ 	SCRIPT=$(read_link "$0")
+ 	echo "SCRIPT: $SCRIPT"
+ 	BASE_DIR=$(dirname "$SCRIPT")
++
++	# --- local: LOGTAG disambiguates log files per RECIPE.  PLATFORM is "unix"
++	#     for every profile we build, so ${core}_${PLATFORM}.log collided across
++	#     aarch64-v8a / armv7-* runs -- and since the builder uses `tee -a`, one
++	#     file ended up holding a blend of profiles, which silently invalidates
++	#     any log-based diagnosis.
++	LOGTAG="${RECIPE##*/}"
++	# --- end local ---
++
++	# --- local: per-recipe core patching (see script-modules/patch-rules.sh) ---
++	PATCH_SET="${PATCH_SET:-${RECIPE##*/}}"
++	. "$BASE_DIR/script-modules/patch-rules.sh"
++	# --- end local ---
++
+ 	if [ -z "$RARCH_DIST_DIR" ]; then
+ 		RARCH_DIR="$BASE_DIR/dist"
+ 		RARCH_DIST_DIR="$RARCH_DIR/$DIST_DIR"
+@@ -299,7 +313,17 @@
+ 		ENTRY_ID=`curl -X POST -d type="start" -d master_log="$MASTER_LOG_ID" -d platform="$jobid" -d name="$NAME" http://buildserver.libretro.com/build_entry/`
+ 	fi
+ 
+-	cd "${DIR}"
++	# --- local: bail out instead of building from the WRONG directory.  A
++	#     failed clone (dead URL, missing branch) leaves ${DIR} absent, "cd"
++	#     fails, and the rest of this function then runs in libretro-super's
++	#     own root -- which is how the stray build/ and builddir/ directories
++	#     appeared there, and how cmake ended up reporting libretro-super
++	#     itself as the source dir instead of the core.
++	if ! cd "${DIR}" 2>/dev/null; then
++		echo "!!! checkout missing: ${DIR} -- skipping ${NAME}" >&2
++		CORE_BUILD_RET=1
++		return 1
++	fi
+ 
+ 	if [ "${COMMAND}" = "CMAKE" ] && [ "${SUBDIR}" != . ]; then
+ 		rm -rf -- "$SUBDIR"
+@@ -314,10 +338,17 @@
+ 		fi
+ 	fi
+ 
+-	case "{$NAME}" in
+-		*higan_sfc*|*bsnes* ) OUT="out" ;;
++	# --- local: "{$NAME}" is upstream's typo for "${NAME}" -- it expands to the
++	#     literal {bsnes} and only matched because the patterns are wildcards.
++	#     Fixed, and narrowed to *bsnes_hd*: those build via GNUmakefile in the
++	#     bsnes/ SUBDIR, which writes to out/.  Plain bsnes is built from the
++	#     repo-root Makefile (the libretro-only target, no hiro/ruby GUI and so
++	#     no X11), and that one leaves the .so in the root.
++	case "${NAME}" in
++		*higan_sfc*|*bsnes_hd* ) OUT="out" ;;
+ 		* ) OUT=. ;;
+ 	esac
++	# --- end local ---
+ 
+ 	cd "${SUBDIR}"
+ 
+@@ -333,16 +364,34 @@
+ 		fi
+ 
+ 		CORE_ARGS="${CORE_ARGS#"${CORE_ARGS%%[! ]*}"}"
++
++		# --- local: target-wide make args from the recipe .conf, prepended so a
++		#     per-core recipe arg still wins.  Unknown vars on a make command
++		#     line are simply unused, so this is safe for every make-based core.
++		#
++		#     NOT for COMMAND=CMAKE: there CORE_ARGS is spliced straight into the
++		#     cmake command line (see the CMAKE branch below), so "HAVE_NEON=1"
++		#     arrives as a positional argument and cmake reads it as the source
++		#     directory -- "The source directory .../build/HAVE_NEON=1 does not
++		#     exist", which then leaves an unconfigured build dir and makes the
++		#     following "cmake --build" fail with "No rule to make target
++		#     'Makefile'".  That is what killed the whole tier4-cmake coreset.
++		#     CMake cores get their equivalents as -D flags from coreargs.
++		if [ -n "${EXTRA_ARGS}" ] && [ "${COMMAND}" != "CMAKE" ]; then
++			CORE_ARGS="${EXTRA_ARGS} ${CORE_ARGS}"
++		fi
++		# --- end local ---
++
+ 		CORENAM="${core}_libretro${FORMAT}${LIBSUFFIX}.${FORMAT_EXT}"
+ 
+ 		if [ "${COMMAND}" = "LEIRADEL" ]; then
+ 			ARG1="${CORE_ARGS%% *}"
+-			LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${PLATFORM}_${ARG1}.log"
++			LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${LOGTAG}_${ARG1}.log"
+ 			ORIGNAM="${core}_libretro.${PLATFORM}_${ARG1}.${FORMAT_EXT}"
+ 			OUTPUT="$RARCH_DIST_DIR/${DIST}/${ARG1}/${CORENAM}"
+ 			mkdir -p -- "$RARCH_DIST_DIR/${DIST}/${ARG1}"
+ 		else
+-			LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${PLATFORM}.log"
++			LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${LOGTAG}.log"
+ 			ORIGNAM="${CORENAM}"
+ 			OUTPUT="$RARCH_DIST_DIR/${DIST}/${CORENAM}"
+ 		fi
+@@ -399,7 +448,30 @@
+ 				JOBS_FLAG=-maxcpucount:
+ 			fi
+ 
+-			eval "set -- ${EXTRAARGS} \${CORE_ARGS} -DCMAKE_VERBOSE_MAKEFILE=ON"
++			# --- local: profile-wide cmake flags from the recipe .conf.  The
++			#     buildbot's own EXTRAARGS case above has an EMPTY default for
++			#     platform=unix, so without this a CMAKE core is configured as a
++			#     NATIVE build: try_run misbehaves and find_package resolves HOST
++			#     zlib/png.  Placed BEFORE CORE_ARGS so a per-core -D from
++			#     coreargs still wins (cmake takes the last -D for a given var).
++			# --- local: split VAR=value tokens out of CORE_ARGS and EXPORT them
++			#     rather than passing them to cmake.  For a make-based core those
++			#     tokens are make variables that make re-exports to its recipe
++			#     subprocesses, which is how the compiler wrapper receives
++			#     NO_FAST_MATH=1; a cmake core has no equivalent channel, and a
++			#     bare VAR=value on the cmake command line is read as a source
++			#     directory.  Needed by play (sqlite3.c has an explicit
++			#     "#error SQLite will not work correctly with -ffast-math").
++			CMAKE_ONLY_ARGS=""
++			for _t in ${CORE_ARGS}; do
++				case "$_t" in
++					[A-Za-z_]*=* ) export "${_t%%=*}"="${_t#*=}" ;;
++					* ) CMAKE_ONLY_ARGS="${CMAKE_ONLY_ARGS} $_t" ;;
++				esac
++			done
++			eval "set -- ${EXTRAARGS} \${CMAKE_EXTRA_ARGS} \${CMAKE_ONLY_ARGS} -DCMAKE_VERBOSE_MAKEFILE=ON"
++			# --- end local ---
++			# --- end local ---
+ 			echo "BUILD CMD: ${HELPER} ${CMAKE} $*" 2>&1 | tee -a "$LOGFILE"
+ 			echo "$@" .. | xargs ${HELPER} ${CMAKE} 2>&1 | tee -a "$LOGFILE"
+ 			echo "BUILD CMD: ${HELPER} ${CMAKE} --build . --target ${core}_libretro --config Release -- ${JOBS_FLAG} ${JOBS}" 2>&1 | tee -a "$LOGFILE"
+@@ -416,6 +488,14 @@
+ 			${HELPER} ${MAKE} -f ${MAKEFILE} -j${JOBS} ${CORE_ARGS} 2>&1 | tee -a "$LOGFILE"
+ 		else
+ 			eval "set -- ${HELPER} ${MAKE} -f ${MAKEFILE} platform=${PLATFORM} -j${JOBS} ${CORE_ARGS}"
++			# --- local: restore spaces inside a single arg.  ARGS is flattened
++			#     into one string and eval'd, so a real space in a value like
++			#     GL_LIB="-lGLESv2 -lEGL" would word-split into two make targets.
++			#     gen-recipe.sh emits @SP@ in its place; undo that here, AFTER
++			#     splitting, so the value stays one argument.
++			_qargs=(); for _a in "$@"; do _qargs+=("${_a//@SP@/ }"); done
++			set -- "${_qargs[@]}"
++			# --- end local ---
+ 			echo "BUILD CMD: $*" 2>&1 | tee -a "$LOGFILE"
+ 			"$@" 2>&1 | tee -a "$LOGFILE"
+ 		fi
+@@ -436,6 +516,13 @@
+ 		cp "${OUT}/${ORIGNAM}" "${OUTPUT}"
+ 
+ 		RET=$?
++		# --- local: report the outcome to the main loop.  RET is the status of
++		#     the artifact copy, which is the only signal this builder emits for
++		#     "did the core actually produce a .so".  Sticky across the CORES
++		#     loop: one failed ABI fails the core.
++		[ "$RET" != "0" ] && CORE_BUILD_RET="$RET"
++		CORE_BUILD_OUTPUT="${CORE_BUILD_OUTPUT} ${OUTPUT}"
++		# --- end local ---
+ 		buildbot_handle_message "$RET" "$ENTRY_ID" "$core" "$jobid" "$LOGFILE"
+ 	done
+ 
+@@ -473,7 +560,7 @@
+ 
+ 	CORENAM="${NAME}_libretro${FORMAT}${LIBSUFFIX}.${FORMAT_EXT}"
+ 
+-	LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${NAME}_${PLATFORM}.log"
++	LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${NAME}_${LOGTAG}.log"
+ 	echo '--------------------------------------------------' | tee "$LOGFILE"
+ 	cat $TMPDIR/vars | tee -a "$LOGFILE"
+ 
+@@ -555,7 +642,7 @@
+ 			LIBNAM="libretro_${core}"
+ 		fi
+ 
+-		LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${PLATFORM}.log"
++		LOGFILE="$TMPDIR/log/${BOT}/${LOGDATE}/${LOGDATE}_${core}_${LOGTAG}.log"
+ 		echo '--------------------------------------------------' | tee "$LOGFILE"
+ 		cat $TMPDIR/vars | tee -a "$LOGFILE"
+ 
+@@ -608,6 +695,33 @@
+ 
+ export jobid=$1
+ 
++# --- local: pinned-revision support (recipe field 4 = "<branch>@<sha>").
++ensure_pinned_rev() {
++	# $1 = checkout dir, $2 = branch, $3 = commit.  Leaves the work tree hard
++	# reset to $3.  Non-zero if the commit cannot be obtained.
++	local d="$1" br="$2" sha="$3" depth
++	if ! git -C "$d" cat-file -e "${sha}^{commit}" 2>/dev/null; then
++		# GitHub serves `fetch <sha>` only with uploadpack.allowReachableSHA1InWant,
++		# which it does not enable -- so try it (other hosts do allow it), then
++		# deepen the branch progressively.  Deepening beats unshallowing every
++		# repo up front: most pins are recent and land in the first step.
++		git -C "$d" fetch --depth 1 origin "$sha" 2>/dev/null
++		for depth in 64 512 4096; do
++			git -C "$d" cat-file -e "${sha}^{commit}" 2>/dev/null && break
++			echo "deepening ${d} to ${depth} commits looking for ${sha:0:12}..."
++			git -C "$d" fetch --depth "$depth" origin "$br" >/dev/null 2>&1
++		done
++		if ! git -C "$d" cat-file -e "${sha}^{commit}" 2>/dev/null; then
++			echo "unshallowing ${d}..."
++			git -C "$d" fetch --unshallow origin "$br" >/dev/null 2>&1 || \
++				git -C "$d" fetch origin "$br" >/dev/null 2>&1
++		fi
++	fi
++	git -C "$d" cat-file -e "${sha}^{commit}" 2>/dev/null || return 1
++	git -C "$d" reset --hard "$sha" >/dev/null 2>&1
++}
++# --- end local ---
++
+ # ----- fetch a project -----
+ echo
+ echo
+@@ -620,16 +734,35 @@
+ 	GIT_BRANCH="$4"
+ 	ENABLED="$5"
+ 	COMMAND="$6"
++
++	# --- local: field 4 accepts "<branch>" or "<branch>@<sha>".  A pin freezes
++	#     the core at one commit instead of tracking the branch tip, so a build
++	#     is reproducible and an upstream regression cannot land silently.  The
++	#     branch is still required: it is what gets fetched, and what a shallow
++	#     clone needs.  Changing a pin changes the recipe line, which the
++	#     .libretro-core-recipe check already turns into a rebuild.
++	case "$GIT_BRANCH" in
++		*@*) GIT_PIN="${GIT_BRANCH##*@}"; GIT_BRANCH="${GIT_BRANCH%@*}" ;;
++		*)   GIT_PIN="" ;;
++	esac
++	# --- end local ---
+ 	MAKEFILE="$7"
+ 	SUBDIR="$8"
+ 	ARGS=""
+ 	CORES=""
+ 
++	# --- local: SINGLE_CORE accepts a space-separated LIST, not just one name,
++	#     so a targeted re-run ("rebuild the 10 cmake cores") is one invocation
++	#     instead of ten.  A bare name still behaves exactly as before.
+ 	if [ -z "${SINGLE_CORE:-}" ]; then
+ 		CORE=""
+-	elif [ "$NAME" != "$SINGLE_CORE" ]; then
+-		continue
++	else
++		case " ${SINGLE_CORE} " in
++			*" ${NAME} "* ) CORE="" ;;
++			* )             continue ;;
++		esac
+ 	fi
++	# --- end local ---
+ 
+ 	shift 8
+ 	while [ $# -gt 0 ]; do
+@@ -671,6 +804,10 @@
+ 		rm -rf -- "$DIR"
+ 		echo "cloning repo $URL..."
+ 		git clone --depth=1 -b "$GIT_BRANCH" "$URL" "$DIR"
++		# --- local:
++		[ -n "$GIT_PIN" ] && { ensure_pinned_rev "$DIR" "$GIT_BRANCH" "$GIT_PIN" || \
++			echo "!!! PIN NOT FOUND for $NAME: $GIT_PIN (building branch tip)" >&2; }
++		# --- end local ---
+ 		BUILD="YES"
+ 	else
+ 		if [ -f "$DIR/.forcebuild" ]; then
+@@ -688,7 +825,20 @@
+ 			rm -rf -- "$DIR"
+ 			echo "cloning repo $URL..."
+ 			git clone --depth=1 -b "$GIT_BRANCH" "$URL" "$DIR"
++			# --- local:
++			[ -n "$GIT_PIN" ] && { ensure_pinned_rev "$DIR" "$GIT_BRANCH" "$GIT_PIN" || \
++				echo "!!! PIN NOT FOUND for $NAME: $GIT_PIN (building branch tip)" >&2; }
++			# --- end local ---
+ 			BUILD="YES"
++		# --- local: a pinned core resets to its pin, NOT to FETCH_HEAD -- the
++		#     whole point is that a moving branch tip must not reach the build.
++		#     Skipping the branch fetch entirely also makes repeat runs cheap.
++		elif [ -n "$GIT_PIN" ] && [ -z "${NOCLEAN}" ]; then
++			echo "pinned: $NAME @ ${GIT_PIN:0:12}"
++			ensure_pinned_rev "$DIR" "$GIT_BRANCH" "$GIT_PIN" || \
++				echo "!!! PIN NOT FOUND for $NAME: $GIT_PIN (leaving tree as-is)" >&2
++			git -C "$DIR" clean -xdf -e .libretro-core-recipe
++		# --- end local ---
+ 		elif [ -z "${NOCLEAN}" ]; then
+ 			echo "fetching changes from repo $URL..."
+ 			git --work-tree="$DIR" --git-dir="$DIR/.git" fetch --depth 1 origin "${GIT_BRANCH}"
+@@ -728,13 +878,49 @@
+ 	fi
+ 
+ 	if git config --file "$DIR/.gitmodules" --name-only --get-regexp path >/dev/null 2>&1; then
+-		git --work-tree="." --git-dir=".git" -C "$DIR" submodule update --init --recursive
++		# --- local: --force.  The post-build "git clean -xdf" empties submodule
++		#     WORKTREES while leaving them registered at the right commit, so
++		#     plain "submodule update --init" sees nothing to do and the sources
++		#     never come back.  dolphin fails this way on the second build
++		#     onwards: Externals/cpp-optparse/cpp-optparse holds only .git, and
++		#     cmake reports "Cannot find source file: cpp-optparse/OptionParser.cpp".
++		git --work-tree="." --git-dir=".git" -C "$DIR" submodule update --init --recursive --force
+ 	fi
+ 
++	# --- local: an edited/added/removed patch must force a rebuild, which
++	#     upstream's BUILD=YES logic (new commits / recipe-line changes) misses.
++	if core_patches_changed "$NAME"; then
++		echo "patch set for $NAME changed, building"
++		BUILD="YES"
++	fi
++	# --- end local ---
++
+ 	if [ "${BUILD}" = "YES" ] || [ "${FORCE}" = "YES" ]; then
+ 		touch $TMPDIR/built-cores
+ 		CORES_BUILT=YES
+ 		echo "buildbot job: building $NAME"
++
++		# --- local: every profile builds in this one work tree.  Under NOCLEAN
++		#     (UPDATE=1) another profile's objects survive and make takes them as
++		#     up to date -- the v8a drop shipped v8.2a builds of stella and ten
++		#     others, LSE atomics and all, which SIGILL on a Cortex-A53.  Clean
++		#     the tree when it was last built for a different recipe.
++		if [ "$(cat "$DIR/.libretro-core-profile" 2>/dev/null)" != "$LOGTAG" ]; then
++			echo "work tree of $NAME not built for $LOGTAG, cleaning"
++			git -C "$DIR" clean -xdf -e .libretro-core-recipe -e .libretro-core-profile
++			git -C "$DIR" submodule foreach --quiet --recursive git clean -xdf
++			echo "$LOGTAG" > "$DIR/.libretro-core-profile"
++		fi
++		# --- end local ---
++
++		# --- local: apply patches here -- after reset --hard/clean/submodules,
++		#     before the build.  Anywhere earlier and they get wiped.
++		apply_core_patches "$NAME" "$DIR" || \
++			echo "WARNING: patches failed for $NAME, building unpatched tree" >&2
++		CORE_BUILD_RET=0
++		CORE_BUILD_OUTPUT=""
++		# --- end local ---
++
+ 		case "${COMMAND}" in
+ 			ANDROID_CMAKE ) build_libretro_android_cmake $NAME $DIR $SUBDIR $MAKEFILE ${FORMAT_COMPILER_TARGET} "${ARGS}" ;;
+ 			CMAKE|GENERIC|GENERIC_GL )
+@@ -745,6 +931,26 @@
+ 			* )           :                                                                                                           ;;
+ 		esac
+ 
++		# --- local: stamp on SUCCESS only, and never leave a stale artifact
++		#     behind a failure.  Both halves matter: a stamp written before the
++		#     build makes a failed core BUILD=NO forever, and the copy that
++		#     failed leaves the PREVIOUS .so in dist/, so dist/ silently serves
++		#     an artifact built from a different tree than the recipe names.
++		if [ "${CORE_BUILD_RET:-0}" = "0" ]; then
++			record_core_patch_stamp "$NAME"
++		else
++			echo "!!! BUILD FAILED: $NAME" >&2
++			clear_core_patch_stamp "$NAME"
++			for _stale in ${CORE_BUILD_OUTPUT}; do
++				if [ -f "$_stale" ]; then
++					echo "!!! removing stale artifact: $_stale" >&2
++					rm -f -- "$_stale"
++				fi
++			done
++			FAILED_CORES="${FAILED_CORES} ${NAME}"
++		fi
++		# --- end local ---
++
+ 		if [ -z "${NOCLEAN}" ]; then
+ 			echo "Cleaning repo state after build $URL..."
+ 			git --work-tree="${BASE_DIR}/${DIR}" --git-dir="${BASE_DIR}/${DIR}/.git" clean -xdf -e .libretro-core-recipe
+@@ -1704,3 +1910,21 @@
+ fi
+ 
+ PATH=$ORIGPATH
++
++# --- local: fail loudly.  Upstream exits 0 whether or not cores built, so an
++#     80-file dist/ looks complete either way.  Anything scripting this (the
++#     Knulli image integration step) needs a status it can branch on.
++#     The list is also written out, not just printed: a PARTIAL drop has to name
++#     what is missing from it, and stdout is gone by then.
++rm -f "$TMPDIR/failed-cores"
++if [ -n "${FAILED_CORES}" ]; then
++	printf '%s\n' ${FAILED_CORES} > "$TMPDIR/failed-cores"
++	echo
++	echo "=============================================="
++	echo "BUILD FAILURES:$FAILED_CORES"
++	echo "Their stale artifacts were removed from dist/ and their patch stamps"
++	echo "cleared, so the next run retries them."
++	echo "=============================================="
++	exit 1
++fi
++# --- end local ---

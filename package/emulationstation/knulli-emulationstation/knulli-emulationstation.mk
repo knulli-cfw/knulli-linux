@@ -3,8 +3,8 @@
 # knulli-emulationstation
 #
 ################################################################################
-# Last update: Commits on October 1, 2026
-KNULLI_EMULATIONSTATION_VERSION = 10834d004ec3de0808703b46220b6a8574d53218
+# Last update: Commits on November 6, 2026
+KNULLI_EMULATIONSTATION_VERSION = e154c65feae9a0d702350b6082ec35d0a290b009
 KNULLI_EMULATIONSTATION_SITE = https://github.com/knulli-cfw/batocera-emulationstation
 KNULLI_EMULATIONSTATION_SITE_METHOD = git
 KNULLI_EMULATIONSTATION_LICENSE = MIT
@@ -17,6 +17,10 @@ KNULLI_EMULATIONSTATION_INSTALL_STAGING = YES
 
 KNULLI_EMULATIONSTATION_CONF_OPTS += \
     -DCMAKE_CXX_FLAGS=-D$(call UPPERCASE,$(KNULLI_SYSTEM_ARCH))
+
+# cmake 4 removed compatibility with cmake_minimum_required(VERSION < 3.5);
+# the bundled external/pugixml still declares 3.0
+KNULLI_EMULATIONSTATION_CONF_OPTS += -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 ifeq ($(BR2_PACKAGE_HAS_LIBMALI),y)
 KNULLI_EMULATIONSTATION_DEPENDENCIES += libmali

@@ -2,6 +2,8 @@
 #include <SDL/SDL_ttf.h>
 #include <SDL/SDL_rotozoom.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <linux/input.h>
 #include <linux/fb.h>
 #include <stdio.h>
@@ -215,8 +217,61 @@ ButtonPressResult waitForButtonPress(void) {
     return TIMEOUT; // Just to satisfy compiler, function should end in one of the above cases
 }
 
+/*
+ * Put the finished frame on the panel in one copy into the visible part of
+ * /dev/fb0.  Going through the Mali fbdev SDL driver would set up an EGL
+ * window first and flip to one of its empty buffers: a black flash between
+ * the boot logo (U-Boot's, kept by the kernel) and this screen.  A portrait
+ * panel (rg28xx) gets the landscape frame turned back 90 degrees, the
+ * inverse of the -90 the logo was given below.
+ */
+static void presentOnFramebuffer(SDL_Surface *frame) {
+    int fd = open("/dev/fb0", O_RDWR);
+    if (fd < 0)
+        return;
+    struct fb_var_screeninfo v;
+    struct fb_fix_screeninfo f;
+    if (ioctl(fd, FBIOGET_VSCREENINFO, &v) || ioctl(fd, FBIOGET_FSCREENINFO, &f) ||
+        v.bits_per_pixel != 32) {
+        close(fd);
+        return;
+    }
+    SDL_Surface *src = frame, *rotated = NULL;
+    if (v.xres < v.yres && frame->w > frame->h) {
+        rotated = rotozoomSurface(frame, 90, 1.0, 0);
+        if (rotated)
+            src = rotated;
+    }
+    SDL_PixelFormat fmt = *frame->format;
+    fmt.Rmask = 0xffu << v.red.offset;   fmt.Rshift = v.red.offset;
+    fmt.Gmask = 0xffu << v.green.offset; fmt.Gshift = v.green.offset;
+    fmt.Bmask = 0xffu << v.blue.offset;  fmt.Bshift = v.blue.offset;
+    fmt.Amask = 0; fmt.Ashift = 0; fmt.BitsPerPixel = 32; fmt.BytesPerPixel = 4;
+    SDL_Surface *conv = SDL_ConvertSurface(src, &fmt, SDL_SWSURFACE);
+    size_t len = f.smem_len;
+    unsigned char *fb = (unsigned char *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (conv && fb != MAP_FAILED) {
+        unsigned char *dst = fb + (size_t)v.yoffset * f.line_length + (size_t)v.xoffset * 4;
+        int w = conv->w < (int)v.xres ? conv->w : (int)v.xres;
+        int h = conv->h < (int)v.yres ? conv->h : (int)v.yres;
+        SDL_LockSurface(conv);
+        for (int y = 0; y < h; y++)
+            memcpy(dst + (size_t)y * f.line_length,
+                   (unsigned char *)conv->pixels + (size_t)y * conv->pitch, (size_t)w * 4);
+        SDL_UnlockSurface(conv);
+        munmap(fb, len);
+    }
+    if (conv)
+        SDL_FreeSurface(conv);
+    if (rotated)
+        SDL_FreeSurface(rotated);
+    close(fd);
+}
+
 void displayMessage(const std::string& chargeStatus, const std::string& batteryLevel) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    /* compose in a software surface, no video subsystem (the SDL2 behind
+     * sdl12-compat has no dummy driver); presentOnFramebuffer() shows it */
+    if (SDL_Init(0) != 0) {
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
         exit(EXIT_FAILURE);
     }
@@ -256,16 +311,22 @@ void displayMessage(const std::string& chargeStatus, const std::string& batteryL
 	    screenHeight = vinfo.xres;
     }
 
-    SDL_Surface *screen = SDL_SetVideoMode(screenWidth, screenHeight, 32, SDL_SWSURFACE);
+    SDL_Surface *screen = SDL_CreateRGBSurface(SDL_SWSURFACE, screenWidth, screenHeight, 32,
+                                               0x00ff0000, 0x0000ff00, 0x000000ff, 0);
     if (screen == NULL) {
-        fprintf(stderr, "Could not set video mode: %s\n", SDL_GetError());
+        fprintf(stderr, "Could not create the screen surface: %s\n", SDL_GetError());
         TTF_Quit();
         SDL_Quit();
         exit(EXIT_FAILURE);
     }
 
     // Load the background image
-    SDL_Surface* bgSurface = SDL_LoadBMP("/boot/bootlogo.bmp");
+    // one image for every board: the logo that matches the panel, if there is one
+    char logoPath[64];
+    snprintf(logoPath, sizeof(logoPath), "/boot/bootlogo-%ux%u.bmp", vinfo.xres, vinfo.yres);
+    if (access(logoPath, R_OK) != 0)
+        strcpy(logoPath, "/boot/bootlogo.bmp");
+    SDL_Surface* bgSurface = SDL_LoadBMP(logoPath);
     if (bgSurface == NULL) {
         fprintf(stderr, "Could not load background image: %s\n", SDL_GetError());
         TTF_Quit();
@@ -299,8 +360,8 @@ void displayMessage(const std::string& chargeStatus, const std::string& batteryL
     
 
     SDL_Color textColor = {255, 255, 255};
-    SDL_Surface* bottomTextSurface;
-    SDL_Surface* centerTextSurface;
+    SDL_Surface* bottomTextSurface = NULL;
+    SDL_Surface* centerTextSurface = NULL;
     if (chargeStatus.empty()) {
         // If chargeStatus is empty, display only the batteryLevel as a message
         centerTextSurface = TTF_RenderText_Blended(font, batteryLevel.c_str(), textColor);
@@ -310,7 +371,7 @@ void displayMessage(const std::string& chargeStatus, const std::string& batteryL
         centerTextSurface = TTF_RenderText_Blended(font, "Press Power Button to Boot...", textColor);
     }
 
-    if (bottomTextSurface == NULL || centerTextSurface == NULL) {
+    if ((!chargeStatus.empty() && bottomTextSurface == NULL) || centerTextSurface == NULL) {
         std::cout << "Failed to create text surface: " << TTF_GetError() << std::endl;
         TTF_CloseFont(font);
         TTF_Quit();
@@ -319,26 +380,31 @@ void displayMessage(const std::string& chargeStatus, const std::string& batteryL
     }
 
     // Centering the bottom text
-    int bottomTextX = (screen->w - bottomTextSurface->w) / 2;
-    int bottomTextY = screen->h - bottomTextSurface->h - 30; // 10 pixels from the bottom
+    int bottomW = bottomTextSurface ? bottomTextSurface->w : 0;
+    int bottomH = bottomTextSurface ? bottomTextSurface->h : 0;
+    int bottomTextX = (screen->w - bottomW) / 2;
+    int bottomTextY = screen->h - bottomH - 30; // 10 pixels from the bottom
 
     // Centering the center text
     int centerTextX = (screen->w - centerTextSurface->w) / 2;
     int centerTextY = screen->h - centerTextSurface->h - 70; //30 pixels from the bottom
 
-    SDL_Rect bottomTextRect = {bottomTextX, bottomTextY, bottomTextSurface->w, bottomTextSurface->h};
+    SDL_Rect bottomTextRect = {(Sint16)bottomTextX, (Sint16)bottomTextY, (Uint16)bottomW, (Uint16)bottomH};
     SDL_Rect centerTextRect = {centerTextX, centerTextY, centerTextSurface->w, centerTextSurface->h};
 
-    SDL_BlitSurface(bottomTextSurface, NULL, screen, &bottomTextRect);
+    if (bottomTextSurface)
+        SDL_BlitSurface(bottomTextSurface, NULL, screen, &bottomTextRect);
     SDL_BlitSurface(centerTextSurface, NULL, screen, &centerTextRect);
 
-    SDL_Flip(screen); // Update the screen
+    presentOnFramebuffer(screen);
+    SDL_FreeSurface(screen);
 
     if (chargeStatus.empty()) {
         SDL_Delay(DISPLAY_TIME); // Display for a fixed time
     } 
 
-    SDL_FreeSurface(bottomTextSurface);
+    if (bottomTextSurface)
+        SDL_FreeSurface(bottomTextSurface);
     SDL_FreeSurface(centerTextSurface);
     TTF_CloseFont(font);
     TTF_Quit();

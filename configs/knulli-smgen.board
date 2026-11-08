@@ -1,0 +1,78 @@
+include knulli-board.common
+
+# Target definition: one ARMv8.2-A rootfs for every Qualcomm SM board
+# (sm8250, sm8550, sm4450, sm6450); sm6115 is ARMv8.0 and builds separately.
+BR2_aarch64=y
+BR2_cortex_a76_a55=y
+BR2_ARM_FPU_NEON_FP_ARMV8=y
+BR2_PACKAGE_BATOCERA_TARGET_SMGEN=y
+BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char"
+BR2_TARGET_GENERIC_GETTY_PORT="ttyMSM0"
+BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
+BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/patches"
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/fsoverlay"
+
+# Kernel
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="7.2.8"
+BR2_KERNEL_HEADERS_7_2=y
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/linux_patches"
+BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/linux_smgen-defconfig.config"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="qcom/sm8250-retroidpocket-flip2 qcom/sm8250-retroidpocket-flip2-visionox qcom/sm8250-retroidpocket-rp5 qcom/sm8250-retroidpocket-rp5-visionox qcom/sm8250-retroidpocket-rpmini qcom/sm8250-retroidpocket-rpminiv2 qcom/qcs8550-retroidpocket-rpnova qcom/qcs8550-retroidpocket-rp6 qcom/qcs8550-retroidpocket-rp6-top-dpad qcom/qcs8550-ayn-odin2 qcom/qcs8550-ayn-odin2portal qcom/qcs8550-ayn-odin2mini qcom/qcs8550-ayn-thor qcom/qcs8550-ayaneo-pocketace qcom/qcs8550-ayaneo-pocketdmg qcom/qcs8550-ayaneo-pocketds qcom/qcs8550-ayaneo-pocketevo qcom/qcs8550-ayaneo-pockets1k qcom/qcs8550-ayaneo-pockets2k qcom/qcs8550-ayaneo-pocketsmini qcom/sm4450-anbernic-rg55g1 qcom/sm4450-retroid-pocket-classic-revq qcom/sm6450-trimui-tg4070"
+BR2_LINUX_KERNEL_CUSTOM_DTS_PATH="$(BR2_EXTERNAL_KNULLI_PATH)/board/qualcomm/smgen/dts/*"
+
+# System
+BR2_PACKAGE_BATOCERA_USE_QCOM_FW=y
+BR2_PACKAGE_QUALCOMM_FIRMWARE=y
+BR2_PACKAGE_FIRMWARE_ARMBIAN=y
+BR2_TOOLCHAIN_BUILDROOT_WCHAR=y
+BR2_TARGET_ROOTFS_CPIO_LZ4=y
+BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
+
+# GPU
+BR2_PACKAGE_BATOCERA_FREEDRENO_MESA3D=y
+BR2_PACKAGE_BATOCERA_WAYLAND_LABWC=y
+BR2_PACKAGE_BATOCERA_XWAYLAND=y
+
+# Filesystem tools
+BR2_PACKAGE_HOST_DOSFSTOOLS=y
+BR2_PACKAGE_HOST_GENIMAGE=y
+BR2_PACKAGE_HOST_MTOOLS=y
+
+# ABL Bootloader
+BR2_PACKAGE_ROCKNIX_ABL=y
+BR2_PACKAGE_HOST_PYTHON_MKBOOTIMG=y
+
+# Batocera Splash Support
+BR2_PACKAGE_BATOCERA_SPLASH_MPV=n
+
+BR2_PACKAGE_XCB_UTIL_KEYSYMS=y
+
+
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="smgen"
+BR2_PACKAGE_IPUTILS=y
+BR2_PACKAGE_MPV=y
+
+# ADB
+BR2_PACKAGE_ANDROID_TOOLS=y
+BR2_PACKAGE_ANDROID_TOOLS_ADBD=y
+
+# NO emulators drop for this board.  The drop is keyed on the ABI profile alone,
+# and aarch64-v8.2a is harvested from a527 -- a MALI board.  sm8250/sm8550 are
+# Adreno/freedreno and ship no libmali at all, so the payload fails the soname
+# check on libmali.so.0 (plus ffmpeg/icu drift).  Emulators link the GPU stack,
+# so an emulators drop has to be keyed on ABI *and* GPU vendor, the same reason
+# knulli-armhf-drop is keyed per board.  Until that exists, build them here.

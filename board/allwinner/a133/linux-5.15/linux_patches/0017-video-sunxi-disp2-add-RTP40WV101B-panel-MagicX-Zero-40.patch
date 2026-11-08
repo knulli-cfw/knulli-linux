@@ -1,0 +1,272 @@
+From: denghaijian <denghaijian@gurobot.com>
+Subject: [PATCH] video: sunxi: disp2: add RTP40WV101B panel (MagicX Zero 40)
+
+From the vendor 4.9 tree (MagicX A133 SDK, zero40 patch), unchanged apart
+from the header comment; registered for the 5.15 BSP disp2 layer.
+---
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/RTP40WV101B.c
+@@ -0,0 +1,191 @@
++/* drivers/video/sunxi/disp2/disp/lcd/RTP40WV101B.c (MagicX Zero 40, ported from the vendor 4.9 tree)
++ *
++ * Copyright (c) 2024 gurobot Co., Ltd.
++ * Author: denghaijian <denghaijian@gurobot.com>
++ *
++ * RTP40WV101B panel driver
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#include "RTP40WV101B.h"
++
++static void lcd_power_on(u32 sel);
++static void lcd_power_off(u32 sel);
++static void lcd_bl_open(u32 sel);
++static void lcd_bl_close(u32 sel);
++
++static void lcd_panel_init(u32 sel);
++static void lcd_panel_exit(u32 sel);
++
++#define panel_reset(sel, val) sunxi_lcd_gpio_set_value(sel, 0, val)
++#define LED_SET(sel, val) sunxi_lcd_gpio_set_value(sel, 1, val)
++#define tp_reset(sel, val) sunxi_lcd_gpio_set_value(sel, 2, val)
++
++static void lcd_cfg_panel_info(struct panel_extend_para *info)
++{
++	u32 i = 0, j = 0;
++	u32 items;
++	u8 lcd_gamma_tbl[][2] = {
++		{0, 0},
++		{15, 15},
++		{30, 30},
++		{45, 45},
++		{60, 60},
++		{75, 75},
++		{90, 90},
++		{105, 105},
++		{120, 120},
++		{135, 135},
++		{150, 150},
++		{165, 165},
++		{180, 180},
++		{195, 195},
++		{210, 210},
++		{225, 225},
++		{240, 240},
++		{255, 255},
++	};
++
++	u32 lcd_cmap_tbl[2][3][4] = {
++	{
++		{LCD_CMAP_G0, LCD_CMAP_B1, LCD_CMAP_G2, LCD_CMAP_B3},
++		{LCD_CMAP_B0, LCD_CMAP_R1, LCD_CMAP_B2, LCD_CMAP_R3},
++		{LCD_CMAP_R0, LCD_CMAP_G1, LCD_CMAP_R2, LCD_CMAP_G3},
++		},
++		{
++		{LCD_CMAP_B3, LCD_CMAP_G2, LCD_CMAP_B1, LCD_CMAP_G0},
++		{LCD_CMAP_R3, LCD_CMAP_B2, LCD_CMAP_R1, LCD_CMAP_B0},
++		{LCD_CMAP_G3, LCD_CMAP_R2, LCD_CMAP_G1, LCD_CMAP_R0},
++		},
++	};
++
++	items = sizeof(lcd_gamma_tbl) / 2;
++	for (i = 0; i < items - 1; i++) {
++		u32 num = lcd_gamma_tbl[i+1][0] - lcd_gamma_tbl[i][0];
++
++		for (j = 0; j < num; j++) {
++			u32 value = 0;
++
++			value = lcd_gamma_tbl[i][1] +
++				((lcd_gamma_tbl[i+1][1] - lcd_gamma_tbl[i][1])
++				* j) / num;
++			info->lcd_gamma_tbl[lcd_gamma_tbl[i][0] + j] =
++							(value<<16)
++							+ (value<<8) + value;
++		}
++	}
++	info->lcd_gamma_tbl[255] = (lcd_gamma_tbl[items-1][1]<<16) +
++					(lcd_gamma_tbl[items-1][1]<<8)
++					+ lcd_gamma_tbl[items-1][1];
++
++	memcpy(info->lcd_cmap_tbl, lcd_cmap_tbl, sizeof(lcd_cmap_tbl));
++
++}
++
++static s32 lcd_open_flow(u32 sel)
++{
++	LCD_OPEN_FUNC(sel, lcd_power_on, 0);
++	LCD_OPEN_FUNC(sel, lcd_panel_init, 100);
++	LCD_OPEN_FUNC(sel, sunxi_lcd_tcon_enable, 100);
++	LCD_OPEN_FUNC(sel, lcd_bl_open, 0);
++
++	return 0;
++}
++
++static s32 lcd_close_flow(u32 sel)
++{
++	LCD_CLOSE_FUNC(sel, lcd_bl_close, 0);
++	LCD_CLOSE_FUNC(sel, sunxi_lcd_tcon_disable, 0);
++	LCD_CLOSE_FUNC(sel, lcd_panel_exit, 0);
++	LCD_CLOSE_FUNC(sel, lcd_power_off, 0);
++
++	return 0;
++}
++
++static void lcd_power_on(u32 sel)
++{
++	/* You must set LED OFF because LED GPIO is ActiveLOW when resume from suspending */
++	LED_SET(sel, 1);
++	/* LED_CTRL in disp_lcd.c and always control by lcd_gpio_1 */
++	sunxi_lcd_power_enable(sel, 0);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_power_enable(sel, 1);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_pin_cfg(sel, 1);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(80);
++	panel_reset(sel, 0);
++	sunxi_lcd_delay_ms(80);
++	panel_reset(sel, 1);
++	sunxi_lcd_delay_ms(80);
++	/* TP-RST */
++	tp_reset(sel, 1);
++	sunxi_lcd_delay_ms(20);
++	tp_reset(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	tp_reset(sel, 1);
++}
++
++static void lcd_power_off(u32 sel)
++{
++	sunxi_lcd_pin_cfg(sel, 0);
++	sunxi_lcd_delay_ms(20);
++	panel_reset(sel, 0);
++	tp_reset(sel, 0);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 1);
++	sunxi_lcd_delay_ms(5);
++	sunxi_lcd_power_disable(sel, 0);
++}
++
++static void lcd_bl_open(u32 sel)
++{
++	sunxi_lcd_pwm_enable(sel);
++	sunxi_lcd_backlight_enable(sel);
++}
++
++static void lcd_bl_close(u32 sel)
++{
++	sunxi_lcd_backlight_disable(sel);
++	sunxi_lcd_pwm_disable(sel);
++}
++
++static void lcd_panel_init(u32 sel)
++{
++	sunxi_lcd_dsi_clk_enable(sel);
++	sunxi_lcd_delay_ms(10);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x11);
++	sunxi_lcd_delay_ms(120);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x29);
++
++}
++
++static void lcd_panel_exit(u32 sel)
++{
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x28);
++	sunxi_lcd_delay_ms(1);
++	sunxi_lcd_dsi_dcs_write_0para(sel, 0x10);
++	sunxi_lcd_delay_ms(1);
++}
++
++/*sel: 0:lcd0; 1:lcd1*/
++static s32 lcd_user_defined_func(u32 sel, u32 para1, u32 para2, u32 para3)
++{
++	return 0;
++}
++
++struct __lcd_panel RTP40WV101B_panel = {
++	/* panel driver name, must mach the name of
++	 * lcd_drv_name in sys_config.fex
++	 */
++	.name = "RTP40WV101B",
++	.func = {
++		.cfg_panel_info = lcd_cfg_panel_info,
++			.cfg_open_flow = lcd_open_flow,
++			.cfg_close_flow = lcd_close_flow,
++			.lcd_user_defined_func = lcd_user_defined_func,
++	},
++};
+--- /dev/null
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/RTP40WV101B.h
+@@ -0,0 +1,22 @@
++/* drivers/video/sunxi/disp2/disp/lcd/RTP40WV101B.h
++ *
++ * Copyright (c) 2024 gurobot Co., Ltd.
++ * Author: denghaijian <denghaijian@gurobot.com>
++ *
++ * RTP40WV101B panel driver
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#ifndef _RTP40WV101B_H
++#define _RTP40WV101B_H
++
++#include "panels.h"
++
++extern struct __lcd_panel RTP40WV101B_panel;
++
++extern s32 bsp_disp_get_panel_info(u32 screen_id, struct disp_panel_para *info);
++
++#endif /*End of file*/
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.c
+@@ -61,6 +61,9 @@
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_H028B23)
+ 	&h028b23_panel,
+ #endif
++#if IS_ENABLED(CONFIG_LCD_SUPPORT_RTP40WV101B)
++	&RTP40WV101B_panel,
++#endif
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_HE0801A068)
+ 	&he0801a068_panel,
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/panels.h
+@@ -90,6 +90,7 @@
+ extern struct __lcd_panel he0801a068_panel;
+ extern struct __lcd_panel trimui_brick_panel;
+ extern struct __lcd_panel h028b23_panel;
++extern struct __lcd_panel RTP40WV101B_panel;
+ #if IS_ENABLED(CONFIG_LCD_SUPPORT_INET_DSI_PANEL)
+ extern struct __lcd_panel inet_dsi_panel;
+ #endif
+--- a/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
++++ b/bsp/drivers/video/sunxi/disp2/disp/lcd/Kconfig
+@@ -38,6 +38,12 @@
+ 	help
+ 		The MagicX Zero 28 480x640 2-lane MIPI panel.
+ 
++config LCD_SUPPORT_RTP40WV101B
++	bool "LCD support RTP40WV101B panel"
++	default n
++	help
++		The MagicX Zero 40 480x800 2-lane MIPI panel.
++
+ config LCD_SUPPORT_HE0801A068
+ 	bool "LCD support he0801a068 panel"
+ 	default y
+--- a/bsp/drivers/video/sunxi/disp2/disp/Makefile
++++ b/bsp/drivers/video/sunxi/disp2/disp/Makefile
+@@ -31,6 +31,7 @@
+ 
+ disp-$(CONFIG_LCD_SUPPORT_TRIMUI_BRICK) += lcd/trimui_brick.o
+ disp-$(CONFIG_LCD_SUPPORT_H028B23) += lcd/h028b23.o
++disp-$(CONFIG_LCD_SUPPORT_RTP40WV101B) += lcd/RTP40WV101B.o
+ disp-$(CONFIG_LCD_SUPPORT_HE0801A068) += lcd/he0801a068.o
+ disp-$(CONFIG_EINK_PANEL_USED) += lcd/default_eink.o
+ disp-$(CONFIG_LCD_SUPPORT_LT070ME05000) += lcd/lt070me05000.o

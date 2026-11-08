@@ -10,26 +10,23 @@ BR2_TARGET_OPTIMIZATION="-pipe -fsigned-char"
 BR2_TARGET_GENERIC_GETTY_BAUDRATE_115200=y
 BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_KNULLI_PATH)/board/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/patches $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/patches"
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_KNULLI_PATH)/board/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/fsoverlay $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/fsoverlay"
+BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
 
-# Linux headers same as kernel, a 4.4 series
-BR2_KERNEL_HEADERS_AS_KERNEL=y
-BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_4_4=y
+# Linux headers same as kernel, a BSP 6.1 series
+BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_1=y
 
-# Kernel
+# Kernel - same BSP 6.1.x tree as rk3326/rk3566
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
-BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/RK3128-CFW/rockchip-linux.git"
-BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="powkiddy-a13"
-#BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/Fruit-Pi/kernel.git"
-#BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="develop-4.4"
-BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/linux_patches"
-#BR2_LINUX_KERNEL_DEFCONFIG="wx8"
-BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/linux-defconfig.config"
+BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/knulli-cfw/linux-6.1.y-rockchip.git"
+BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="1629d4d841456f20b8b4736e9815d4539b0dd0ae"
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/linux_bsp_patches"
+BR2_LINUX_KERNEL_USE_DEFCONFIG=y
+BR2_LINUX_KERNEL_DEFCONFIG="rockchip_linux"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/linux-defconfig-fragment.config"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
 BR2_LINUX_KERNEL_INTREE_DTS_NAME="rk3128-ps5000 rk3128-ps7000 rk3128-powkiddy-a13-rev-ab rk3128-powkiddy-a12-rev-c rk3128-powkiddy-a12-rev-d"
-BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3128/linux-defconfig-fragment.config"
 
 # Batocera System
 # BR2_PACKAGE_BATOCERA_KODI21=y
@@ -46,6 +43,7 @@ BR2_PACKAGE_LIBDRM=y
 BR2_PACKAGE_HOST_DOSFSTOOLS=y
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_PACKAGE_HOST_MTOOLS=y
+# BR2_PACKAGE_LVM2_STANDARD_INSTALL is not set
 
 # spi flash support
 BR2_PACKAGE_MTD=y
@@ -79,16 +77,14 @@ BR2_PACKAGE_SDL_SOUND=y
 BR2_PACKAGE_SDL_TTF=y
 BR2_PACKAGE_SDL12_COMPAT=y
 
-# EXT rootfs
-BR2_TARGET_ROOTFS_EXT2=y
-BR2_TARGET_ROOTFS_EXT2_3=y
-BR2_TARGET_ROOTFS_EXT2_3=y
-BR2_TARGET_ROOTFS_EXT2_GEN=3
-BR2_TARGET_ROOTFS_EXT2_REV=1
-BR2_TARGET_ROOTFS_EXT2_LABEL="rootfs"
-BR2_TARGET_ROOTFS_EXT2_SIZE="5000M"
-BR2_TARGET_ROOTFS_EXT2_INODES=0
-BR2_TARGET_ROOTFS_EXT2_RESBLKS=5
-BR2_TARGET_ROOTFS_EXT2_MKFS_OPTIONS="-O ^64bit"
-BR2_TARGET_ROOTFS_EXT2_NONE=y
-
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="rk3128"
+BR2_PACKAGE_IPUTILS=y

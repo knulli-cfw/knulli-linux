@@ -1,0 +1,10 @@
+config BR2_PACKAGE_UBOOT_T618
+	bool "uboot for Unisoc UMS512 / T618"
+	help
+	  Vendor U-Boot for the Unisoc UMS512 (T618), built from source and
+	  packed into a stock DHTB image wrapper.
+
+	  Produces images/u-boot.img, which genimage writes to the raw partition
+	  GPT-named "uboot" -- where the SPL looks for it.
+
+	  https://github.com/beebono/u-boot-ums512

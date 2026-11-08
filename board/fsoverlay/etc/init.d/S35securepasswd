@@ -32,6 +32,6 @@ echo "knulli::::::::" >> /run/knulli.shadow # required for su for flatpak/knulli
 
 # secure samba
 mkdir -p "/var/lib/samba/private"
-printf "$MASTERPASSWD\n$MASTERPASSWD\n" | smbpasswd -a -s root > /dev/null
+printf "$MASTERPASSWD\n$MASTERPASSWD\n" | nice -n 19 smbpasswd -a -s root > /dev/null
 
 echo "done."

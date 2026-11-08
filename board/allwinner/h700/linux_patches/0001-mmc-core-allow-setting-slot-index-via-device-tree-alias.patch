@@ -1,0 +1,77 @@
+From: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
+Subject: [PATCH] mmc: core: Allow setting slot index via device tree alias
+
+Backport of upstream fa2d0aa96941 (v5.10).  The H700 boot card is sdc0 and
+the second slot sdc2; without this 5.4 numbers hosts in probe order, the
+dtsi lists sdc2 first and the boot card turns up as mmcblk1.
+
+diff --git a/drivers/mmc/core/host.c b/drivers/mmc/core/host.c
+index e3bfe2173..b3d42d7cd 100644
+--- a/drivers/mmc/core/host.c
++++ b/drivers/mmc/core/host.c
+@@ -73,7 +73,8 @@ static const struct dev_pm_ops mmc_host_class_dev_pm_ops = {
+ static void mmc_host_classdev_release(struct device *dev)
+ {
+ 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+-	ida_simple_remove(&mmc_host_ida, host->index);
++	if (of_alias_get_id(host->parent->of_node, "mmc") < 0)
++		ida_simple_remove(&mmc_host_ida, host->index);
+ 	kfree(host);
+ }
+ 
+@@ -424,6 +425,17 @@ int mmc_of_parse_voltage(struct device_node *np, u32 *mask)
+ }
+ EXPORT_SYMBOL(mmc_of_parse_voltage);
+ 
++static int mmc_first_nonreserved_index(void)
++{
++	int max;
++
++	max = of_alias_get_highest_id("mmc");
++	if (max < 0)
++		return 0;
++
++	return max + 1;
++}
++
+ /**
+  *	mmc_alloc_host - initialise the per-host structure.
+  *	@extra: sizeof private data structure
+@@ -433,8 +445,9 @@ EXPORT_SYMBOL(mmc_of_parse_voltage);
+  */
+ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
+ {
+-	int err;
++	int index;
+ 	struct mmc_host *host;
++	int alias_id, min_idx, max_idx;
+ 
+ 	host = kzalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
+ 	if (!host)
+@@ -443,13 +456,21 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
+ 	/* scanning will be enabled when we're ready */
+ 	host->rescan_disable = 1;
+ 
+-	err = ida_simple_get(&mmc_host_ida, 0, 0, GFP_KERNEL);
+-	if (err < 0) {
+-		kfree(host);
+-		return NULL;
++	alias_id = of_alias_get_id(dev->of_node, "mmc");
++	if (alias_id >= 0) {
++		index = alias_id;
++	} else {
++		min_idx = mmc_first_nonreserved_index();
++		max_idx = 0;
++
++		index = ida_simple_get(&mmc_host_ida, min_idx, max_idx, GFP_KERNEL);
++		if (index < 0) {
++			kfree(host);
++			return NULL;
++		}
+ 	}
+ 
+-	host->index = err;
++	host->index = index;
+ 
+ 	dev_set_name(&host->class_dev, "mmc%d", host->index);
+ 

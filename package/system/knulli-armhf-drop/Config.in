@@ -1,0 +1,24 @@
+config BR2_PACKAGE_KNULLI_ARMHF_DROP
+	bool "knulli-armhf-drop"
+	depends on BR2_aarch64
+	help
+	  Install a prebuilt 32-bit (armhf) userspace into /lib32 and
+	  /usr/lib32, for the 32-bit emulators a 64-bit image still ships
+	  (drastic and friends).
+
+	  The payload comes from a <board>_armhf_libs build, harvested by
+	  "make <board>-armhf-drop" into armhf-cache/, not from this build.
+	  A missing drop fails the build rather than producing an image whose
+	  32-bit emulators cannot start.
+
+if BR2_PACKAGE_KNULLI_ARMHF_DROP
+
+config BR2_PACKAGE_KNULLI_ARMHF_DROP_DEVICE
+	string "armhf drop device"
+	help
+	  Which armhf-cache/drop/<name> this board installs.  The 32-bit
+	  payload is NOT interchangeable between SoCs -- it carries that
+	  board's Mali userspace and is built against its kernel headers --
+	  so this is the board name, not an ABI profile.
+
+endif

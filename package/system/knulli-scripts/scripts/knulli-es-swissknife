@@ -66,6 +66,12 @@ function emu_kill() {
             kill ${pidarray[z]}
             smart_wait 1 ${pidarray[z]}
         done
+        # Run by configgend, the launcher has no children: it stops the
+        # emulator the same way on SIGTERM and exits with the session.
+        if [[ ${#pidarray[*]} -eq 0 ]]; then
+            kill $RC_PID
+            smart_wait 1 $RC_PID
+        fi
         unset pidarray
     fi
     WINE_PID=$(check_winerun winedevice.exe)

@@ -1,0 +1,3 @@
+# trimui_inputd opens the Smart Pro stick MCUs as /dev/ttyS3 and /dev/ttyS4
+SUBSYSTEM=="tty", KERNEL=="ttyAS3", SYMLINK+="ttyS3"
+SUBSYSTEM=="tty", KERNEL=="ttyAS4", SYMLINK+="ttyS4"

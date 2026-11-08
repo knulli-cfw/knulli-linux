@@ -1,0 +1,25 @@
+config BR2_PACKAGE_LIBRETRO_SUPER
+	bool "libretro-super (all cores, built out of tree)"
+	depends on BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES
+	default y if BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES
+	help
+	  Install every libretro core for this board's ABI profile from
+	  a prebuilt libretro-super drop, instead of compiling ~140
+	  individual Buildroot packages.
+
+	  The drop is built by "make <board>-cores-drop", not by the
+	  image build, and is keyed on the ABI profile, so boards
+	  sharing an ABI compile the cores once between them.  A build
+	  with no drop for its profile fails and says which target to
+	  run.
+
+config BR2_PACKAGE_LIBRETRO_SUPER_DEVICE
+	string "device name"
+	depends on BR2_PACKAGE_LIBRETRO_SUPER
+	help
+	  Which devices/<name>.device file describes this board.  That
+	  file names the ABI profile the board consumes, and hence which
+	  drop it installs.
+
+	  Boards sharing a profile share the compiled cores: h700, a133,
+	  rk3326 and rk3576 all map to aarch64-v8a.

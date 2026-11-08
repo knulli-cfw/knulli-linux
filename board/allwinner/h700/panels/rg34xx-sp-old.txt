@@ -1,0 +1,104 @@
+# rg34xx-sp-old: panel init sequence of the Anbernic rg34xx-sp vendor U-Boot, old (PE6 high).
+# Decoded from u-boot.bin (board/allwinner/h700/scripts/vendorseq.py); one command per line as
+# "cmd data...", "wait <hex ms>" for mdelay.  Sent over the bit-banged 3-wire SPI.
+d7 61 74 97
+d0 10
+60 ff
+61 ff
+62 ff
+63 ff
+64 ff
+65 ff
+66 ff
+67 ff
+68 ff
+69 ff
+6a ff
+6b ff
+6c ff
+6d ff
+6e ff
+6f ff
+a9 13
+a8 59
+f5 aa
+fd 92
+9d 9e
+a5 00
+a6 c0 80
+7a 25
+7b 76
+88 32
+8a 20
+ae f1
+c1 c0
+b8 01 df
+b7 30
+b5 00
+92 0f 24 2c 36
+d0 11
+60 ff
+61 ff
+62 ff
+63 ff
+64 ff
+65 ff
+66 ff
+67 ff
+68 ff
+69 ff
+6a ff
+6b ff
+6c ff
+6d ff
+b8 ff
+b9 ff
+ba 8f
+b3 3e 36 01 03 34 28 29 37 0d 0f 09 0b 3f 3f 3f 3f 3f 3f 3f 3f 3f 3f 3e 36 00 02 34 28 29 37 0c 0e 08 0a 3f 3f 3f 3f 3f 3f 3f 3f 3f 3f
+b7 07
+bc 00 10
+a0 30 05 69 69 30 07 69 69
+a1 30 05 69 69 30 07 69 69
+a3 70 00 69 69 30 00 30 00 69 69
+a7 33 69 69 69 69
+a8 00 09 01 f1 00 00 09 01 f1 00
+a4 3c 01 f7 01 f7 00 26
+b0 33 00 33 22 33 33 f0
+c3 1b
+e5 07 0a
+f8 99
+ac c1
+f4 ff
+f5 00
+f6 ff
+f7 00
+e4 e6
+d0 12
+80 00 2b 00 2e 00 4a 00 69 00 8a 00 a0 00 b5 00 c3
+81 00 d3 00 ef 01 0f 01 2c 01 55 01 8f 01 bc 01 be
+82 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+83 03 60 03 77 03 91 03 af 03 d4 03 ff
+84 00 2b 00 2e 00 4a 00 69 00 8a 00 a0 00 b5 00 c3
+85 00 d3 00 ef 01 0f 01 2c 01 55 01 8f 01 bc 01 be
+86 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+87 03 60 03 77 03 91 03 af 03 d4 03 ff
+88 00 2b 00 2e 00 4a 00 69 00 8a 00 a0 00 b5 00 c3
+89 00 d3 00 ef 01 0f 01 2c 01 55 01 8f 01 bc 01 be
+8a 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+8b 03 60 03 77 03 91 03 af 03 d4 03 ff
+90 00 2b 00 2e 00 4a 00 69 00 7a 00 90 00 a5 00 b3
+91 00 c3 00 df 00 ef 01 1c 01 45 01 7f 01 bc 01 be
+92 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+93 03 60 03 77 03 91 03 af 03 d4 03 ff
+94 00 2b 00 2e 00 4a 00 69 00 7a 00 90 00 a5 00 b3
+95 00 c3 00 df 00 ef 01 1c 01 45 01 7f 01 bc 01 be
+96 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+97 03 60 03 77 03 91 03 af 03 d4 03 ff
+98 00 2b 00 2e 00 4a 00 69 00 7a 00 90 00 a5 00 b3
+99 00 c3 00 df 00 ef 01 1c 01 45 01 7f 01 bc 01 be
+9a 01 fb 02 45 02 79 02 ba 02 e5 03 1b 03 2b 03 3c
+9b 03 60 03 77 03 91 03 af 03 d4 03 ff
+36 09
+11
+wait 78
+29

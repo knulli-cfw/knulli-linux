@@ -1,0 +1,34 @@
+diff --git a/Makefile.libretro b/Makefile.libretro
+index e1df23a..e0cd66d 100644
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -70,11 +70,24 @@ ifneq (,$(findstring unix,$(platform)))
+ 	ifneq (,$(findstring Haiku,$(shell uname -s)))
+ 		LDFLAGS += -lnetwork -lroot
+ 	endif
+-	CC = gcc
+-	CXX = gcc
+-	LDFLAGS += -I/usr/include/SDL2 -L/usr/lib/x86_64-linux-gnu -lSDL2
+-	CFLAGS += -I/usr/include/SDL2 `sdl2-config --cflags`
+-	CXXFLAGS += -I/usr/include/SDL2 `sdl2-config --cflags`
++	# --- local: "CC = gcc" is an unconditional override, so a cross build that
++	#     supplies the compiler in the environment was silently ignored and the
++	#     core was built with the HOST gcc.  "?=" keeps a caller-provided value
++	#     and still defaults to gcc for a native build.  CXX defaults to g++,
++	#     not gcc: this is a C++ core and linking it with gcc drops libstdc++.
++	CC ?= gcc
++	CXX ?= g++
++	#     SDL2 via pkg-config rather than sdl2-config plus hardcoded paths.
++	#     "-I/usr/include/SDL2 -L/usr/lib/x86_64-linux-gnu" are BUILD-host x86
++	#     paths -- wrong for any cross build and rejected by buildroot's
++	#     compiler wrapper -- and sdl2-config is not on PATH in a buildroot
++	#     sysroot (it lives in sysroot/usr/bin, which holds target binaries and
++	#     must not be added to PATH).  pkg-config is the sysroot-aware wrapper.
++	PKG_CONFIG ?= pkg-config
++	LDFLAGS += $(shell $(PKG_CONFIG) --libs sdl2)
++	CFLAGS += $(shell $(PKG_CONFIG) --cflags sdl2)
++	CXXFLAGS += $(shell $(PKG_CONFIG) --cflags sdl2)
++	# --- end local ---
+ 
+ # Raspberry Pi
+ 	ifneq (,$(findstring rpi,$(platform)))

@@ -5,6 +5,14 @@ VOLUME_BUTTON_STATE="/var/run/volume-button.held"
 
 : > "$VOLUME_BUTTON_STATE"
 
+# Brief on-screen readout, drawn over whatever is running.
+show_overlay() {
+    case "$1" in
+        volume)     knulli-overlay volume "$(knulli-audio getSystemVolume)" ;;
+        brightness) knulli-overlay brightness "$(knulli-brightness)" ;;
+    esac
+}
+
 do_lock() {
     exec 200>"$LOCKFILE"
     flock -n 200 || exit 1
@@ -13,6 +21,7 @@ do_lock() {
 case "$1" in
     volup)
         knulli-audio setSystemVolume +5
+        show_overlay volume
 
         for ((i = 0; i < 5; i++)); do
             if [ ! -f "$VOLUME_BUTTON_STATE" ]; then
@@ -25,11 +34,13 @@ case "$1" in
 
         while [ -f "$VOLUME_BUTTON_STATE" ]; do
             knulli-audio setSystemVolume +5
+            show_overlay volume
             sleep 0.1
         done
         ;;
     voldown)
         knulli-audio setSystemVolume -5
+        show_overlay volume
 
         for ((i = 0; i < 5; i++)); do
             if [ ! -f "$VOLUME_BUTTON_STATE" ]; then
@@ -42,11 +53,13 @@ case "$1" in
 
         while [ -f "$VOLUME_BUTTON_STATE" ]; do
             knulli-audio setSystemVolume -5
+            show_overlay volume
             sleep 0.1
         done
         ;;
     briup)
         knulli-brightness + 5
+        show_overlay brightness
 
         for ((i = 0; i < 5; i++)); do
             if [ ! -f "$VOLUME_BUTTON_STATE" ]; then
@@ -59,11 +72,13 @@ case "$1" in
 
         while [ -f "$VOLUME_BUTTON_STATE" ]; do
             knulli-brightness + 5
+            show_overlay brightness
             sleep 0.1
         done
         ;;
     bridown)
         knulli-brightness - 5
+        show_overlay brightness
 
         for ((i = 0; i < 5; i++)); do
             if [ ! -f "$VOLUME_BUTTON_STATE" ]; then
@@ -76,6 +91,7 @@ case "$1" in
 
         while [ -f "$VOLUME_BUTTON_STATE" ]; do
             knulli-brightness - 5
+            show_overlay brightness
             sleep 0.1
         done
         ;;

@@ -1,0 +1,48 @@
+From: knulli <knulli@knulli>
+Subject: [PATCH] treat the mali video driver as console, like kmsdrm
+
+The mali-fbdev SDL2 backend is a console driver: one window, always the
+size of fb0, and MALI_SetWindowSize() is a no-op.  Amiberry only knows
+about KMSDRM, so it opens a resizable window instead, and every mode
+change then calls SDL_SetWindowSize().  SDL updates window->w/h for a
+non-fullscreen window even though the EGL surface keeps its original
+size, so the GLES2 renderer computes its viewport against the wrong
+output size and the frame lands off-screen -- a black display.
+
+SDL_RENDER_DRIVER=software hides this because mali-fbdev has no
+CreateWindowFramebuffer: SDL falls back to SDL_CreateWindowTexture,
+whose internal renderer always stretches to the full output.
+
+--- a/src/osdep/amiberry_gfx.cpp
++++ b/src/osdep/amiberry_gfx.cpp
+@@ -229,7 +229,7 @@
+ 	struct AmigaMonitor* mon = &AMonitors[0];
+ 	write_log("Getting Current Video Driver...\n");
+ 	sdl_video_driver = SDL_GetCurrentVideoDriver();
+-	if (sdl_video_driver != nullptr && strcmpi(sdl_video_driver, "KMSDRM") == 0)
++	if (sdl_video_driver != nullptr && (strcmpi(sdl_video_driver, "KMSDRM") == 0 || strcmpi(sdl_video_driver, "mali") == 0))
+ 	{
+ 		kmsdrm_detected = true;
+ 		if (!mon->amiga_window && mon->gui_window)
+--- a/src/osdep/gui/main_window.cpp
++++ b/src/osdep/gui/main_window.cpp
+@@ -265,7 +265,7 @@
+ 	AmigaMonitor* mon = &AMonitors[0];
+ 	sdl_video_driver = SDL_GetCurrentVideoDriver();
+ 
+-	if (sdl_video_driver != nullptr && strcmpi(sdl_video_driver, "KMSDRM") == 0)
++	if (sdl_video_driver != nullptr && (strcmpi(sdl_video_driver, "KMSDRM") == 0 || strcmpi(sdl_video_driver, "mali") == 0))
+ 	{
+ 		kmsdrm_detected = true;
+ 		if (!mon->gui_window && mon->amiga_window)
+--- a/src/osdep/gui/ShowMessage.cpp
++++ b/src/osdep/gui/ShowMessage.cpp
+@@ -58,7 +58,7 @@
+ {
+ 	AmigaMonitor* mon = &AMonitors[0];
+ 	sdl_video_driver = SDL_GetCurrentVideoDriver();
+-	if (sdl_video_driver != nullptr && strcmpi(sdl_video_driver, "KMSDRM") == 0)
++	if (sdl_video_driver != nullptr && (strcmpi(sdl_video_driver, "KMSDRM") == 0 || strcmpi(sdl_video_driver, "mali") == 0))
+ 		kmsdrm_detected = true;
+ 	SDL_GetCurrentDisplayMode(0, &sdl_mode);
+ 

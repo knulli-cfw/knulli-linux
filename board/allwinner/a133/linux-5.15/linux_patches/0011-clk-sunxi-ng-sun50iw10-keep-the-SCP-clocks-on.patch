@@ -1,0 +1,46 @@
+Subject: [PATCH] clk: sunxi-ng: sun50iw10: keep the SCP clocks on
+
+No Linux driver claims the msgbox bus clock or the CPUS-domain timer,
+watchdog and uart, so clk_disable_unused gated them.  The vendor secure
+monitor reaches the SCP through the msgbox and the SCP firmware runs on
+the rest; with them gated PSCI reset, poweroff and suspend hang.
+---
+--- a/bsp/drivers/clk/sunxi-ng/ccu-sun50iw10.c
++++ b/bsp/drivers/clk/sunxi-ng/ccu-sun50iw10.c
+@@ -410,8 +410,9 @@
+ static SUNXI_CCU_GATE(bus_dma_clk, "bus-dma", "psi-ahb1-ahb2",
+ 		      0x70c, BIT(0), 0);
+ 
++/* the secure monitor reaches the SCP (reset, poweroff, suspend) through it */
+ static SUNXI_CCU_GATE(bus_msgbox_clk, "bus-msgbox", "psi-ahb1-ahb2",
+-		      0x71c, BIT(0), 0);
++		      0x71c, BIT(0), CLK_IS_CRITICAL);
+ 
+ static SUNXI_CCU_GATE(bus_spinlock_clk, "bus-spinlock", "psi-ahb1-ahb2",
+ 		      0x72c, BIT(0), 0);
+--- a/bsp/drivers/clk/sunxi-ng/ccu-sun50iw10-r.c
++++ b/bsp/drivers/clk/sunxi-ng/ccu-sun50iw10-r.c
+@@ -81,11 +81,12 @@
+ 	},
+ };
+ 
++/* the SCP firmware runs on these (timer, watchdog, debug uart) */
+ static SUNXI_CCU_GATE(r_apb1_timer_clk, "r-apb1-timer", "r-apb1",
+-		      0x11c, BIT(0), 0);
++		      0x11c, BIT(0), CLK_IS_CRITICAL);
+ 
+ static SUNXI_CCU_GATE(r_apb1_twd_clk, "r-apb1-twd", "r-apb1",
+-		      0x12c, BIT(0), 0);
++		      0x12c, BIT(0), CLK_IS_CRITICAL);
+ 
+ static const char * const r_apb1_pwm_clk_parents[] = { "dcxo24M", "osc32k",
+ 						       "iosc" };
+@@ -99,7 +100,7 @@
+ 		      0x17c, BIT(0), 0);
+ 
+ static SUNXI_CCU_GATE(r_apb2_uart_clk, "r-apb2-uart", "r-apb2",
+-		      0x18c, BIT(0), 0);
++		      0x18c, BIT(0), CLK_IS_CRITICAL);
+ 
+ static SUNXI_CCU_GATE(r_apb2_i2c0_clk, "r-apb2-i2c0", "r-apb2",
+ 		      0x19c, BIT(0), 0);

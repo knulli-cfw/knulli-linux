@@ -1,0 +1,107 @@
+Subject: [PATCH] dc_sunxi: retire the configuration on screen once idle
+
+A configuration was only retired when the next one arrived, so a client
+that stopped presenting and waited for its last buffer (ES before
+launching a game, rebooting or shutting down) waited forever.  Retire it
+after 100 ms without a new one; steady flipping is unaffected, so the
+buffer on screen is never handed back while it is scanned out.
+
+The services core completes commands in queue order without a lock, so
+every swap-and-retire runs under one mutex, and the idle work only
+retires the configuration it was armed for.
+---
+--- a/services/3rdparty/dc_sunxi/dc_sunxi.c
++++ b/services/3rdparty/dc_sunxi/dc_sunxi.c
+@@ -43,6 +43,8 @@
+ #include <linux/module.h>
+ #include <linux/fb.h>
+ #include <linux/version.h>
++#include <linux/mutex.h>
++#include <linux/workqueue.h>
+ 
+ /* lock_fb_info() returns void since 4.19 */
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+@@ -86,9 +88,38 @@
+ 	DC_SUNXI_DEVICE		*psDeviceData;
+ 	IMG_HANDLE			hLastConfigData;
+ 	IMG_UINT32		ui32AllocUseMask;
++	/* serialises the swap of hLastConfigData with its retirement: the
++	 * services core completes commands in queue order and unlocked, so
++	 * two retirements must never overlap */
++	struct mutex		sRetireLock;
++	IMG_HANDLE			hIdleConfigData;
++	struct delayed_work	sIdleRetireWork;
+ }
+ DC_SUNXI_CONTEXT;
+ 
++/* A configuration on screen is retired by the next one.  A client that stops
++ * presenting and waits for its last buffer (ES before launching a game or
++ * rebooting) would wait forever: retire it once no new one came for this
++ * long.  Longer than a frame at 30 fps, so steady flipping never hits it.
++ */
++#define DC_SUNXI_IDLE_RETIRE_MS	100
++
++static void DC_SUNXI_IdleRetire(struct work_struct *psWork)
++{
++	DC_SUNXI_CONTEXT *psDeviceContext =
++		container_of(to_delayed_work(psWork), DC_SUNXI_CONTEXT, sIdleRetireWork);
++	mutex_lock(&psDeviceContext->sRetireLock);
++	/* only the configuration this run was armed for: a newer one may have
++	 * replaced it meanwhile and is on screen now */
++	if (psDeviceContext->hLastConfigData &&
++		psDeviceContext->hLastConfigData == psDeviceContext->hIdleConfigData)
++	{
++		DCDisplayConfigurationRetired(psDeviceContext->hLastConfigData);
++		psDeviceContext->hLastConfigData = NULL;
++	}
++	mutex_unlock(&psDeviceContext->sRetireLock);
++}
++
+ typedef struct
+ {
+ 	DC_SUNXI_CONTEXT	*psDeviceContext;
+@@ -243,6 +274,8 @@
+ 	}
+ 
+ 	psDeviceContext->psDeviceData = hDeviceData;
++	mutex_init(&psDeviceContext->sRetireLock);
++	INIT_DELAYED_WORK(&psDeviceContext->sIdleRetireWork, DC_SUNXI_IdleRetire);
+ 	*hDisplayContext = psDeviceContext;
+ 
+ err_out:
+@@ -383,6 +416,8 @@
+ 	console_unlock();
+ 	unlock_fb_info(psDeviceData->psLINFBInfo);
+ 
++	mutex_lock(&psDeviceContext->sRetireLock);
++
+ 	if (psDeviceContext->hLastConfigData)
+ 	{
+ 		DCDisplayConfigurationRetired(psDeviceContext->hLastConfigData);
+@@ -391,6 +426,9 @@
+ 	if (ui32PipeCount != 0)
+ 	{
+ 		psDeviceContext->hLastConfigData = hConfigData;
++		psDeviceContext->hIdleConfigData = hConfigData;
++		mod_delayed_work(system_wq, &psDeviceContext->sIdleRetireWork,
++						 msecs_to_jiffies(DC_SUNXI_IDLE_RETIRE_MS));
+ 	}
+ 	else
+ 	{
+@@ -405,6 +443,8 @@
+ 		 */
+ 		DCDisplayConfigurationRetired(hConfigData);
+ 	}
++
++	mutex_unlock(&psDeviceContext->sRetireLock);
+ }
+ 
+ static
+@@ -412,6 +452,7 @@
+ {
+ 	DC_SUNXI_CONTEXT *psDeviceContext = hDisplayContext;
+ 
++	cancel_delayed_work_sync(&psDeviceContext->sIdleRetireWork);
+ 	BUG_ON(psDeviceContext->hLastConfigData != NULL);
+ 	kfree(psDeviceContext);
+ }

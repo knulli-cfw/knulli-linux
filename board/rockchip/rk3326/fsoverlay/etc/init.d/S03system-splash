@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# system-splash is intentionally DISABLED on rk3326.
+#
+# The boot visual on rk3326 is provided by progressbar_rk (launched from
+# /etc/init.d/rcS), which renders the boot logo AND the progress bar directly to
+# /dev/fb0. The stock batocera/knulli system-splash uses fbv to blit a PNG to
+# the same /dev/fb0, so running it here would fight progressbar_rk for the
+# framebuffer (fbv would overwrite the progress bar). This no-op overrides the
+# knulli-splash package's S03system-splash for all rk3326 boards.
+#
+exit 0

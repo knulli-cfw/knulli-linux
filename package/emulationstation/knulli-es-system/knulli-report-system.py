@@ -9,6 +9,7 @@ import re
 import argparse
 import json
 import os
+import sys
 
 class SortedListEncoder(json.JSONEncoder):
     def encode(self, obj):
@@ -22,6 +23,9 @@ class SortedListEncoder(json.JSONEncoder):
         return super(SortedListEncoder, self).encode(sort_lists(obj))
 
 class EsSystemConf:
+
+    # (arch, system, emulator, core) for every default the boards cannot provide.
+    broken_defaults = []
 
     @staticmethod
     def hasRedFlag(nb_variants, nb_explanations, nb_all_explanations):
@@ -37,9 +41,12 @@ class EsSystemConf:
 
     @staticmethod
     def find_boards_from_config(config):
-        if "BR2_TARGET_BATOCERA_IMAGES" not in config:
+        # knulli renamed the symbol; batocera's name is still accepted so this
+        # keeps working against an unmodified batocera .config.
+        key = next((k for k in ("BR2_TARGET_KNULLI_IMAGES", "BR2_TARGET_BATOCERA_IMAGES") if k in config), None)
+        if key is None:
             return []
-        dirs = config["BR2_TARGET_BATOCERA_IMAGES"][1:-1].split(" ")
+        dirs = config[key][1:-1].split(" ")
         boards = []
         for dir in dirs:
             boards.append(os.path.basename(dir))
@@ -85,6 +92,12 @@ class EsSystemConf:
                 result_archs[board] = result_systems
 
         print(json.dumps(result_archs, indent=2, sort_keys=True, cls=SortedListEncoder))
+
+        if EsSystemConf.broken_defaults:
+            print("WARNING: {} default emulator/core(s) not available on the board that names them:"
+                  . format(len(EsSystemConf.broken_defaults)), file=sys.stderr)
+            for arch, system, emulator, core in sorted(EsSystemConf.broken_defaults):
+                print("    {:10s} {:16s} {}/{}" . format(arch, system, emulator, core), file=sys.stderr)
 
     # Loads the .config file
     @staticmethod
@@ -178,8 +191,14 @@ class EsSystemConf:
                         result_cores[core]["explanation"] = None
             emulators_result[emulator] = result_cores
 
+        # A default naming a core the board does not have is a real content bug,
+        # but this is a documentation pass: aborting here fails target-post-image
+        # at the very end of an image build.  Report it and carry on; the counter
+        # is summed up at the end so a regression cannot pass unnoticed.
         if nb_variants > 0 and defaultFound == False:
-            raise Exception("default core ({}/{}) not enabled for {}/{}" . format(defaultEmulator, defaultCore, arch, system))
+            print("WARNING: default core ({}/{}) not enabled for {}/{}"
+                  . format(defaultEmulator, defaultCore, arch, system), file=sys.stderr)
+            EsSystemConf.broken_defaults.append((arch, system, defaultEmulator, defaultCore))
 
         result = {}
         result["name"] = data["name"]

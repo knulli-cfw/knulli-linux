@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PPSSPP_VERSION = v1.19.3
+PPSSPP_VERSION = v1.20.4
 PPSSPP_SITE = https://github.com/hrydgard/ppsspp.git
 PPSSPP_SITE_METHOD=git
 PPSSPP_GIT_SUBMODULES=YES
@@ -29,6 +29,11 @@ PPSSPP_CONF_OPTS += -DUSING_QT_UI=OFF
 PPSSPP_CONF_OPTS += -DHEADLESS=ON
 PPSSPP_CONF_OPTS += -DMOBILE_DEVICE=OFF
 PPSSPP_CONF_OPTS += -DENABLE_CTEST=OFF
+# ext/freetype is only ever linked by AtlasTool, and its CMakeLists refuses an
+# in-source build -- which is what buildroot does for cmake packages.  Keep the
+# tool off and skip the bundled copy; nothing else references freetype.
+PPSSPP_CONF_OPTS += -DATLAS_TOOL=OFF
+PPSSPP_CONF_OPTS += -DUSE_SYSTEM_FREETYPE=ON
 
 PPSSPP_TARGET_CFLAGS = $(TARGET_CFLAGS)
 PPSSPP_TARGET_BINARY = PPSSPPSDL

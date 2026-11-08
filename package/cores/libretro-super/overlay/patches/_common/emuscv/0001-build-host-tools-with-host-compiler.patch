@@ -1,0 +1,55 @@
+bin2c and dasm7801 are BUILD-TIME tools: the Makefile compiles them and then
+runs them, in the same invocation, to turn the resource binaries into .c files
+(the `binary.%.c` rule).  Two separate things are wrong for a cross build.
+
+1. Both are built with $(CC)/$(CXX), which here is the TARGET compiler, so the
+   tools come out as aarch64 binaries the x86_64 build host cannot execute.
+   Give them their own BUILD_CC/BUILD_CXX, defaulting to the host cc/c++.  A
+   native build is unaffected -- there they are the same compiler.
+
+2. `binary.%.c` runs tools/bin2c/bin2c but does not DEPEND on it.  build-tools
+   is only a prerequisite of build-binaries, so under -j make happily starts the
+   conversions while bin2c is still compiling:
+
+       cc -o tools/bin2c/bin2c tools/bin2c/bin2c.c
+       tools/bin2c/bin2c -d src/res/binary.emuscv32x32xrgba8888.data.h ...
+       make: tools/bin2c/bin2c: No such file or directory
+       make: *** [Makefile.libretro:791: ...] Error 127
+
+   Order-only (|) rather than a normal prerequisite: the tool only has to
+   EXIST, and a normal dep would regenerate every resource whenever it is
+   rebuilt.
+
+diff --git a/Makefile.libretro b/Makefile.libretro
+index e1df23a..978b554 100644
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -766,19 +766,25 @@ build-binaries: build-tools $(BINOBJS)
+ 
+ build-tools: tools/bin2c/bin2c$(EXE_EXT) tools/dasm7801/dasm7801$(EXE_EXT)
+ 
++# --- local: these run ON THE BUILD HOST during the build, so they must be built
++#     with the host compiler, not the cross one in CC/CXX.
++BUILD_CC ?= cc
++BUILD_CXX ?= c++
++# --- end local ---
++
+ tools/bin2c/bin2c$(EXE_EXT):
+ 	@echo ''
+ 	@echo '- Build tool : bin2c$(EXE_EXT)'
+ 	@rm -f tools/bin2c/bin2c$(EXE_EXT)
+-	$(CC) $(OBJOUT) tools/bin2c/bin2c$(EXE_EXT) tools/bin2c/bin2c.c
++	$(BUILD_CC) $(OBJOUT) tools/bin2c/bin2c$(EXE_EXT) tools/bin2c/bin2c.c
+ 
+ tools/dasm7801/dasm7801$(EXE_EXT):
+ 	@echo ''
+ 	@echo '- Build tool : dasm7801$(EXE_EXT)'
+ 	@rm -f tools/dasm7801/dasm7801$(EXE_EXT)
+-	$(CXX) $(OBJOUT) tools/dasm7801/dasm7801$(EXE_EXT) tools/dasm7801/dasm7801.cpp
++	$(BUILD_CXX) $(OBJOUT) tools/dasm7801/dasm7801$(EXE_EXT) tools/dasm7801/dasm7801.cpp
+ 
+-binary.%.c: %
++binary.%.c: % | tools/bin2c/bin2c$(EXE_EXT)
+ 	@echo ''
+ 	@echo '- Import binary file : $<'
+ 	rm -f $(patsubst %.c,%.h,$@) $@

@@ -1,0 +1,21 @@
+--- a/sys-utils/hwclock-rtc.c	2025-12-01 13:57:01.871435070 +0000
++++ b/sys-utils/hwclock-rtc.c	2025-12-01 13:57:29.431493795 +0000
+@@ -12,6 +12,18 @@
+ #include <errno.h>
+ #include <linux/rtc.h>
+ #include <linux/types.h>
++
++/* Older kernel headers (e.g. 3.4) don’t define RTC_VL_* but it’s safe
++ * to use the modern ioctl numbers – the kernel will just return ENOTTY
++ * if it doesn’t support them.
++ */
++#ifndef RTC_VL_READ
++# define RTC_VL_READ _IOR('p', 0x13, unsigned int)
++#endif
++#ifndef RTC_VL_CLR
++# define RTC_VL_CLR  _IO('p', 0x14)
++#endif
++
+ #include <fcntl.h>
+ #include <stdio.h>
+ #include <stdlib.h>

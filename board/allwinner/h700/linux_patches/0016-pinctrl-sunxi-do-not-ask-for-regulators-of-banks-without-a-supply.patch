@@ -1,0 +1,48 @@
+From: knulli
+Subject: [PATCH] pinctrl: sunxi: do not ask the regulator core for banks without a supply
+
+sunxi_pmx_request() calls regulator_get("vcc-pX") for every bank.  For a
+bank with no vcc-pX-supply the core hands out the dummy regulator only after
+regulator_init_complete() (late_initcall_sync) and returns -EPROBE_DEFER
+before that, so any pin request during the pinctrl probe (a hog) defers the
+whole pio driver until late init, after every device initcall.  With the
+vendor U-Boot that only delayed pinctrl to ~2.6 s; on a cold boot without
+the U-Boot display handoff it left disp2 without pins for its lcd enable.
+Skip the lookup when the property is absent: there is nothing to enable and
+no voltage to derive the pad mode from, which is what the dummy gave anyway.
+
+--- a/drivers/pinctrl/sunxi/pinctrl-sunxi.c
++++ b/drivers/pinctrl/sunxi/pinctrl-sunxi.c
+@@ -927,6 +927,22 @@
+ 	   mv dev & child dev ->power.entry to dpm_list last
+ 	 */
+ 
++	/*
++	 * A bank without a vcc-pX-supply has nothing to enable and no
++	 * voltage to derive the pad mode from.  Do not ask the regulator
++	 * core for it: until regulator_init_complete() (late_initcall_sync)
++	 * that returns -EPROBE_DEFER instead of the dummy, which defers this
++	 * whole driver (pinctrl hogs request pins at probe) to late init.
++	 */
++	snprintf(supply, sizeof(supply), "vcc-p%c-supply", 'a' + bank);
++	if (IS_ERR_OR_NULL(reg) &&
++	    !of_find_property(pctl->dev->of_node, supply, NULL)) {
++		s_reg->regulator = NULL;
++		s_reg->regulator_optional = NULL;
++		refcount_set(&s_reg->refcount, 1);
++		return 0;
++	}
++
+ 	if (IS_ERR_OR_NULL(reg)) {
+ 		snprintf(supply, sizeof(supply), "vcc-p%c", 'a' + bank);
+ 		reg = regulator_get(pctl->dev, supply);
+@@ -996,7 +1012,8 @@
+ 
+ 	if (s_reg->regulator_optional)
+ 		regulator_disable(s_reg->regulator_optional);
+-	regulator_disable(s_reg->regulator);
++	if (s_reg->regulator)
++		regulator_disable(s_reg->regulator);
+ 
+ 	return 0;
+ }

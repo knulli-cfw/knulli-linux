@@ -8,9 +8,6 @@ default:
     retroarch.menu_scale_factor: "1.500000"
     retroarch.audio_driver: alsathread
 
-nds:
-  emulator: drastic
-  core:     drastic
 fmtowns:
   emulator: libretro
   core:     mame

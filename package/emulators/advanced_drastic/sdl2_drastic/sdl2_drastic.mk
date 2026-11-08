@@ -244,8 +244,32 @@ SDL2_DRASTIC_CONF_OPTS += --disable-video-vulkan
 endif
 
 #SDL2_DRASTIC_TARGET_CFLAGS +=  -DRG35XXH -DRG35XXH_GL -I$(STAGING_DIR)/usr/include/SDL2
-SDL2_DRASTIC_TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/SDL2
+# -idirafter, not -I: this dir is only needed for SDL_image.h/SDL_ttf.h (used by
+# src/video/drastic_video.c), but it also holds the system SDL2's own headers.
+# With -I it precedes the package's own include/ and SDL builds against the
+# installed SDL's headers -- which trips
+# "static assertion failed: SDL_PATCHLEVEL == SDL_BUILD_MICRO_VERSION" as soon
+# as the two versions differ (this fork is 2.30, buildroot now ships 2.32).
+SDL2_DRASTIC_TARGET_CFLAGS += -idirafter $(STAGING_DIR)/usr/include/SDL2
+
+# src/video/drastic_*.c (added by 0006-add-hook-for-drastic.patch) is decompiler
+# output -- integers stand in for pointers, return types are omitted.  It is not
+# meant to be type-correct, only to match drastic's ABI.  gcc 14 promoted this
+# whole family from warning to error, so demote all of them rather than rebuild
+# once per diagnostic.
+SDL2_DRASTIC_TARGET_CFLAGS += \
+	-Wno-int-conversion \
+	-Wno-incompatible-pointer-types \
+	-Wno-implicit-int \
+	-Wno-implicit-function-declaration \
+	-Wno-return-mismatch \
+	-Wno-declaration-missing-parameter-type
 SDL2_DRASTIC_TARGET_LDFLAGS += -lSDL2_image -lSDL2_ttf -ljson-c -lpthread
+# configure link-tests with these on the command line, so they must be staged
+# before it runs.  Undeclared until now: a full build happened to compile them
+# earlier anyway, so the ordering only bites when buildroot is asked for this
+# package alone and orders it by declared dependencies.
+SDL2_DRASTIC_DEPENDENCIES += sdl2_image sdl2_ttf json-c
 #$(BR2_PACKAGE_BATOCERA_TARGET_H700)
 ifeq ($(BR2_PACKAGE_BATOCERA_TARGET_A133),y)
 SDL2_DRASTIC_TARGET_LDFLAGS += -lEGL -lGLESv2

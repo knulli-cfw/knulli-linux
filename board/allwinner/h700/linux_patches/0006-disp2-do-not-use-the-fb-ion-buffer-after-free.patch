@@ -1,0 +1,97 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: do not use the fb ion buffer after it is freed
+
+fb_unmap_video_memory() frees the ion buffer but leaves g_fbi.mem[] pointing
+at it, and sunxi_fb_mmap() dereferences that pointer with no check.  Anything
+that releases the fb memory and is followed by an mmap of /dev/fb0 then oopses
+in ion_dma_buf_mmap() on a freed ion_buffer (buffer->heap is the slab free
+pointer).  The mali fbdev winsys does exactly that around FBIO_FREE when
+retroarch starts.
+
+Clear the pointer on free and check it in mmap, FBIOGET_DMABUF,
+FBIO_GET_IONFD and FBIO_GET_PHY_ADDR.
+
+diff --git a/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c b/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
+index 944592831..84aa5c221 100644
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_fb.c
+@@ -140,6 +140,8 @@ static inline void fb_unmap_video_memory(struct fb_info *info)
+ #if defined(CONFIG_ION)
+ 	disp_ion_free((void *__force)info->screen_base,
+ 		  (void *)info->fix.smem_start, info->fix.smem_len);
++	/* the ion buffer is gone, do not leave it behind for mmap/ioctl */
++	g_fbi.mem[info->node] = NULL;
+ #else
+ 	disp_free((void *__force)info->screen_base,
+ 		  (void *)info->fix.smem_start, info->fix.smem_len);
+@@ -836,14 +838,37 @@ static int sunxi_fb_blank(int blank_mode, struct fb_info *info)
+ 	return 0;
+ }*/
+ 
++#if defined(CONFIG_ION)
++/*
++ * The fb memory is freed by FBIO_FREE and by display_fb_release() while
++ * userspace can still mmap or ioctl the device, so every user of g_fbi.mem[]
++ * has to cope with it being gone.
++ */
++static struct dma_buf *sunxi_fb_dmabuf(struct fb_info *info)
++{
++	struct disp_ion_mem *mem = g_fbi.mem[info->node % SUNXI_FB_MAX];
++
++	if (!mem || !mem->p_item)
++		return NULL;
++
++	return mem->p_item->dmabuf;
++}
++#endif /* CONFIG_ION */
++
+ static int sunxi_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+ {
+ 	unsigned int off = vma->vm_pgoff << PAGE_SHIFT;
+ 
+ 	if (off < info->fix.smem_len) {
+ #if defined(CONFIG_ION)
+-		return g_fbi.mem[info->node]->p_item->dmabuf->ops->mmap(
+-		    g_fbi.mem[info->node]->p_item->dmabuf, vma);
++		struct dma_buf *dmabuf = sunxi_fb_dmabuf(info);
++
++		if (!dmabuf) {
++			__wrn("%s: fb%d has no memory\n", __func__, info->node);
++			return -ENODEV;
++		}
++
++		return dmabuf->ops->mmap(dmabuf, vma);
+ 
+ #else /* CONFIG_ION */
+ 		return dma_mmap_writecombine(g_fbi.dev, vma, info->screen_base,
+@@ -1290,6 +1315,8 @@ static int sunxi_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ 			return -EFAULT;
+ 		}
+ #if defined(CONFIG_ION)
++	if (!g_fbi.mem[info->node])
++		return -ENODEV;
+ 	if (argp == NULL) {
+ 		ret = disp_get_ion_fd((struct disp_ion_mem *)g_fbi.mem[info->node]);
+ 	} else {
+@@ -1305,6 +1332,8 @@ static int sunxi_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ 			return -EFAULT;
+ 		}
+ #if defined(CONFIG_ION)
++	if (!g_fbi.mem[info->node])
++		return -ENODEV;
+ 	if (argp == NULL) {
+ 		get_phy_addr = disp_get_phy_addr((struct disp_ion_mem *)g_fbi.mem[info->node]);
+ 		return get_phy_addr == NULL ? -1 : 0;
+@@ -1326,7 +1355,11 @@ static int sunxi_fb_ioctl(struct fb_info *info, unsigned int cmd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+ 		dmabuf = sunxi_share_dma_buf(info);
+ #else
+-		dmabuf = g_fbi.mem[info->node%SUNXI_FB_MAX]->p_item->dmabuf;
++		dmabuf = sunxi_fb_dmabuf(info);
++		if (!dmabuf) {
++			__wrn("%s: fb%d has no memory\n", __func__, info->node);
++			return -ENODEV;
++		}
+ #endif
+ 		if (IS_ERR_OR_NULL(dmabuf))
+ 			return PTR_ERR(dmabuf);

@@ -1,0 +1,3 @@
+#!/bin/sh
+# progressbar_rk owns /dev/fb0
+exit 0

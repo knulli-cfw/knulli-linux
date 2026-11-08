@@ -1,0 +1,14 @@
+config BR2_PACKAGE_MALI_KBASE
+	bool "mali-kbase"
+	depends on BR2_LINUX_KERNEL
+	help
+	  ARM Mali Midgard/Bifrost kbase kernel driver, built out of tree
+	  against this board's kernel.
+
+	  The userspace side is a separate package (mali-libs); this is only
+	  the kernel module the blob talks to.
+
+	  https://github.com/beebono/mali_kbase
+
+comment "mali-kbase needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL

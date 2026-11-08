@@ -93,12 +93,25 @@ start_daemon() {
     post_battery_sync
 }
 
+# LED controllers that keep their last state once the daemon is gone.  The
+# Anbernic singleadc-joypad driver (RG Vita Pro) re-sends it to the MCU on its
+# own, and silkyrgb's /kill switches the LEDs off and then back on (its fade-out
+# goes through sync(), which enables them), so switch them off afterwards.
+leds_off() {
+    local J=/sys/bus/platform/devices/singleadc-joypad
+    if [ -w "$J/led_switch" ] && [ -w "$J/led_set" ]; then
+        echo 0 > "$J/led_switch"
+        echo 1 > "$J/led_set"
+    fi
+}
+
 stop_daemon() {
     echo "Stopping $DAEMON_NAME."
 
     if ! is_running; then
         echo "$DAEMON_NAME is not running."
         rm -f "$PIDFILE"
+        leds_off
         return 0
     fi
 
@@ -119,6 +132,7 @@ stop_daemon() {
     fi
 
     rm -f "$PIDFILE"
+    leds_off
 }
 
 # Sanity check

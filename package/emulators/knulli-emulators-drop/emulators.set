@@ -1,0 +1,165 @@
+# Packages that move out of the per-board image build and into the drop.
+#
+# One name per line, matching the package name buildroot uses in
+# build/packages-file-list.txt (which is the package directory name).  A name
+# that is not enabled for the board being harvested is skipped, so this file is
+# the union over every board on the ABI, not a per-board list.
+#
+# A package enabled on only some boards (ioquake3 is h700-only) belongs here
+# too: harvest skips what a board did not build, and the drop is the union over
+# the ABI.  Deriving this list from one board's build is what missed it.
+#
+# Note that some packages sit one level deeper than the emulator family that
+# names them -- openbor/openbor6412, mupen64plus/mupen64plus-core,
+# easyrpg/easyrpg-player -- so a directory name is not always a package name.
+# harvest-drop.py walks both levels when it reports candidates missing from here.
+#
+# Membership is explicit rather than "everything under emulators/ and ports/"
+# on purpose: what belongs in the drop is a decision about build time and
+# stability, and a glob would silently swallow a package the moment someone
+# adds a directory.  harvest-drop.py warns about candidates that are installed
+# but not listed here, so new packages get noticed instead of missed.
+#
+# Their dependencies are NOT listed.  harvest-drop.py works out which
+# dependency packages exist only because of these ones and carries those too;
+# anything shared with the rest of the image keeps being built normally.
+#
+# retroarch is deliberately absent: the cores plug into it, so it stays in the
+# image build where it versions together with them.
+#
+# python-pygame2 and hypseus-singe are absent for a different reason:
+# the knulli gate cannot switch them off, because they are also selected from
+# inside the batocera submodule (batocera-pygame, batocera-wine,
+# hypseus-singe-bezels).  Listing them would put them in the drop AND keep
+# compiling them per board.  Gating them means patching upstream first; until
+# then they cost 1.1 and 0.9 minutes respectively.
+#
+# Some entries below are not emulators but companions private to one: a package
+# that exists only to serve a single emulator and is selected by it, never by
+# the image.  They ride in the drop rather than the base for the same reason the
+# emulator does -- nothing else would keep them alive once it is gone.
+
+# --- standalone emulators ---
+advanced_drastic
+amiberry
+amiberry-lite
+azahar
+dolphin-emu
+dosbox-staging
+dosbox-x
+dsperate
+flycast
+gsplus
+hatari
+easyrpg-player
+lexaloffle-pico8
+mupen64plus-audio-sdl
+mupen64plus-core
+mupen64plus-input-sdl
+mupen64plus-pow2
+mupen64plus-rsp-hle
+mupen64plus-ui-console
+mupen64plus-video-glide64mk2
+mupen64plus-video-rice
+openbor4432
+openbor6412
+openbor7142
+openbor7530
+lightspark
+ppsspp
+scummvm
+simcoupe
+solarus-engine
+thextech
+vice
+vita3k
+x16emu
+yabasanshiro
+
+# --- ports / game engines ---
+abuse
+corsixth
+cannonball
+cdogs
+cgenius
+devilutionx
+eduke32
+fallout1-ce
+fallout2-ce
+gzdoom
+hcl
+hurrican
+ioquake3
+iortcw
+openjazz
+raze
+sdlpop
+taradino
+tyrian
+
+# --- companions private to one of the above ---
+#
+# (the '#keep' section at the end of this file is not part of the drop)
+sdl2_drastic        # advanced_drastic's private SDL2
+drastic_layout      # advanced_drastic's layout data
+liblcf              # easyrpg-player's format library
+lpeg                # corsixth lua modules, loaded by require() at runtime,
+luafilesystem       # so they never show up in a NEEDED list
+luasec
+luasocket
+
+# --- deliberately NOT in the drop ---
+#
+# These sit under an emulator directory, so harvest-drop.py sees them as
+# candidates, but they belong in the base image.  Listing them here as '#keep'
+# records the decision and keeps the "installed but not in emulators.set"
+# warning meaningful: anything the warning still names is a package nobody has
+# ruled on yet.
+#
+# Libraries the emulators need but that are libraries, not emulators.  These are
+# in BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS's select list precisely so the image
+# keeps building them once the emulators are gone -- putting them in the drop
+# instead would ship a second copy that could drift from the image's.
+#keep batocera-luajit
+#keep iir
+#keep libenet
+#keep libjpeg-bato
+#keep libportmidi
+#
+# Wanted by the rest of the image on their own merits (retroarch, kodi,
+# configgen), so they would be built per board whether the emulators were here
+# or not.
+#keep batocera-retroachievements-sounds
+#keep ecm
+#keep ffmpeg-python
+#keep ffmpeg-rockchip
+#keep ffmpeg4
+#keep libcapsimage
+#keep libgraphene
+#keep libplacebo
+#keep libretro-core-info
+#keep libxmp
+#keep python-hidapi
+#keep python3-configobj
+#keep sdl12-compat
+#keep sdl3
+#keep sdl3_image
+#keep wildmidi
+#
+# Needs Qt6, and Qt6 is 112MB of libraries no other board on the ABI has any use
+# for.  Only rk3576 selects it here, so the drop would gain nothing and charge
+# h700, a133 and rk3326 for a Qt stack to run a binary they cannot use.  It is a
+# prebuilt binary, so leaving it per-board costs no compile time.
+#keep aethersx2
+#
+# Emulators that cannot be gated: also selected from inside the batocera
+# submodule (batocera-pygame, batocera-wine, hypseus-singe-bezels), so the knulli
+# gate cannot switch them off.  Listing them in the drop would put them in the
+# payload AND keep compiling them per board.  Gating them means patching
+# upstream first; until then they cost 1.1 and 0.9 minutes respectively.
+#keep hypseus-singe
+#keep python-pygame2
+#
+# sonic2013/soniccd: RSDKv4 1.3.3 needs libglew (xorg+libGL only) and batocera
+# dropped the legacy no-glew revision, so they build on no board here.  Not
+# listed at all -- a name in this file must have payload in the drop.

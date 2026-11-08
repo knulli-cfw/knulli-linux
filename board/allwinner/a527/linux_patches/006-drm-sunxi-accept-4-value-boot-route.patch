@@ -1,0 +1,25 @@
+Subject: [PATCH] drm: sunxi: accept the 4-value boot route of older U-Boot
+
+Vendor U-Boot 2018.07 (Action Pi eMMC) writes route without tcon_top;
+the 5-value read failed, so the kernel cold-initialised a running panel.
+---
+--- a/bsp/drivers/drm/sunxi_drm_drv.c	2026-10-31 02:54:42.485861504 +0000
++++ b/bsp/drivers/drm/sunxi_drm_drv.c	2026-10-31 02:54:42.497861488 +0000
+@@ -635,6 +635,17 @@
+ 		}
+ 
+ 		ret = of_property_read_u32_array(routing, "route", &info->de_id, 5);
++		/* older U-Boot: de, tcon, connector type, hw id (no tcon_top) */
++		if (ret == -EOVERFLOW) {
++			u32 route[4];
++
++			ret = of_property_read_u32_array(routing, "route", route, 4);
++			info->de_id = route[0];
++			info->tcon_id = route[1];
++			info->tcon_top_id = 0;
++			info->connector_type = route[2];
++			info->hw_id = route[3];
++		}
+ 		if (ret) {
+ 			of_node_put(routing);
+ 			kfree(info);

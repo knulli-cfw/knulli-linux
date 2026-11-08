@@ -1,0 +1,13 @@
+config BR2_PACKAGE_MALI_KBASE_SUNXI
+	bool "mali-kbase-sunxi"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Mali kbase kernel driver taken from the Allwinner BSP kernel's own
+	  modules/gpu tree and built against this board's kernel.
+
+	  Unlike mali-kbase, the version is whatever the BSP ships (r20p0-01rel0
+	  on the orangepi H618 tree), with the sunxi platform glue, and it has
+	  to match the userspace blob: mali-g31-fbdev is r20p0-01rel0 as well.
+
+comment "mali-kbase-sunxi needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL

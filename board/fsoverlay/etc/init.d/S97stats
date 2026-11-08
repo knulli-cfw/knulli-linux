@@ -11,9 +11,7 @@ if [ "$stats" = "0" ]; then
 	exit 0
 fi
 
-echo "Collecting device stats"
-
-knulli-report-stats
-
-echo "Done"
+# knulli-report-stats waits up to 5 x 60s for the network; don't hold up init
+echo "Collecting device stats in the background"
+knulli-report-stats >/dev/null 2>&1 &
 

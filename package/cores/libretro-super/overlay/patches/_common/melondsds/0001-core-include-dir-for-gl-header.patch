@@ -1,0 +1,24 @@
+melonDS DS defines MELONDS_GL_HEADER for the FetchContent'd melonDS "core"
+target but never adds the directory that header lives in to that target's
+include path, so the OpenGL translation units cannot find it.
+
+diff --git a/src/libretro/CMakeLists.txt b/src/libretro/CMakeLists.txt
+index dad8a37..9da7479 100644
+--- a/src/libretro/CMakeLists.txt
++++ b/src/libretro/CMakeLists.txt
+@@ -278,6 +278,15 @@ target_compile_definitions(melondsds_libretro PUBLIC
+ target_compile_definitions(melondsds_libretro PUBLIC MELONDS_GL_HEADER="PlatformOGLPrivate.h")
+ target_compile_definitions(core PUBLIC MELONDS_GL_HEADER="PlatformOGLPrivate.h")
+ 
++# --- local: "core" is melonDS itself, pulled in via FetchContent and compiled
++#     in its own binary dir.  It is told to include PlatformOGLPrivate.h but
++#     never told where that is -- the header lives here, in melonDS DS's own
++#     src/libretro -- so every GPU*OpenGL translation unit fails with
++#     "<command-line>: fatal error: PlatformOGLPrivate.h: No such file or
++#     directory".  The define without the search path is only half the wiring.
++target_include_directories(core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
++# --- end local ---
++
+ target_link_libraries(melondsds_libretro PUBLIC libretro-common core libretro-assets glm::glm pntr fmt::fmt date)
+ 
+ if (HAVE_NETWORKING)

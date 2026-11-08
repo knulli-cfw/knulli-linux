@@ -16,9 +16,20 @@ grep -q "HEADPHONE=" "$STATE_FILE" || exit 0
 if grep -q "HEADPHONE=1" "$STATE_FILE"; then
   $AMIXER -c 0 -q set 'Playback Path' HP
   echo "Headphones detected → set Playback Path to HP"
+  # RG DS / RG Vita Pro: the AW87391 speaker amps pick up the HP stage too
+  /etc/init.d/S04audioamp stop >/dev/null 2>&1
 else
   $AMIXER -c 0 -q set 'Playback Path' SPK
   echo "Headphones not detected → set Playback Path to SPK"
+  /etc/init.d/S04audioamp start >/dev/null 2>&1
+fi
+
+# Boards whose speakers are a card of their own (RG DS Plus, AW883xx): the
+# default sink has to follow the jack, unless an output was picked by hand.
+if grep -qs aw883xx /proc/asound/cards; then
+  case "$(knulli-settings-get audio.device)" in
+    ""|auto) (knulli-audio set auto >/dev/null 2>&1 &) ;;
+  esac
 fi
 
 exit 0

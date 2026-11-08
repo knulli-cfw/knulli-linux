@@ -90,9 +90,10 @@ knulli_wifi_configure() {
         optionalPriority=
     fi
 
-    if [ -n "$settings_ssid" ] && [ "$settingsWlan" = "1" ]; then
-        mkdir -p "/var/lib/connman"
-        cat > "${settings_file}" <<-_EOF_
+    [ -n "$settings_ssid" ] && [ "$settingsWlan" = "1" ] || return 0
+
+    # only replace a changed file: connman drops the service on a delete and reloads it on a move
+    cat > "${settings_file}.tmp" <<-_EOF_
 		[global]
 		Name=knulli
 		[service_knulli_${settings_name}]
@@ -104,14 +105,47 @@ knulli_wifi_configure() {
 		Autoconnect=true
 		IPv6=off
 	_EOF_
-    else
-        rm -f "${settings_file}" 2>/dev/null
+
+    if [ $? -ne 0 ]; then
+        rm -f "${settings_file}.tmp"
+        return 1
     fi
+
+    if cmp -s "${settings_file}.tmp" "${settings_file}"; then
+        rm -f "${settings_file}.tmp" || return 1
+    else
+        mv -f "${settings_file}.tmp" "${settings_file}" || return 1
+    fi
+
+    printf '%s\n' "$settings_file"
 }
 
 wifi_configure_all() {
-    for i in 1 2 3 .hidden .adhoc; do
-        knulli_wifi_configure "$i"
+    local slots
+    local keep=" "
+    local configured
+    local slot
+    local file
+
+    mkdir -p /var/lib/connman || return 1
+
+    # 1 for wifi.ssid, then the N of every wifiN.ssid set
+    slots="$(
+        sed -n 's/^[[:space:]]*wifi\([0-9][0-9]*\)\.ssid[[:space:]]*=.*/\1/p' "$KNULLICONF" |
+            sort -nu
+    )"
+
+    for slot in 1 $slots .hidden .adhoc; do
+        configured="$(knulli_wifi_configure "$slot")" || return 1
+        keep="${keep}${configured} "
+    done
+
+    # Remove provisioning for networks that are no longer configured.
+    for file in /var/lib/connman/knulli_wifi*.config; do
+        case "$keep" in
+            *" $file "*) ;;
+            *) rm -f "$file" || return 1 ;;
+        esac
     done
 }
 
@@ -196,14 +230,15 @@ case "$1" in
     stop)
         do_stop
         ;;
+    configure)
+        wifi_configure_all
+        ;;
     restart | reload)
         do_stop
         sleep 0.5
         do_start
         ;;
     *)
-        echo "usage: $0 {start|stop|restart|reload|status}"
+        echo "usage: $0 {start|stop|restart|reload|configure}"
         ;;
 esac
-
-exit 0

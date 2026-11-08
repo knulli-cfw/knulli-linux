@@ -319,12 +319,16 @@ case "${MODE}" in
     ;;
     "ANYEXTERNAL")
         PARTPREFIX=$(knulli-part prefix "${INTERNALDEVICE}")
-        LDEVICE=$(blkid | grep -F TYPE= | grep -F UUID= | grep -vE "^${PARTPREFIX}" | sort | head -1)
+        # same filter on every scan: the squashfs loops have no UUID
+        anyExternal() {
+            blkid | grep -F TYPE= | grep -F UUID= | grep -vE "^(${PARTPREFIX}|/dev/loop|/dev/zram)" | sort | head -1
+        }
+        LDEVICE=$(anyExternal)
         while [ -z "${LDEVICE}" ] && [ "${NTRY}" -lt "${MAXTRY}" ] # wait the device that can take some seconds after udev started
         do
             NTRY=$((NTRY+1))
             sleep 1
-            LDEVICE=$(blkid | grep -vE "^${PARTPREFIX}" | head -1)
+            LDEVICE=$(anyExternal)
         done
         DEVICE=$(echo "${LDEVICE}" | sed -e s+'^\([^:]*\):.*$'+'\1'+)
         TDEVICE=$(echo "${LDEVICE}" | sed -e s+'^.* TYPE="\([^"]*\)".*$'+'\1'+)
@@ -356,6 +360,16 @@ case "${MODE}" in
         fi
     ;;
 esac
+
+# Boot with temporary userdata, keeping the original mounts available.
+if [ -f /overlay/bootmode.debug ]; then
+    mkdir -p /userdata.real
+
+    # Preserve the existing share, including RAM/fallback tmpfs and any submounts.
+    mount --move /userdata /userdata.real
+    mountRAMDisk
+    mkdir -p /userdata/system
+fi
 
 # filesystem compression
 compressenabled="$(/usr/bin/knulli-settings-get system.fscompression.enabled)"

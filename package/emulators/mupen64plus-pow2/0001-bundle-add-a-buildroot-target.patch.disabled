@@ -1,0 +1,33 @@
+bundle: add a buildroot target
+
+CROSS, SYSROOT and CMAKE_TOOLCHAIN come from the package; gcc-ar and cmake
+are looked up instead of /usr/bin.
+
+--- a/bundle/build-bundle.sh
++++ b/bundle/build-bundle.sh
+@@ -38,6 +38,11 @@
+     # host libpng (headers are arch independent, libpng16.a has no glibc 2.3x-only imports; the floor check below proves it)
+     EXTRA_INC="-I/usr/include/libpng16"
+     STATIC_LIBGCC_DIR=$T/sysroot/usr/lib/gcc/aarch64-linux-gnu/10 ;;
++buildroot)
++    # CROSS, SYSROOT, CMAKE_TOOLCHAIN from the buildroot package
++    X=$CROSS; ARCHMK=(HOST_CPU=aarch64 CROSS_COMPILE=$X); CC=${X}gcc; CXXLTO=$LTO; TCFILE=$CMAKE_TOOLCHAIN
++    SDL_CFLAGS="-I$SYSROOT/usr/include/SDL2 -D_REENTRANT"; SDL_LDLIBS="-lSDL2"
++    EXTRA_INC=""; LIBDIR=$SYSROOT/usr/lib; ZLIB=-lz; PNG=-lpng16 ;;
+ *) echo "unknown target $target" >&2; exit 2 ;;
+ esac
+ API=$W/mupen64plus-core-dento/src/api
+@@ -62,10 +67,10 @@
+ echo "== altru";  make -C "$W/mupen64plus-audio-altru/projects/unix" -j"$JOBS" all BUNDLE=1 "${MK[@]}" SDL_CFLAGS="$SDL_CFLAGS" SDL_LDLIBS=
+ echo "== suxty";  make -C "$W/mupen64plus-input-suxty/projects/unix" -j"$JOBS" all BUNDLE=1 "${MK[@]}" SDL_CFLAGS="$SDL_CFLAGS" SDL_LDLIBS=
+ echo "== armlet"
+-cmake -S "$W/mupen64plus-rsp-armlet" -B "$W/armlet-build" -G Ninja -DCMAKE_BUILD_TYPE=Release ${TCFILE:+-DCMAKE_TOOLCHAIN_FILE="$TCFILE"} \
++${CMAKE:-cmake} -S "$W/mupen64plus-rsp-armlet" -B "$W/armlet-build" -G Ninja -DCMAKE_BUILD_TYPE=Release ${TCFILE:+-DCMAKE_TOOLCHAIN_FILE="$TCFILE"} \
+     -DARMLET_STATIC=ON -DARMLET_BUNDLE_DIR="$W/mupen64plus-pow2/bundle" -DM64P_API_INCLUDE_DIR="$API" \
+-    -DCMAKE_C_FLAGS="$LTO" -DCMAKE_CXX_FLAGS="$CXXLTO" -DCMAKE_AR=/usr/bin/${X}gcc-ar -DCMAKE_RANLIB=/usr/bin/${X}gcc-ranlib >/dev/null
+-cmake --build "$W/armlet-build"
++    -DCMAKE_C_FLAGS="$LTO" -DCMAKE_CXX_FLAGS="$CXXLTO" -DCMAKE_AR="$(command -v ${X}gcc-ar)" -DCMAKE_RANLIB="$(command -v ${X}gcc-ranlib)" >/dev/null
++${CMAKE:-cmake} --build "$W/armlet-build"
+ python3 "$W/mupen64plus-pow2/bundle/check-clashes.py" ui=/dev/null core="$W/mupen64plus-core-dento/projects/unix/libmupen64plus.a" \
+     foir="$FOIRLIB" altru="$W/mupen64plus-audio-altru/projects/unix/libaltru.a" \
+     suxty="$W/mupen64plus-input-suxty/projects/unix/libsuxty.a" armlet="$W/armlet-build/libarmlet.a" 2>/dev/null | tail -1 || true

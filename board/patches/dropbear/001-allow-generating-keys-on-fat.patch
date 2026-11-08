@@ -1,5 +1,5 @@
---- a/src/gensignkey.c	2024-04-25 14:30:00.000000000 +0000
-+++ b/src/gensignkey.c	2024-12-02 16:42:06.768500930 +0000
+--- a/src/gensignkey.c
++++ b/src/gensignkey.c
 @@ -99,7 +99,6 @@
  {
  	sign_key * key = NULL;
@@ -24,7 +24,7 @@
 -		/* If generating keys on connection (skipexist) it's OK to get EEXIST 
 -		- we probably just lost a race with another connection to generate the key */
 -		if (!(skip_exist && errno == EEXIST)) {
--			if (errno == EPERM || errno == EACCES) {
+-			if (errno == EPERM || errno == EACCES || errno == ENOSYS) {
 -				/* Non-atomic fallback when hard-links not allowed or unsupported */
 -				buf_setpos(buf, 0);
 -				ret = buf_writefile(buf, filename, skip_exist);
@@ -52,4 +52,3 @@
 -
  	return ret;
  }
-

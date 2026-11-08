@@ -26,9 +26,6 @@ mastersystem:
 megadrive:
   emulator: libretro
   core:     picodrive
-nds:
-  emulator: drastic
-  core:     drastic
 snes:
   emulator: libretro
   core:     snes9x

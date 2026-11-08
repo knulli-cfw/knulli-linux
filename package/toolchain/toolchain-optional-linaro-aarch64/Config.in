@@ -1,0 +1,10 @@
+config BR2_TOOLCHAIN_OPTIONAL_LINARO_AARCH64
+	bool "toolchain-optional-linaro-aarch64"
+	depends on BR2_HOSTARCH = "x86_64"
+	help
+	  Toolchain for the AArch64 architecture that can be optionally used by
+	  packages at compile time, from
+	  http://www.linaro.org/engineering/armv8/
+
+	  Needed by vendor BSP trees that predate modern GCC, such as the
+	  RK3566 U-Boot 2017.09.

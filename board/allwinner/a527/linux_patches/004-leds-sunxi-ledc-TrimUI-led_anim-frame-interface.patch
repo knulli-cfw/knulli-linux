@@ -1,0 +1,212 @@
+Subject: [PATCH] leds: sunxi ledc: TrimUI led_anim frame interface
+
+The stock TrimUI A133 kernels expose /sys/class/led_anim (frame,
+max_scale, effect knobs) and /sys/class/led/tg5040_exterme_brightness,
+and switch the LED chain supply on at probe; silkyrgb drives the Brick
+LEDs through them.  The supply switch is an optional led-power gpio.
+---
+--- a/bsp/drivers/ledc/ledc-sunxi.c
++++ b/bsp/drivers/ledc/ledc-sunxi.c
+@@ -13,6 +13,7 @@
+  */
+ 
+ #include <linux/module.h>
++#include <linux/gpio/consumer.h>
+ #include <linux/delay.h>
+ #include <linux/leds.h>
+ #include <linux/io.h>
+@@ -1758,6 +1759,167 @@
+ 	/* __ATTR_NULL, */
+ };
+ 
++/*
++ * TrimUI interface (the stock tg5040/A133 kernels): userspace (silkyrgb)
++ * streams whole frames to /sys/class/led_anim/frame, 4 bytes per LED,
++ * little-endian 0x00RRGGBB, scaled by max_scale and
++ * /sys/class/led/tg5040_exterme_brightness.  The stock effect engine is
++ * not implemented; its knobs are accepted so the callers can turn it off.
++ */
++static struct class *led_anim_class;
++static unsigned int tg_max_scale = 255;
++static unsigned int tg_brightness = 255;
++static unsigned int tg_effect_enable;
++static char tg_effect_rgb_lr[8] = "000000";
++static char tg_effect_rgb_m[8] = "000000";
++
++static inline u32 tg_scale(u32 c)
++{
++	return c * tg_max_scale / 255 * tg_brightness / 255;
++}
++
++static ssize_t frame_store(struct class *class, struct class_attribute *attr,
++			   const char *buf, size_t len)
++{
++	struct sunxi_led *led = sunxi_led_global;
++	u32 i, n, r, g, b;
++
++	n = len / 4;
++	if (!n)
++		return -EINVAL;
++	if (n > led->led_count)
++		n = led->led_count;
++
++	mutex_lock(&led->mutex_lock);
++	for (i = 0; i < n; i++) {
++		b = tg_scale((u8)buf[i * 4]);
++		g = tg_scale((u8)buf[i * 4 + 1]);
++		r = tg_scale((u8)buf[i * 4 + 2]);
++		led->data[i] = (g << 16) | (r << 8) | b;
++	}
++	led->length = n;
++	sunxi_ledc_trans_data(led);
++	sunxi_ledc_complete(led);
++	mutex_unlock(&led->mutex_lock);
++
++	return len;
++}
++/* readable too: callers open it O_RDWR */
++static ssize_t frame_show(struct class *class, struct class_attribute *attr,
++			  char *buf)
++{
++	struct sunxi_led *led = sunxi_led_global;
++	u32 i, d;
++
++	mutex_lock(&led->mutex_lock);
++	for (i = 0; i < led->length && (i + 1) * 4 <= PAGE_SIZE; i++) {
++		d = led->data[i];	/* GRB */
++		buf[i * 4] = d & 0xff;
++		buf[i * 4 + 1] = (d >> 16) & 0xff;
++		buf[i * 4 + 2] = (d >> 8) & 0xff;
++		buf[i * 4 + 3] = 0;
++	}
++	mutex_unlock(&led->mutex_lock);
++
++	return i * 4;
++}
++static CLASS_ATTR_RW(frame);
++
++static ssize_t tg_uint_store(unsigned int *v, const char *buf, size_t len)
++{
++	unsigned int val;
++
++	if (kstrtouint(buf, 0, &val) || val > 255)
++		return -EINVAL;
++	*v = val;
++	return len;
++}
++
++static ssize_t max_scale_show(struct class *class, struct class_attribute *attr,
++			      char *buf)
++{
++	return sprintf(buf, "%u\n", tg_max_scale);
++}
++static ssize_t max_scale_store(struct class *class, struct class_attribute *attr,
++			       const char *buf, size_t len)
++{
++	return tg_uint_store(&tg_max_scale, buf, len);
++}
++static CLASS_ATTR_RW(max_scale);
++
++static ssize_t effect_enable_show(struct class *class,
++				  struct class_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%u\n", tg_effect_enable);
++}
++static ssize_t effect_enable_store(struct class *class,
++				   struct class_attribute *attr,
++				   const char *buf, size_t len)
++{
++	return tg_uint_store(&tg_effect_enable, buf, len);
++}
++static CLASS_ATTR_RW(effect_enable);
++
++#define TG_EFFECT_RGB(name, var)						\
++static ssize_t name##_show(struct class *class,				\
++			   struct class_attribute *attr, char *buf)	\
++{									\
++	return sprintf(buf, "%s\n", var);				\
++}									\
++static ssize_t name##_store(struct class *class,			\
++			    struct class_attribute *attr,		\
++			    const char *buf, size_t len)		\
++{									\
++	strscpy(var, buf, min(len + 1, sizeof(var)));			\
++	strim(var);							\
++	return len;							\
++}									\
++static CLASS_ATTR_RW(name)
++
++TG_EFFECT_RGB(effect_rgb_hex_lr, tg_effect_rgb_lr);
++TG_EFFECT_RGB(effect_rgb_hex_m, tg_effect_rgb_m);
++
++static ssize_t tg5040_exterme_brightness_show(struct class *class,
++					      struct class_attribute *attr,
++					      char *buf)
++{
++	return sprintf(buf, "%u\n", tg_brightness);
++}
++static ssize_t tg5040_exterme_brightness_store(struct class *class,
++					       struct class_attribute *attr,
++					       const char *buf, size_t len)
++{
++	return tg_uint_store(&tg_brightness, buf, len);
++}
++static CLASS_ATTR_RW(tg5040_exterme_brightness);
++
++static void led_anim_init(void)
++{
++	led_anim_class = class_create(THIS_MODULE, "led_anim");
++	if (IS_ERR(led_anim_class)) {
++		LED_ERR("led_anim class_create failed\n");
++		led_anim_class = NULL;
++		return;
++	}
++	if (class_create_file(led_anim_class, &class_attr_frame) ||
++	    class_create_file(led_anim_class, &class_attr_max_scale) ||
++	    class_create_file(led_anim_class, &class_attr_effect_enable) ||
++	    class_create_file(led_anim_class, &class_attr_effect_rgb_hex_lr) ||
++	    class_create_file(led_anim_class, &class_attr_effect_rgb_hex_m))
++		LED_ERR("led_anim attributes failed\n");
++	if (led_class && class_create_file(led_class,
++					   &class_attr_tg5040_exterme_brightness))
++		LED_ERR("tg5040_exterme_brightness failed\n");
++}
++
++static void led_anim_exit(void)
++{
++	if (led_anim_class) {
++		class_destroy(led_anim_class);
++		led_anim_class = NULL;
++	}
++}
++
+ static void led_node_init(void)
+ {
+ 	int i;
+@@ -1863,6 +2025,10 @@
+ 
+ 	sunxi_ledc_pinctrl_init(led);
+ 
++	/* LED chain supply switch (TrimUI Brick: PD11), on while the driver is */
++	if (IS_ERR(devm_gpiod_get_optional(dev, "led-power", GPIOD_OUT_HIGH)))
++		LED_ERR("led-power gpio failed\n");
++
+ #ifdef CONFIG_DEBUG_FS
+ 	sunxi_led_create_debugfs(led);
+ #endif /* CONFIG_DEBUG_FS */
+@@ -1875,6 +2041,7 @@
+ 		goto eclass;
+ 	}
+ 	led_node_init();
++	led_anim_init();
+ 
+ 	mutex_init(&led->mutex_lock);
+ 
+@@ -1916,6 +2083,7 @@
+ 
+ 	mutex_destroy(&led->mutex_lock);
+ 
++	led_anim_exit();
+ 	class_destroy(led_class);
+ 
+ #ifdef CONFIG_DEBUG_FS

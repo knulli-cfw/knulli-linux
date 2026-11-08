@@ -1,0 +1,78 @@
+Generate mobile_config.h for the plain-Makefile build.
+
+BUILD ENABLEMENT ONLY -- no behaviour change.
+
+Makefile.common:90 passes -DMOBILE_LIBCONF_USE, which makes libmobile's
+callback.h / mobile.c / commands.c do #include <mobile_config.h>, and
+INCFLAGS already has -I extern/libmobile.  But the header is GENERATED:
+CMakeLists.txt:47 configure_file()s it, meson.build:38 and configure.ac:34
+do the same.  The Makefile path generates nothing, so it fails with
+"fatal error: mobile_config.h: No such file or directory".
+
+Every option in mobile_config.h.in is an #undef -- i.e. OFF, matching
+CMakeOptions.txt where all three LIBMOBILE_ENABLE_* default to OFF.  The
+all-defaults header is therefore mobile_config.h.in verbatim, which is what
+this adds.  Should upstream add an option later, its absence here leaves the
+macro undefined -- identical to the #undef it would have shipped.
+
+Drop this patch once upstream generates the header from its Makefile.
+
+diff --git a/extern/libmobile/mobile_config.h b/extern/libmobile/mobile_config.h
+new file mode 100644
+index 0000000..cb2f22a
+--- /dev/null
++++ b/extern/libmobile/mobile_config.h
+@@ -0,0 +1,53 @@
++// SPDX-License-Identifier: LGPL-3.0-or-later
++#pragma once
++
++// Configuration file defining various settings and toggles that change the
++// behavior of the library at compile time.
++//
++// To change these settings, either use one of the supported build systems, or
++// build the library with `-DMOBILE_LIBCONF_USE`, making sure to use the `-I`
++// option to make sure "mobile_config.h" is found correctly. Any code including
++// the "mobile.h" header must use these same compiler options.
++//
++// The exported ABI will vary depending on these options. As such, it's not
++// recommended to make binary distributions with changes to these options.
++
++// MOBILE_ENABLE_IMPL_WEAK - use weak implementation callbacks
++//
++// Makes the library define mobile_impl_* functions as weak symbols, allowing
++// any library user to implement these directly, instead of passing the
++// callbacks as pointers into the mobile_def_* functions. Also disables the
++// compilation of the mobile_def_* functions.
++//
++// If this option is set, and weak symbols aren't detected as supported by the
++// toolchain (see compat.h), all of the mobile_impl_* functions will need to
++// be defined by the user, and the library will only work as a static library.
++#undef MOBILE_ENABLE_IMPL_WEAK
++
++// MOBILE_ENABLE_NOALLOC - disable functions for memory allocation
++//
++// Removes any function that calls malloc(). This is primarily useful for
++// platforms where including a memory allocator is unwieldy, requiring too much
++// code memory or ram, and as such are better off managing memory themselves.
++//
++// In order to allow the user to allocate the necessary memory themselves at
++// runtime, the global mobile_sizeof variable is provided, indicating the
++// required minimum size of struct mobile_adapter.
++//
++// A static definition of struct mobile_adapter may be provided by including
++// the mobile_data.h header. However, doing so requires the library to always
++// be compiled in tandem with the application using it, in order to ensure the
++// ABI remains compatible. As such, it's recommended to avoid doing this.
++#undef MOBILE_ENABLE_NOALLOC
++
++// MOBILE_ENABLE_NO32BIT - prevent games from enabling 32bit serial mode
++//
++// Enables a trick to fool GBA games into not using 32bit serial. It works by
++// replying to the 0x18 packet, whith a different command in the reply header.
++// The picked command was 0x16, as the official library will always reset the
++// serial mode back to 8-bit when receiving a packet with this command ID.
++//
++// This is a feature flag rather than a runtime configuration, because only
++// very few hardware implementations will need this, and the user really isn't
++// going to want to care.
++#undef MOBILE_ENABLE_NO32BIT

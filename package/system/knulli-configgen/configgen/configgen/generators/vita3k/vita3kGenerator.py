@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import ruamel.yaml
@@ -15,6 +17,8 @@ from ..Generator import Generator
 
 if TYPE_CHECKING:
     from ...types import HotkeysContext
+
+eslog = logging.getLogger(__name__)
 
 vitaConfig = CONFIGS / 'vita3k'
 vitaSaves = SAVES / 'psvita'
@@ -124,12 +128,12 @@ class Vita3kGenerator(Generator):
         else:
             vita3kymlconfig["resolution-multiplier"] = 1
         # Set FXAA
-        if system.isOptSet("vita3k_fxaa") and system.getOptBoolean("vita3k_surface") == True:
+        if system.isOptSet("vita3k_fxaa") and system.getOptBoolean("vita3k_fxaa") == True:
             vita3kymlconfig["enable-fxaa"] = "true"
         else:
             vita3kymlconfig["enable-fxaa"] = "false"
         # Set VSync
-        if system.isOptSet("vita3k_vsync") and system.getOptBoolean("vita3k_surface") == False:
+        if system.isOptSet("vita3k_vsync") and system.getOptBoolean("vita3k_vsync") == False:
             vita3kymlconfig["v-sync"] = "false"
         else:
             vita3kymlconfig["v-sync"] = "true"
@@ -139,10 +143,49 @@ class Vita3kGenerator(Generator):
         else:
             vita3kymlconfig["anisotropic-filtering"] = 1
         # Set the linear filtering option
-        if system.isOptSet("vita3k_linear") and system.getOptBoolean("vita3k_surface") == True:
+        if system.isOptSet("vita3k_linear") and system.getOptBoolean("vita3k_linear") == True:
             vita3kymlconfig["enable-linear-filter"] = "true"
         else:
             vita3kymlconfig["enable-linear-filter"] = "false"
+        # Screen filter
+        if system.isOptSet("vita3k_filter"):
+            vita3kymlconfig["screen-filter"] = system.config["vita3k_filter"]
+        else:
+            vita3kymlconfig["screen-filter"] = "Bilinear"
+        # Compile pipelines in the background rather than stalling on them
+        if system.isOptSet("vita3k_sync"):
+            vita3kymlconfig["async-pipeline-compilation"] = system.getOptBoolean("vita3k_sync")
+        else:
+            vita3kymlconfig["async-pipeline-compilation"] = True
+        # Pixel perfect scaling in HD fullscreen
+        if system.isOptSet("vita3k_hd_pixel"):
+            vita3kymlconfig["fullscreen_hd_res_pixel_perfect"] = system.getOptBoolean("vita3k_hd_pixel")
+        else:
+            vita3kymlconfig["fullscreen_hd_res_pixel_perfect"] = False
+        # Accurate but slower rendering
+        if system.isOptSet("vita3k_accuracy"):
+            vita3kymlconfig["high-accuracy"] = system.getOptBoolean("vita3k_accuracy")
+        else:
+            vita3kymlconfig["high-accuracy"] = False
+        # Caches, worth keeping on: they cost storage and save a lot of stutter
+        if system.isOptSet("vita3k_texture"):
+            vita3kymlconfig["texture-cache"] = system.getOptBoolean("vita3k_texture")
+        else:
+            vita3kymlconfig["texture-cache"] = True
+        if system.isOptSet("vita3k_shader"):
+            vita3kymlconfig["shader-cache"] = system.getOptBoolean("vita3k_shader")
+        else:
+            vita3kymlconfig["shader-cache"] = True
+        # Memory mapping strategy
+        if system.isOptSet("vita3k_mapping"):
+            vita3kymlconfig["memory-mapping"] = system.config["vita3k_mapping"]
+        else:
+            vita3kymlconfig["memory-mapping"] = "double-buffer"
+        # Emulated system language
+        if system.isOptSet("vita3k_system_language"):
+            vita3kymlconfig["sys-lang"] = int(system.config["vita3k_system_language"])
+        else:
+            vita3kymlconfig["sys-lang"] = 1
         # Surface Sync
         if system.isOptSet("vita3k_surface") and system.getOptBoolean("vita3k_surface") == False:
             vita3kymlconfig["disable-surface-sync"] = "false"
@@ -159,9 +202,13 @@ class Vita3kGenerator(Generator):
         with vitaConfigFile.open('w') as fp:
             yaml.dump(vita3kymlconfig, fp)
 
-        # Simplify the rom name (strip the directory & extension)
-        begin, end = rom.find('['), rom.rfind(']')
-        smplromname = rom[begin+1: end]
+        # Title ID from the rom name, e.g. "FEZ [PCSB00456] [EUR] [NoNpDrm].zip"
+        titleid = re.search(r'\[([A-Z]{4}\d{5})\]', Path(rom).name)
+        if titleid:
+            smplromname = titleid.group(1)
+        else:
+            begin, end = rom.find('['), rom.rfind(']')
+            smplromname = rom[begin+1: end]
         # because of the yml formatting, we don't allow Vita3k to modify it
         # using the -w & -f options prevents Vita3k from re-writing & prompting the user in GUI
         # we want to avoid that so roms load straight away
@@ -169,7 +216,9 @@ class Vita3kGenerator(Generator):
             commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, "-r", smplromname]
         else:
             # Game not installed yet, let's open the menu
-            commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, rom]
+            # "--": Vita3K allows Windows-style options, so a path starting
+            # with "/" is otherwise parsed as an option and silently dropped
+            commandArray = ["/usr/bin/vita3k/Vita3K", "-F", "-w", "-f", "-c", vitaConfigFile, "--", rom]
 
         return Command.Command(
             array=commandArray,

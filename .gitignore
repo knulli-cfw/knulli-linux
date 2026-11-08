@@ -31,3 +31,14 @@ package/emulationstation/knulli-emulationstation/keys.txt
 batocera-mok.key
 .project
 /update_server
+
+# libretro-super core build cache: the upstream clone, ~140 core checkouts and
+# the per-profile drops.  Deliberately a sibling of output/ so it survives
+# "make <board>-clean" and is shared by every board on the same ABI.
+/cores-cache
+/emulators-cache
+/armhf-cache
+/uboot-cache
+
+# Exclude wiki docs
+/docs

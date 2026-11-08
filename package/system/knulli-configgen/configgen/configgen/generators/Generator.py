@@ -36,6 +36,10 @@ class Generator(metaclass=ABCMeta):
         return None
 
     # mame or libretro have internal bezels, don't display the one of mangohud
+    # Some systems expect to write into the ROM area, for example DOS
+    def writesToRom(self, config: dict[str, Any]) -> bool:
+        return False
+
     def supportsInternalBezels(self) -> bool:
         return False
 

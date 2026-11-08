@@ -1,3 +1,3 @@
-ACTION=="add|change",SUBSYSTEM=="extcon",ENV{DEVPATH}=="/devices/platform/soc/6000000.hdmi/extcon/hdmi",RUN+="/usr/bin/knulli-hdmi-switch"
+ACTION=="add|change",SUBSYSTEM=="extcon",ENV{DEVPATH}=="/devices/platform/soc*/6000000.hdmi/extcon/*",RUN+="/usr/bin/knulli-hdmi-switch"
 
 

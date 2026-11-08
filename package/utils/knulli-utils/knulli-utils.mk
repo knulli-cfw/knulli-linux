@@ -38,6 +38,10 @@ define KNULLI_UTILS_BUILD_CMDS
 		$(TARGET_CXX) $(KNULLI_UTILS_CXXFLAGS) \
 			$(BR2_EXTERNAL_KNULLI_PATH)/package/utils/knulli-utils/charger.cpp \
 			$(KNULLI_UTILS_SDL1_LDFLAGS) -o $(@D)/charger)
+	$(if $(BR2_PACKAGE_BATOCERA_TARGET_H700), \
+		$(TARGET_CXX) $(KNULLI_UTILS_CXXFLAGS) \
+			$(BR2_EXTERNAL_KNULLI_PATH)/package/utils/knulli-utils/devsel.cpp \
+			$(KNULLI_UTILS_SDL1_LDFLAGS) -o $(@D)/knulli-devsel)
 endef
 
 define KNULLI_UTILS_INSTALL_TARGET_CMDS
@@ -45,6 +49,8 @@ define KNULLI_UTILS_INSTALL_TARGET_CMDS
 	$(INSTALL) -m 0755 -D $(@D)/progressbar_rk $(TARGET_DIR)/usr/bin/progressbar_rk
 	$(if $(BR2_PACKAGE_BATOCERA_TARGET_H700), \
 		$(INSTALL) -m 0755 -D $(@D)/charger $(TARGET_DIR)/usr/bin/charger)
+	$(if $(BR2_PACKAGE_BATOCERA_TARGET_H700), \
+		$(INSTALL) -m 0755 -D $(@D)/knulli-devsel $(TARGET_DIR)/usr/bin/knulli-devsel)
 endef
 
 $(eval $(generic-package))

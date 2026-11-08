@@ -37,6 +37,8 @@ define MALI_MP400_SUNXI_INSTALL_TARGET_CMDS
 	cp -rf $(@D)/lib/mali/$(MALI_MP400_SUNXI_REV)/$(MALI_MP400_SUNXI_ARCH)/fbdev/*.so* \
 		$(TARGET_DIR)/usr/lib/
         (cd $(TARGET_DIR)/usr/lib && ln -sf libMali.so libmali.so)
+	# the shared cores drop is linked on rk3128, whose blob is libmali.so.1
+	(cd $(TARGET_DIR)/usr/lib && ln -sf libMali.so libmali.so.1)
 endef
 
 $(eval $(generic-package))

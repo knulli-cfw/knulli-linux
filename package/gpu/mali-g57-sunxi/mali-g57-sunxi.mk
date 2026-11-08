@@ -14,15 +14,28 @@ MALI_G57_SUNXI_INSTALL_STAGING = YES
 MALI_G57_SUNXI_PROVIDES = libegl libgles libopencl libmali libgbm
 MALI_G57_SUNXI_DEPENDENCIES = libdrm
 
+# The blob's vulkan/ headers are 1.1.108; copied after vulkan-headers they
+# replaced its current ones and hid the Vulkan 1.2+ API (DSperate).
+ifeq ($(BR2_PACKAGE_VULKAN_HEADERS),y)
+MALI_G57_SUNXI_SKIP_HEADERS = vulkan
+endif
+
 define MALI_G57_SUNXI_INSTALL_STAGING_CMDS
         mkdir -p $(STAGING_DIR)/usr/lib/pkgconfig
 
         # Install headers
-        cp -rf $(@D)/include/* $(STAGING_DIR)/usr/include/
+        for h in $(@D)/include/*; do \
+                case " $(MALI_G57_SUNXI_SKIP_HEADERS) " in *" $$(basename $$h) "*) continue ;; esac; \
+                cp -rf $$h $(STAGING_DIR)/usr/include/; \
+        done
 
         # Install patched eglplatform.h that doesn't require X11 headers
         $(INSTALL) -D -m 0644 $(BR2_EXTERNAL_KNULLI_PATH)/package/gpu/mali-g57-sunxi/include/EGL/eglplatform.h \
                 $(STAGING_DIR)/usr/include/EGL/eglplatform.h
+
+        # The blob ships gl3.h/gl31.h/gl32.h but not gl3ext.h. GLES3 extension tokens live in gl2ext.h
+        $(INSTALL) -D -m 0644 $(BR2_EXTERNAL_KNULLI_PATH)/package/gpu/mali-g57-sunxi/include/GLES3/gl3ext.h \
+                $(STAGING_DIR)/usr/include/GLES3/gl3ext.h
 
         # Install main mali library
         $(INSTALL) -D -m 0755 $(@D)/fbdev/arm64/libmali.so.0.32.0 $(STAGING_DIR)/usr/lib/libmali.so.1
@@ -55,8 +68,9 @@ define MALI_G57_SUNXI_INSTALL_STAGING_CMDS
                 $(STAGING_DIR)/usr/lib/pkgconfig/gbm.pc
         $(INSTALL) -D -m 0644  $(BR2_EXTERNAL_KNULLI_PATH)/package/gpu/mali-g57-sunxi/mali.pc \
                 $(STAGING_DIR)/usr/lib/pkgconfig/mali.pc
-        $(INSTALL) -D -m 0644  $(BR2_EXTERNAL_KNULLI_PATH)/package/gpu/mali-g57-sunxi/wayland-egl.pc \
-                $(STAGING_DIR)/usr/lib/pkgconfig/wayland-egl.pc
+
+# No wayland-egl.pc. libmali exports no wl_egl_window_* at all
+# Wayland package's libwayland-egl provides the necessary wayland-egl.pc.
 endef
 
 define MALI_G57_SUNXI_INSTALL_TARGET_CMDS

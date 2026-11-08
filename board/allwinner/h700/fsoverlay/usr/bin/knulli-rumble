@@ -1,6 +1,4 @@
-#!/bin/bash
-
-RUMBLE_FILE="/sys/class/power_supply/axp2202-battery/moto"
+#!/bin/sh
 
 # We only want to run the script if the board has rumble capability
 if ! knulli-board-capability "rumble"; then
@@ -8,12 +6,12 @@ if ! knulli-board-capability "rumble"; then
 fi
 
 # Ensure correct number of arguments
-if [ $# -lt 1 ] || [ $(echo "$1 <= 0" | bc) -ne 0 ]; then
+if [ $# -lt 1 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9]*\.?[0-9]+$' || \
+   ! awk "BEGIN{exit !($1 > 0)}" >/dev/null 2>&1; then
   echo "Usage: $0 <duration>"
-  echo "Duration must be a positive integer or floating point number larger than 0."
+  echo "Duration must be a positive integer or floating point number greater than 0."
   exit 1
 fi
 
-echo 1 > "$RUMBLE_FILE" && sleep $1 && echo 0 > "$RUMBLE_FILE"
-
-exit 0
+# joypad force feedback; ff-rumble finds the internal controller
+exec /usr/bin/ff-rumble "$1"

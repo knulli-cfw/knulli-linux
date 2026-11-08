@@ -33,7 +33,17 @@ case "$1" in
                 is_hci0=1
                 ;;
             a133)
-                /usr/bin/rtk_hciattach -n -s 115200 ttyS1 xradio &
+                if [ "$(uname -r)" = "4.9.191" ]; then
+                    /usr/bin/rtk_hciattach -n -s 115200 ttyS1 xradio &
+                elif knulli-board-capability bluetooth >/dev/null; then
+                    # XR829: BT wake/sleep driver, firmware download, H4 on uart1
+                    modprobe xradio_btlpm
+                    /usr/bin/hciattach -n -t 60 ttyAS1 xradio >/dev/null 2>&1 &
+                    for i in $(seq 20); do # firmware download takes ~4 s
+                        [ -e /sys/class/bluetooth/hci0 ] && break
+                        sleep 0.5
+                    done
+                fi
                 is_hci0=1
                 ;;
             a527)

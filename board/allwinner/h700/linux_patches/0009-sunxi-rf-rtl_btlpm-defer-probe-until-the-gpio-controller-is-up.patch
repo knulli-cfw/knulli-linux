@@ -1,0 +1,107 @@
+sunxi-rf, rtl_btlpm: defer probe until the gpio controller is up
+
+diff --git a/drivers/bluetooth/rtl_btlpm.c b/drivers/bluetooth/rtl_btlpm.c
+index 393d37f06..51dffdf4e 100644
+--- a/drivers/bluetooth/rtl_btlpm.c
++++ b/drivers/bluetooth/rtl_btlpm.c
+@@ -396,7 +396,7 @@
+ 	return of_find_device_by_node(np);
+ }
+ 
+-static int __init bluesleep_probe(struct platform_device *pdev)
++static int bluesleep_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct device *dev = &pdev->dev;
+@@ -410,6 +410,8 @@ static int bluesleep_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	bsi->host_wake = of_get_named_gpio_flags(np, "bt_hostwake", 0, &config);
++	if (bsi->host_wake == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(bsi->host_wake)) {
+ 		BT_ERR("get gpio bt_hostwake failed\n");
+ 		return -EINVAL;
+@@ -553,6 +555,7 @@ static const struct of_device_id sunxi_btlpm_ids[] = {
+ };
+ 
+ static struct platform_driver bluesleep_driver = {
++	.probe	= bluesleep_probe,
+ 	.remove	= bluesleep_remove,
+ 	.suspend = bluesleep_suspend,
+ 	.resume = bluesleep_resume,
+@@ -575,7 +578,7 @@ static int __init bluesleep_init(void)
+ 
+ 	BT_DBG("BlueSleep Mode Driver Ver %s", VERSION);
+ 
+-	retval = platform_driver_probe(&bluesleep_driver, bluesleep_probe);
++	retval = platform_driver_register(&bluesleep_driver);
+ 	if (retval)
+ 		return retval;
+ 
+diff --git a/drivers/misc/sunxi-rf/sunxi-bluetooth.c b/drivers/misc/sunxi-rf/sunxi-bluetooth.c
+index 42a96c04b..0425e0372 100644
+--- a/drivers/misc/sunxi-rf/sunxi-bluetooth.c
++++ b/drivers/misc/sunxi-rf/sunxi-bluetooth.c
+@@ -220,6 +220,8 @@ int sunxi_bt_init(struct platform_device *pdev)
+ 	}
+ 
+ 	data->gpio_bt_rst = of_get_named_gpio_flags(np, "bt_rst_n", 0, &config);
++	if (data->gpio_bt_rst == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(data->gpio_bt_rst)) {
+ 		dev_err(dev, "get gpio bt_rst failed\n");
+ 	} else {
+diff --git a/drivers/misc/sunxi-rf/sunxi-rfkill.c b/drivers/misc/sunxi-rf/sunxi-rfkill.c
+index a2ff37f26..5c814fdc2 100644
+--- a/drivers/misc/sunxi-rf/sunxi-rfkill.c
++++ b/drivers/misc/sunxi-rf/sunxi-rfkill.c
+@@ -101,6 +101,8 @@ static int rfkill_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	data->gpio_chip_en = of_get_named_gpio_flags(np, "chip_en", 0, &config);
++	if (data->gpio_chip_en == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(data->gpio_chip_en)) {
+ 		dev_err(dev, "get gpio chip_en failed\n");
+ 	} else {
+@@ -123,6 +125,8 @@ static int rfkill_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	data->gpio_power_en = of_get_named_gpio_flags(np, "power_en", 0, &config);
++	if (data->gpio_power_en == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(data->gpio_power_en)) {
+ 		dev_err(dev, "get gpio power_en failed\n");
+ 	} else {
+@@ -191,7 +195,7 @@ static struct platform_driver rfkill_driver = {
+ 	},
+ };
+ 
+-module_platform_driver_probe(rfkill_driver, rfkill_probe);
++module_platform_driver(rfkill_driver);
+ 
+ MODULE_DESCRIPTION("sunxi rfkill driver");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/misc/sunxi-rf/sunxi-wlan.c b/drivers/misc/sunxi-rf/sunxi-wlan.c
+index f046f9751..b4c5cc9dc 100644
+--- a/drivers/misc/sunxi-rf/sunxi-wlan.c
++++ b/drivers/misc/sunxi-rf/sunxi-wlan.c
+@@ -346,6 +346,8 @@ int sunxi_wlan_init(struct platform_device *pdev)
+ 	}
+ 
+ 	data->gpio_wlan_regon = of_get_named_gpio_flags(np, "wlan_regon", 0, &config);
++	if (data->gpio_wlan_regon == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(data->gpio_wlan_regon)) {
+ 		dev_err(dev, "get gpio wlan_regon failed\n");
+ 	} else {
+@@ -369,6 +371,8 @@ int sunxi_wlan_init(struct platform_device *pdev)
+ 	}
+ 
+ 	data->gpio_wlan_hostwake = of_get_named_gpio_flags(np, "wlan_hostwake", 0, &config);
++	if (data->gpio_wlan_hostwake == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 	if (!gpio_is_valid(data->gpio_wlan_hostwake)) {
+ 		dev_err(dev, "get gpio wlan_hostwake failed\n");
+ 	} else {

@@ -10,6 +10,9 @@ snes:
       pocketsnes:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_POCKETSNES]  }
       snes9x_next: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SNES9X_NEXT] }
       snes9x:      { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SNES9X]      }
+      snes9x2005:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SNES9X2005]  }
+      snes9x2005_plus: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SNES9X2005_PLUS] }
+      chimerasnes: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_CHIMERASNES] }
       bsnes:       { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BSNES]       }
       bsnes_hd:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BSNES_HD]    }
       mesen-s:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MESENS]      }
@@ -51,6 +54,7 @@ c64:
       vice_x64:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VICE] }
       vice_x64sc:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VICE] }
       vice_xscpu64: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VICE] }
+      frodo:        { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FRODO] }
 
 cplus4:
   name:       Commodore Plus4
@@ -123,6 +127,9 @@ amiga500:
     amiberry:
       A500:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
       A500+:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
+    amiberry-lite:
+      A500:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
+      A500+:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -149,6 +156,9 @@ amiga1200:
     amiberry:
       A1200:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
       A4000:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY], incompatible_extensions: [m3u] }
+    amiberry-lite:
+      A1200:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
+      A4000:    { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE], incompatible_extensions: [m3u] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -171,6 +181,8 @@ amigacd32:
       CD32:     { requireAnyOf: [BR2_PACKAGE_FSUAE]         }
     amiberry:
       CD32:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY] }
+    amiberry-lite:
+      CD32:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -187,6 +199,8 @@ amigacdtv:
       CDTV:     { requireAnyOf: [BR2_PACKAGE_FSUAE]         }
     amiberry:
       CDTV:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY] }
+    amiberry-lite:
+      CDTV:     { requireAnyOf: [BR2_PACKAGE_AMIBERRY_LITE] }
     libretro:
       puae:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE] }
       puae2021: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PUAE2021] }
@@ -222,6 +236,8 @@ n64:
       gliden64:   { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_GLIDEN64], incompatible_extensions: [zip, 7z] }
       glide64mk2: { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_VIDEO_GLIDE64MK2], incompatible_extensions: [zip, 7z] }
       rice:       { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_VIDEO_RICE], incompatible_extensions: [zip, 7z] }
+    mupen64plus-pow2:
+      pow2:       { requireAnyOf: [BR2_PACKAGE_MUPEN64PLUS_POW2], incompatible_extensions: [zip, 7z] }
     libretro:
       mupen64plus-next: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MUPEN64PLUS_NEXT] }
       parallel_n64:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PARALLEL_N64] }
@@ -259,7 +275,9 @@ gba:
     libretro:
       mgba:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MGBA] }
       vba-m:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_M] }
+      vba_next: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_NEXT] }
       gpsp:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_GPSP] }
+      armgba: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gba
   comment_fr: |
@@ -279,6 +297,9 @@ gbc:
       mgba:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MGBA] }
       vba-m:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_M] }
       mesen-s:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MESENS] }
+      sameboy:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SAMEBOY] }
+      doublecherrygb: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_DOUBLECHERRYGB] }
+      armgba:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gbc
   comment_fr: |
@@ -298,6 +319,9 @@ gb:
       mgba:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MGBA] }
       vba-m:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_VBA_M] }
       mesen-s:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MESENS] }
+      sameboy:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_SAMEBOY] }
+      doublecherrygb: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_DOUBLECHERRYGB] }
+      armgba:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_ARMGBA] }
   comment_en: |
     For more info: https://wiki.batocera.org/systems:gb
   comment_fr: |
@@ -374,12 +398,10 @@ nds:
       desmume:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_DESMUME] }
       melonds:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MELONDS] }
       melondsds:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MELONDS_DS] }
-    melonds:
-      melonds: { requireAnyOf: [BR2_PACKAGE_MELONDS] }
-    drastic:
-      drastic: { requireAnyOf: [BR2_PACKAGE_DRASTIC], incompatible_extensions: [7z] }
     advanced_drastic:
       advanced_drastic: { requireAnyOf: [BR2_PACKAGE_ADVANCED_DRASTIC], incompatible_extensions: [7z] }
+    dsperate:
+      dsperate: { requireAnyOf: [BR2_PACKAGE_DSPERATE], incompatible_extensions: [zip, 7z] }
 
 fds:
   name:       Family Computer Disk System
@@ -618,6 +640,57 @@ multivision:
   emulators:
     libretro:
       gearsystem:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_GEARSYSTEM]}
+
+beena:
+  name:       Advanced Pico Beena
+  manufacturer: Sega
+  release: 2005
+  hardware: console
+  extensions: [bin, zip, 7z]
+  platform:   beena
+  theme:      beena
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+    BIOS: beena.zip in bios/mame/
+    Successor to the Sega Pico. Cartridge-based educational console.
+
+sc3000:
+  name: SC-3000
+  manufacturer: Sega
+  release: 1983
+  hardware: computer
+  extensions: [bin, sg, wav, cas, bit, zip, 7z]
+  platform: sc-3000
+  theme: sc-3000
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+    SC-3000 cartridges are compatible with SG-1000.
+    Cassette tapes (.wav, .cas, .bit) are SC-3000 exclusive.
+
+segaai:
+  name:       Sega AI Computer
+  manufacturer: Sega
+  release: 1986
+  hardware: computer
+  extensions: [bin, wav, flac, cas, zip, 7z]
+  platform:   segaai
+  theme:      segaai
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+    BIOS: segaai.zip in bios/mame/
+    Software on Sega My Cards (.bin) or cassette tapes (.wav, .flac, .cas).
 
 psp:
   name: PlayStation Portable
@@ -888,6 +961,8 @@ fbneo:
       fbalpha:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FBALPHA]  }
       fbneo:    { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FBNEO]    }
       geolith:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_GEOLITH]  }
+      fbalpha2012_cps1: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FBALPHA2012_CPS1] }
+      fbalpha2012_cps2: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FBALPHA2012_CPS2] }
     fba2x:
       fba2x:    { requireAnyOf: [BR2_PACKAGE_PIFBA] }
   comment_en: |
@@ -922,6 +997,8 @@ mame:
       mame078plus:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2003_PLUS]  }
       mame0139:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2010]       }
       mame:         { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME]           }
+      mame2003:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2003]       }
+      mame2003_xtreme: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2003_XTREME] }
     mame:
       mame:         { requireAnyOf: [BR2_PACKAGE_MAME]                    }
 
@@ -975,6 +1052,8 @@ neogeo:
       mame078plus:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2003_PLUS]  }
       mame0139:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2010]       }
       mame:         { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME]           }
+      mame2003:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME2003]       }
+      fbalpha2012_neogeo: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_FBALPHA2012_NEOGEO] }
     mame:
       mame:         { requireAnyOf: [BR2_PACKAGE_MAME]                    }
     fba2x:
@@ -999,6 +1078,7 @@ colecovision:
   emulators:
     libretro:
       bluemsx: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BLUEMSX] }
+      gearcoleco: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_GEARCOLECO] }
     openmsx:
       openmsx: { requireAnyOf: [BR2_PACKAGE_OPENMSX] }
   comment_en: |
@@ -1396,6 +1476,8 @@ cannonball:
   emulators:
     cannonball:
       cannonball: { requireAnyOf: [BR2_PACKAGE_CANNONBALL] }
+    libretro:
+      cannonball: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_CANNONBALL] }
   comment_en: |
     Add mame 'OutRun rev. B' ROMs (epr-10187.88, epr-10327a.76.. ) in this directory and rename Cannonball.cannonball.disabled to Cannonball.cannonball.
 
@@ -1541,6 +1623,21 @@ amstradcpc:
   comment_br: |
     Para habilitar o suporte ao controle, vá no menu RetroArch com "Hotkey + B" e altere esta opção:
     De "Quick Menu/Core Input Options/User 1 Device type: Retropad" para "Amstrad Joystick"
+
+pcw:
+  name:       Amstrad PCW
+  manufacturer: Amstrad
+  release: 1985
+  hardware: computer
+  extensions: [mfi, dfi, mfm, td0, imd, 86f, d77, d88, 1dd, cqm, cqi, dsk, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+    Requires MAME BIOS files pcw8256.zip (and pcw9512.zip for the 9512 model).
+    Games are floppy disk images (.dsk). Most games are self-booting and don't require a separate system disk.
 
 msx1:
   name: MSX1
@@ -1850,6 +1947,81 @@ msxturbor:
     openmsx:
       openmsx: { requireAnyOf: [BR2_PACKAGE_OPENMSX] }
 
+mz2000:
+  name:       Sharp MZ-2000
+  manufacturer: Sharp
+  release: 1982
+  hardware: computer
+  extensions: [mzf, mzt, m12, wav, d88, dsk, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file mz2000.zip
+          Using software list mode is recommended.
+
+mz2500:
+  name:       Sharp MZ-2500
+  manufacturer: Sharp
+  release: 1985
+  hardware: computer
+  extensions: [d88, dsk, mfi, dfi, hfe, mfm, td0, imd, d77, 1dd, cqm, cqi, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file mz2500.zip
+          Using software list mode is recommended.
+
+mz700:
+  name:       Sharp MZ-700
+  manufacturer: Sharp
+  release: 1982
+  hardware: computer
+  extensions: [mzf, mzt, m12, wav, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file mz700.zip
+          Using software list mode is recommended.
+
+mz800:
+  name:       Sharp MZ-800
+  manufacturer: Sharp
+  release: 1984
+  hardware: computer
+  extensions: [mzf, mzt, m12, wav, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file mz800.zip
+          Using software list mode is recommended.
+
+mz80k:
+  name:       Sharp MZ-80K
+  manufacturer: Sharp
+  release: 1978
+  hardware: computer
+  extensions: [mzf, mzt, m12, wav, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file mz80k.zip
+          Using software list mode is recommended.
+
 o2em:
   name:       Odyssey2
   manufacturer: Magnavox - Philips
@@ -1889,6 +2061,26 @@ zx81:
   comment_fr: |
     Pour activer le support du gamepad, veuillez entrer dans le menu Retroarch avec "Hotkey+B", puis modifiez l'option:
     "Settings/Input/Input User 1 Binds/User 1 Device type: Retropad" en "Cursor Joystick"
+
+bk:
+  name:       Elektronika BK
+  manufacturer: Elektronika
+  release: 1985
+  hardware: computer
+  extensions: [bin, img, dsk, bkd, zip, 7z]
+  emulators:
+    libretro:
+      bk:   { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BK]   }
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+    BK-0010/0011 was a Soviet home computer series from Elektronika.
+    Supports BK-0010, BK-0010.01, BK-0011(M) and Terak 8510/a emulation.
+    https://wiki.batocera.org/systems:bk
+  comment_ru: |
+    БК-0010/0011 - серия советских домашних компьютеров от Электроники.
+    Поддерживает эмуляцию БК-0010, БК-0010.01, БК-0011(М) и Terak 8510/a.
 
 zxspectrum:
   name:       ZX Spectrum
@@ -1991,7 +2183,7 @@ saturn:
   extensions: [cue, ccd, m3u, chd, iso, zip, mds]
   emulators:
     yabasanshiro:
-      yabasanshiro: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_YABASANSHIRO] }
+      yabasanshiro: { requireAnyOf: [BR2_PACKAGE_YABASANSHIRO] }
     libretro:
       beetle-saturn: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_BEETLE_SATURN], incompatible_extensions: [zip] }
       kronos:        { requireAnyOf: [BR2_PACKAGE_LIBRETRO_KRONOS] }
@@ -2216,10 +2408,9 @@ x1:
   emulators:
     azahar:
       azahar: { requireAnyOf: [BR2_PACKAGE_AZAHAR] }
-    citra:
-      citra: { requireAnyOf: [BR2_PACKAGE_CITRA]          }
     libretro:
-      citra: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_CITRA] }
+      azahar: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_AZAHAR] }
+      panda3ds: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PANDA3DS] }
 
 openbor:
   name: OpenBOR
@@ -2437,6 +2628,7 @@ pc98:
   emulators:
     libretro:
       np2kai:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_PC98] }
+      nekop2:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_NEKOP2] }
 
 fmtowns:
   name:       FM-TOWNS
@@ -3283,6 +3475,9 @@ uzebox:
   emulators:
     libretro:
       uzem: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_UZEM] }
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
 
 cdi:
   name:       CD-i
@@ -3354,6 +3549,38 @@ pv1000:
     mame:
       mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
 
+pc80:
+  name:       PC-8001
+  manufacturer: NEC
+  release: 1979
+  hardware: computer
+  extensions: [d77, d88, 1dd, dsk, n80, bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file pc8001mk2sr.zip
+  comment_br: |
+          Requer o arquivo pc8001mk2sr.zip da BIOS do MAME
+
+pv2000:
+  name:       PV-2000
+  manufacturer: Casio
+  release: 1983
+  hardware: console
+  extensions: [bin, cas, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file pv2000.zip
+  comment_br: |
+          Requer o arquivo pv2000.zip da BIOS do MAME
+
 gamate:
   name:       Gamate
   manufacturer: Bitcorp
@@ -3386,6 +3613,20 @@ crvision:
           Requires MAME BIOS file crvision.zip
   comment_br: |
           Requer o arquivo crvision.zip da BIOS do MAME
+
+ctvboy:
+  name:       Compact Vision TV Boy
+  manufacturer: Gakken
+  release: 1983
+  hardware: console
+  extensions: [bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          MAME 0.262+ required
 
 laser310:
   name:       Laser 310
@@ -3647,6 +3888,18 @@ arcadia:
     mame:
       mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
 
+sv8000:
+  name:       Super Vision 8000
+  manufacturer: Bandai
+  release: 1979
+  hardware: console
+  extensions: [bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+
 gmaster:
   name:       Game Master
   manufacturer: Hartung
@@ -3742,6 +3995,103 @@ coco:
           syntax: <romBasename>;<autoload command> (see comments in .csv files for detailed help & examples)
   comment_br: |
           Requer o arquivo coco.zip da BIOS do MAME
+
+cgenie:
+  name: Colour Genie
+  manufacturer: EACA
+  release: 1982
+  hardware: computer
+  extensions: [cas, wav, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          MAME requires BIOS file cgenie.zip
+  comment_br: |
+          Requer o arquivo cgenie.zip da BIOS do MAME
+
+dragon64:
+  name: Dragon 64
+  manufacturer: Dragon Data
+  release: 1983
+  hardware: computer
+  extensions: [wav, cas, dsk, dmk, ccc, rom, bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+    xroar:
+      xroar: { requireAnyOf: [BR2_PACKAGE_XROAR] }
+  comment_en: |
+          MAME requires BIOS file dragon64.zip (or dragon32.zip for Dragon 32)
+
+          The Dragon 64 is a British home computer from 1983, compatible with Tandy CoCo.
+          It features a Motorola 6809E CPU, 64KB RAM, and Microsoft Extended BASIC.
+
+          Default Autoload Behaviors
+          1. Cartridge (.ccc/.rom) files autoload directly
+          2. Cassette (.cas/.wav) files autoload using CLOADM:EXEC
+          3. Disk (.dsk/.dmk) files autoload from boot disk
+
+          Dragon Models supported by MAME:
+          - Dragon 32 (1982) - 32KB RAM version
+          - Dragon 64 (1983) - 64KB RAM with RS-232 serial port
+          - Dragon Alpha (prototype) - Enhanced Dragon 64
+
+          user definable autoload overrides in: `system/configs/mame/autoload/dragon64_{cass,flop}_autoload.csv`
+  comment_br: |
+          Requer o arquivo dragon64.zip da BIOS do MAME
+
+mc10:
+  name: MC-10
+  manufacturer: Tandy Radio Shack
+  release: 1983
+  hardware: computer
+  extensions: [wav, cas, rom, bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+    xroar:
+      xroar: { requireAnyOf: [BR2_PACKAGE_XROAR] }
+  comment_en: |
+          MAME requires BIOS file mc10.zip
+
+          Xroar requires BASIC ROMs to be in the /userdata/bios/xroar folder.
+          The required rom files can be obtained from here: https://colorcomputerarchive.com/repo/ROMs/XRoar
+
+trs80:
+  name: TRS-80
+  manufacturer: Tandy Radio Shack
+  release: 1977
+  hardware: computer
+  extensions: [cmd, cas, dsk, dmk, bas, wav, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          MAME requires BIOS file trs80.zip (Model I), trs80m3.zip (Model III), or trs80m4.zip (Model 4)
+
+          Default Autoload Behaviors
+          1. Cassette (.cas) files autoload using SYSTEM then filename
+          2. Disk (.dsk/.dmk) files autoload from boot disk
+          3. Command (.cmd) files autoload directly as executables
+          4. BASIC (.bas) files autoload using RUN command
+
+          TRS-80 Models supported by MAME:
+          - Model I (1977) - Original Z80-based microcomputer
+          - Model III (1980) - Integrated design with built-in disk drives
+          - Model 4 (1983) - Enhanced Model III with 80x24 display
+
+          user definable autoload overrides in: `system/configs/mame/autoload/trs80_{cass,flop}_autoload.csv`
+  comment_br: |
+          Requer o arquivo trs80.zip da BIOS do MAME
 
 vc4000:
   name:       VC 4000
@@ -3962,6 +4312,10 @@ samcoupe:
   emulators:
     samcoupe:
       samcoupe:  { requireAnyOf: [BR2_PACKAGE_SIMCOUPE] }
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
 
 abuse:
   name:       Abuse
@@ -5679,6 +6033,18 @@ rott:
   comment_br: |
     Para mais informações: https://wiki.batocera.org/systems:taradino
 
+rx78:
+  name:       RX-78
+  manufacturer: Bandai
+  release: 1983
+  hardware: computer
+  extensions: [bin, zip, 7z]
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+
 commanderx16:
   name: Commander X16
   manufacturer: The 8-Bit Guy
@@ -5890,6 +6256,10 @@ oricatmos:
   emulators:
     clk:
       clk: { requireAnyOf: [BR2_PACKAGE_CLK] }
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
   comment_en: |
     Emulator for Oric Atmos (and Oric 1)
     You need at least the rom file /userdata/bios/Oric/basic11.rom
@@ -6072,6 +6442,133 @@ bennugd:
   comment_br: |
     Para mais informações: https://wiki.batocera.org/systems:bennugd
 
+enterprise:
+  name:       Enterprise
+  manufacturer: Enterprise Computers
+  release: 1985
+  hardware: computer
+  extensions: [bas, com, zip, img, dsk, tap, dtf, trn, 128, cas, cdt, tzx]
+  emulators:
+    clk:
+      clk:      { requireAnyOf: [BR2_PACKAGE_CLK], incompatible_extensions: [img,dsk,tap,dtf,trn,128,cas,cdt,tzx]  }
+    libretro:
+      ep128emu-core: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_EP128EMU_CORE] }
+      mame:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame:     { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires ep128emu BIOS files:
+          bios/ep128emu/roms/exos21.rom (Expandible OS 2.1)
+          bios/ep128emu/roms/basic21.rom (BASIC Interpreter v2.1)
+          bios/ep128emu/roms/exdos13.rom (Disk Controller v1.3)
+          bios/ep128emu/roms/epfileio.rom (Direct File I/O)
+          Optional ep128emu BIOS files:
+          bios/ep128emu/roms/exos20.rom (Enterprise 64 OS 2.0)
+          bios/ep128emu/roms/basic20.rom (Enterprise 64 BASIC v2.0)
+          bios/ep128emu/roms/exos24uk.rom (Expandible OS 2.4)
+          bios/ep128emu/roms/hun.rom (Hungarian language extension)
+          bios/ep128emu/roms/brd.rom (German language extension)
+          bios/ep128emu/roms/epd19hft.rom (EP-DOS Hungarian)
+          bios/ep128emu/roms/zt19uk.rom (ZozoTools extension)
+          bios/ep128emu/roms/zt19hfnt.rom (ZozoTools Hungarian)
+          Requires MAME BIOS file:
+          bios/ep64.zip
+          bios/ep128.zip
+          bios/ep64_exdos.zip
+  comment_fr: |
+          Nécessite ces fichiers de BIOS ep128emu:
+          bios/ep128emu/roms/exos21.rom
+          bios/ep128emu/roms/basic21.rom
+          bios/ep128emu/roms/exdos13.rom
+          bios/ep128emu/roms/epfileio.rom
+  comment_br: |
+          Requer arquivo de BIOS ep128emu:
+          bios/ep128emu/roms/exos21.rom
+          bios/ep128emu/roms/basic21.rom
+          bios/ep128emu/roms/exdos13.rom
+          bios/ep128emu/roms/epfileio.rom
+
+loopy:
+  name:       Casio Loopy
+  manufacturer: Casio
+  release: 1995
+  hardware: console
+  extensions: [bin, ic1, zip, 7z]
+  theme: loopy
+  emulators:
+    libretro:
+      mame: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame: { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires MAME BIOS file:
+          bios/mame/casloopy.zip
+  comment_fr: |
+          Nécessite ce fichier de BIOS MAME:
+          bios/mame/casloopy.zip
+  comment_br: |
+          Requer arquivo de BIOS do MAME:
+          bios/mame/casloopy.zip
+
+pc60:
+  name: PC-6000
+  manufacturer: NEC
+  release: 1981
+  hardware: computer
+  extensions: [bin, cas, p6, d77, d88, dsk, 1dd, mfi, dfi, mfm, td0, imd, cqm, cqi, xdf, hdm, 2hd, fdi, zip, 7z]
+  emulators:
+    mame:
+      mame:  { requireAnyOf: [BR2_PACKAGE_MAME] }
+    libretro:
+      mame:  { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+  comment_en: |
+    Requires MAME BIOS files (depending on model):
+    bios/pc6001.zip (PC-6001)
+    bios/pc6001mk2.zip (PC-6001mkII)
+    bios/pc6001mk2sr.zip (PC-6001mkIISR)
+
+    Models available:
+    - PC-6001 (Japan) - Base model, cartridge and cassette
+    - PC-6001A (US) - NEC Trek version
+    - PC-6001mkII (Japan) - Enhanced version
+    - PC-6001mkIISR (Japan) - With floppy drive support
+
+    Cassette files (.cas, .p6) load via cart2 slot.
+    Floppy disks only work with PC-6001mkIISR model.
+
+tvc:
+  name:       Videoton TVC
+  manufacturer: Videoton
+  release: 1986
+  hardware: computer
+  extensions: [cas, tap, dsk, img, zip]
+  emulators:
+    libretro:
+      ep128emu-core: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_EP128EMU_CORE] }
+      mame:     { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAME] }
+    mame:
+      mame:     { requireAnyOf: [BR2_PACKAGE_MAME] }
+  comment_en: |
+          Requires ep128emu BIOS files:
+          bios/ep128emu/roms/tvc22_sys.rom (TVC system BIOS)
+          bios/ep128emu/roms/tvc22_ext.rom (TVC extension BIOS)
+          bios/ep128emu/roms/tvcfileio.rom (TVC Direct File I/O)
+          bios/ep128emu/roms/tvc_dos12d.rom (TVC disk BIOS)
+          Requires MAME BIOS file:
+          bios/mame/tvc64.zip
+  comment_fr: |
+          Nécessite ces fichiers de BIOS ep128emu:
+          bios/ep128emu/roms/tvc22_sys.rom
+          bios/ep128emu/roms/tvc22_ext.rom
+          bios/ep128emu/roms/tvcfileio.rom
+          bios/ep128emu/roms/tvc_dos12d.rom
+  comment_br: |
+          Requer arquivo de BIOS ep128emu:
+          bios/ep128emu/roms/tvc22_sys.rom
+          bios/ep128emu/roms/tvc22_ext.rom
+          bios/ep128emu/roms/tvcfileio.rom
+          bios/ep128emu/roms/tvc_dos12d.rom
+
 vaixterm:
   name: VaixTerm
   manufacturer: Tools
@@ -6080,8 +6577,8 @@ vaixterm:
   extensions: [vxt]
   group: tools
   emulators:
-    odcommander:
-      odcommander: { requireAnyOf: [BR2_PACKAGE_VAIXTERM] }
+    vaixterm:
+      vaixterm: { requireAnyOf: [BR2_PACKAGE_VAIXTERM] }
   comment_en: |
     A Robust SDL2 Terminal for Handheld & Embedded Systems.
   comment_fr: |

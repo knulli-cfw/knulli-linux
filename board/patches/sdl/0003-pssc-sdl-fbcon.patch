@@ -63,9 +63,9 @@ Signed-off-by: Laurent Merckx
  static void FB_FreeHWSurface(_THIS, SDL_Surface *surface);
 -static void FB_WaitVBL(_THIS);
 -static void FB_WaitIdle(_THIS);
-+static int FB_WaitVBL(_THIS);
-+static int FB_WaitIdle(_THIS);
-+static int FB_NULL(_THIS);
++static void FB_WaitVBL(_THIS);
++static void FB_WaitIdle(_THIS);
++static void FB_NULL(_THIS);
  static int FB_FlipHWSurface(_THIS, SDL_Surface *surface);
  
  /* Internal palette functions */
@@ -341,7 +341,7 @@ Signed-off-by: Laurent Merckx
  }
  
 -static void FB_WaitVBL(_THIS)
-+static int FB_WaitVBL(_THIS)
++static void FB_WaitVBL(_THIS)
  {
 -#ifdef FBIOWAITRETRACE /* Heheh, this didn't make it into the main kernel */
 -	ioctl(console_fd, FBIOWAITRETRACE, 0);
@@ -351,25 +351,25 @@ Signed-off-by: Laurent Merckx
 +		printf("ioctl(FBIO_WAITFORVSYNC) failed");
  #endif
 -	return;
-+		return -1;
++		return;
 +	}
-+        return 0;
++        return;
  }
  
 -static void FB_WaitIdle(_THIS)
-+static int FB_NULL(_THIS)
++static void FB_NULL(_THIS)
  {
 -	return;
-+	return 0;
++	return;
 +}
 +
-+static int FB_WaitIdle(_THIS)
++static void FB_WaitIdle(_THIS)
 +{
 +#ifdef FBCON_DEBUG
 +	printf("FB_WaitIdle Not implmented");
 +#endif
 +	SDL_SetError("Not implmented");
-+	return(-1);
++	return;
  }
  
  static int FB_FlipHWSurface(_THIS, SDL_Surface *surface)

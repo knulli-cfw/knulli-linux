@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Bring up the audio DSP and the sound card before S06audio starts PipeWire.
+#
+# S06audio runs BEFORE S10udevd, and on sm4450 the whole audio stack is modules:
+# qcom_q6v5_pas (the ADSP loader -- built in, it would ask for the per-device
+# adsp.mbn before the rootfs is mounted and never retry), and the AudioReach
+# layer on top of it (snd_q6apm, q6prm, snd_soc_sc8280xp, the LPASS macros,
+# soundwire_qcom, wcd937x).  Without udev nothing loads the latter, the card
+# never appears, and WirePlumber settles on a Dummy Output with no udev daemon
+# to hear the card arrive later.
+#
+# So do udev's job for the audio devices here: load the ADSP loader, then keep
+# loading the drivers for whatever audio devices exist -- each layer only
+# creates the next devices once its own driver binds (DSP up -> GPR services,
+# soundwire controller -> wcd937x slaves) -- until card0's PCM shows up.  q6apm's
+# first APM_CMD_GET_SPF_STATE still costs one 5s timeout ("qcom-apm ... CMD
+# timeout for [1001021]") before the card registers.
+
+# Not /proc/asound/card0: that exists from snd_card_new(), before the card has
+# registered.  The PCM node only appears in devtmpfs once registration is done.
+CARD=/dev/snd/pcmC0D0p
+
+load_audio_modaliases() {
+    for u in /sys/bus/aprbus/devices/*/uevent \
+             /sys/bus/soundwire/devices/*/uevent \
+             /sys/bus/platform/devices/*/uevent; do
+        sed -n 's/^MODALIAS=//p' "$u" 2>/dev/null
+    done | grep -E 'q6apm|q6prm|sndcard|lpass|soundwire|wcd|aw88|^sdw:' | sort -u |
+        while read -r alias; do
+            modprobe -q "$alias" 2>/dev/null
+        done
+}
+
+case "$1" in
+    start)
+        printf "Starting qcom adsp: "
+        modprobe qcom_q6v5_pas >/dev/null 2>&1
+        i=0
+        while [ "$i" -lt 60 ]; do
+            [ -e "$CARD" ] && break
+            load_audio_modaliases
+            i=$((i + 1))
+            sleep 0.5
+        done
+        if [ -e "$CARD" ]; then echo "OK"; else echo "no sound card after 30s"; fi
+        ;;
+    stop|restart|reload)
+        ;;
+esac
+
+exit 0

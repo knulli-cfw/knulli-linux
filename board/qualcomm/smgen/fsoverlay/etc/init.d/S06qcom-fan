@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# not on sm8250 (knulli-fan-control runs there) (one image serves all Qualcomm SM boards)
+[ "$(/usr/bin/knulli-qcom-soc)" != "sm8250" ] || exit 0
+#
+# Starts qualcomm fan control daemon on Batocera
+#
+
+start() {
+	printf "Starting fan daemon: "
+	start-stop-daemon -S -q -p /var/run/qcom-fan.pid --exec /usr/bin/qcom-fan start &
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stopping fan daemon: "
+	/usr/bin/qcom-fan stop
+	start-stop-daemon -K -q -p /var/run/qcom-fan.pid
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart|reload)
+  	restart
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

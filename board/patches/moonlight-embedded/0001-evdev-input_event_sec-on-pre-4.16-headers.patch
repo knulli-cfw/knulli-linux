@@ -1,0 +1,22 @@
+evdev: build against kernel headers older than 4.16
+
+input_event_sec/input_event_usec are macros that linux/input.h only grew in
+4.16; boards on vendor kernels (h700 4.9.170, a133 4.9.191) still build moonlight
+against the matching headers and fail on them.  Provide the same mapping
+when the header does not.
+
+--- a/src/input/evdev.c
++++ b/src/input/evdev.c
+@@ -45,6 +45,12 @@
+ #endif
+ #include <math.h>
+ 
++/* linux/input.h older than 4.16 has no input_event_sec/usec accessors */
++#ifndef input_event_sec
++#define input_event_sec time.tv_sec
++#define input_event_usec time.tv_usec
++#endif
++
+ #if __BYTE_ORDER == __LITTLE_ENDIAN
+ #define int16_to_le(val) val
+ #else

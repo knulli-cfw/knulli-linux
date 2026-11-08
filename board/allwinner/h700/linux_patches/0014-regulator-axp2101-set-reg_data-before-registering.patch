@@ -1,0 +1,60 @@
+From: knulli
+Subject: [PATCH] regulator: axp2101: point reg_data at the delay struct before registering
+
+regulator_register() applies the DT constraints, and a voltage change there
+calls axp2101_set_voltage_time_sel(), which reads the step/final delays from
+rdev->reg_data.  The driver only stored that struct after registration, so
+during it reg_data was config.driver_data = the axp20x mfd device, and the
+delay came from the first bytes of that struct: a kernel pointer.  Whether
+that garbage is negative (ignored) or a huge positive mdelay() depends on
+the heap layout, i.e. on what the bootloader left in RAM: with the vendor
+U-Boot it happened to be harmless, with ours cldo1 (1.8 V -> 3.3 V) stalled
+the boot forever at "cldo1: Bringing 1800000uV into 3300000-3300000uV".
+
+--- a/drivers/regulator/axp2101-regulator.c
++++ b/drivers/regulator/axp2101-regulator.c
+@@ -1044,7 +1044,8 @@
+ 
+ static int axp20x_set_dcdc_workmode(struct regulator_dev *rdev, int id, u32 workmode)
+ {
+-	struct axp20x_dev *axp20x = rdev_get_drvdata(rdev);
++	/* reg_data holds the regulator's delays, the mfd device is the parent */
++	struct axp20x_dev *axp20x = dev_get_drvdata(rdev->dev.parent);
+ 	unsigned int reg = AXP20X_DCDC_MODE;
+ 	unsigned int mask;
+ 
+@@ -1233,6 +1234,17 @@
+ 			desc = new_desc;
+ 		}
+ 
++		/*
++		 * Registering applies the constraints, which can already
++		 * change the voltage and ask set_voltage_time_sel for the
++		 * delay; that reads rdev->reg_data, so it must point at the
++		 * delay struct before registration, not at the mfd device.
++		 */
++		rdev_delay = devm_kzalloc(&pdev->dev, sizeof(*rdev_delay), GFP_KERNEL);
++		if (!rdev_delay)
++			return -ENOMEM;
++		config.driver_data = rdev_delay;
++
+ 		rdev = devm_regulator_register(&pdev->dev, desc, &config);
+ 		if (IS_ERR(rdev)) {
+ 			dev_err(&pdev->dev, "Failed to register %s\n",
+@@ -1241,7 +1253,6 @@
+ 			return PTR_ERR(rdev);
+ 		}
+ 
+-		rdev_delay = devm_kzalloc(&pdev->dev, sizeof(*rdev_delay), GFP_KERNEL);
+ 		if (!of_property_read_u32(rdev->dev.of_node,
+ 				"regulator-step-delay-us", &dval))
+ 			rdev_delay->step = dval;
+@@ -1254,8 +1265,6 @@
+ 		else
+ 			rdev_delay->final = 0;
+ 
+-		rdev->reg_data = rdev_delay;
+-
+ 		ret = of_property_read_u32(rdev->dev.of_node,
+ 					   "x-powers,dcdc-workmode",
+ 					   &workmode);

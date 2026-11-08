@@ -13,7 +13,7 @@ echo "HOST_DIR = $HOST_DIR"
 echo "BINARIES_DIR = $BINARIES_DIR"
 echo "TARGET_DIR = $TARGET_DIR"
 
-KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_(GLES|GLES2|GLES3|VULKAN|OPENGL)=y$" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
+KNULLI_TARGET=$(grep -E "^BR2_PACKAGE_BATOCERA_TARGET_[A-Z_0-9]*=y$" "${BR2_CONFIG}" | grep -vE "_(GLES|GLES2|GLES3|VULKAN|OPENGL|ANY|PLATFORM)=y$" | sed -e s+'^BR2_PACKAGE_BATOCERA_TARGET_\([A-Z_0-9]*\)=y$'+'\1'+)
 echo "KNULLI_TARGET = $KNULLI_TARGET"
 
 # For the root user:
@@ -49,6 +49,9 @@ rm -f "${TARGET_DIR}/etc/init.d/S25silky-rgb" || exit 1
 rm -f "${TARGET_DIR}/etc/pm/sleep.d/99-postresume-jsled" || exit 1
 rm -f "${TARGET_DIR}/usr/bin/knulli-settings-set-queue" || exit 1
 rm -f "${TARGET_DIR}/usr/share/emulationstation/scripts/powermanagement-changed/refresh-battery-state.sh" || exit 1
+rm -f "${TARGET_DIR}/etc/batteryplus/discharging.d/00shutdown" || exit 1
+rm -f "${TARGET_DIR}/etc/pm/sleep.d/15-batteryplus-wakeup" || exit 1
+rm -f "${TARGET_DIR}/usr/bin/knulli-battery-saver-aggressive" || exit 1
 
 # Remove base batocera init scripts we don't need
 rm -f "${TARGET_DIR}/etc/init.d/S50kodi" || exit 1
@@ -80,6 +83,13 @@ rm -f "${TARGET_DIR}/etc/init.d/S28splash" || exit 1
 rm -f "${TARGET_DIR}/etc/init.d/S47fake-hwclock" || exit 1
 
 rm -f "${TARGET_DIR}/etc/init.d/S50dropbear" || exit 1
+
+# A board S05udev starts udevd and triggers the coldplug itself; eudev's
+# S10udevd would start a second daemon and replay every event
+if test -e "${TARGET_DIR}/etc/init.d/S05udev"
+then
+    rm -f "${TARGET_DIR}/etc/init.d/S10udevd" || exit 1
+fi
 
 # Remove base batocera udev rules we don't need
 rm -f "${TARGET_DIR}/etc/udev/rules.d/99-wol.rules" || exit 1
@@ -138,10 +148,14 @@ if test -e "${TARGET_DIR}/etc/init.d/S10udev"
 then
     mv "${TARGET_DIR}/etc/init.d/S10udev"    "${TARGET_DIR}/etc/init.d/S05udev"    || exit 1 # move to make number spaces
 fi
-if test -e "${TARGET_DIR}/etc/init.d/S30dbus"
-then
-    mv "${TARGET_DIR}/etc/init.d/S30dbus"    "${TARGET_DIR}/etc/init.d/S01dbus"    || exit 1 # move really before for network (connman prerequisite) and pipewire
-fi
+# buildroot 2026.05 renamed S30dbus to S30dbus-daemon; accept either name
+for DBUS_INIT in S30dbus S30dbus-daemon
+do
+    if test -e "${TARGET_DIR}/etc/init.d/${DBUS_INIT}"
+    then
+        mv "${TARGET_DIR}/etc/init.d/${DBUS_INIT}" "${TARGET_DIR}/etc/init.d/S01dbus" || exit 1 # move really before for network (connman prerequisite) and pipewire
+    fi
+done
 if test -e "${TARGET_DIR}/etc/init.d/S40network"
 then
     mv "${TARGET_DIR}/etc/init.d/S40network" "${TARGET_DIR}/etc/init.d/S07network" || exit 1 # move to make ifaces up sooner, mainly mountable/unmountable before/after share
@@ -166,22 +180,27 @@ echo "###########################"
 echo "###########################"
 echo "###########################"
 
-# Begin 32bit package install
-if [ "${KNULLI_TARGET}" = "RK3326" ]; then
-    echo ""
-    echo "========================================"
-    echo "Installing 32-bit ARM libraries..."
-    echo "========================================"
-    
-    LIBS32_SCRIPT="${BR2_EXTERNAL_KNULLI_PATH}/board/scripts/install-32bit-libs.sh"
-    
-    if [ -f "${LIBS32_SCRIPT}" ]; then
-        bash "${LIBS32_SCRIPT}" "${TARGET_DIR}" "${BASE_DIR}"
-    else
-        echo "WARNING: 32-bit libs install script not found at: ${LIBS32_SCRIPT}"
-    fi
+# The 32-bit (armhf) runtime is installed by the knulli-armhf-drop package from
+# armhf-cache/, not from here.  What used to be in this spot reached into
+# output/<board>_armhf_libs/target, only ran for RK3326, and passed TARGET_DIR
+# where install-32bit-libs.sh expected a board name -- so it always took its
+# "not found" path and skipped.  See package/system/knulli-armhf-drop.
+
+# Check that the rootfs provides what the emulator drop's binaries link against.
+# Here rather than in the package: knulli-emulators-drop depends only on the
+# toolchain, so it can be installed before those libraries are, and the 32-bit
+# layer above lands later still.  This is the first point where the rootfs is
+# what the image will actually ship.
+#
+# Gated on the config symbol, not on the file existing: staging/ is not cleaned
+# between builds, so a build made with the gate off still finds the list a
+# previous gate-on build left behind and would check a drop it never installed.
+EMULATORS_SONAMES="${STAGING_DIR}/usr/share/knulli/emulators-drop-sonames.list"
+if grep -q "^BR2_PACKAGE_KNULLI_EMULATORS_DROP=y$" "${BR2_CONFIG}" && \
+   [ -f "${EMULATORS_SONAMES}" ]; then
+    CHECK_SONAMES="${BR2_EXTERNAL_KNULLI_PATH}/package/emulators/knulli-emulators-drop/check-sonames.sh"
+    bash "${CHECK_SONAMES}" "${EMULATORS_SONAMES}" "${TARGET_DIR}" || exit 1
 fi
-# -- end 32bit package install
 
 # remove kodi default joystick configuration files
 # while as a minimum, the file joystick.Sony.PLAYSTATION(R)3.Controller.xml makes references to PS4 controllers with axes which doesn't exist (making kodi crashing)
@@ -278,4 +297,46 @@ if [ -d "${TARGET_DIR}/usr/share/batocera" ]; then
     echo "Removed batocera directory"
 else
     echo "No batocera directory found, skipping..."
+fi
+
+# Guard: the real Vulkan loader must survive
+#
+# A vendor GPU blob that ships its own libvulkan.so.1 can overwrite
+# vulkan-loader's file, because the loader installs libvulkan.so.1 as a symlink
+# to libvulkan.so.1.4.x and a plain copy writes through it.  The replacement
+# still resolves every core entry point, so nothing fails to build or run --
+# but ICD manifests and Vulkan layers are silently ignored from then on.
+# The real loader is ~600K; a vendor stub is a few tens of K.
+LOADER=$(ls "${TARGET_DIR}"/usr/lib/libvulkan.so.1.* 2>/dev/null | head -1)
+if [ -n "$LOADER" ]; then
+    LOADER_SIZE=$(stat -c %s "$LOADER")
+    if [ "$LOADER_SIZE" -lt 262144 ]; then
+        echo "post-build: $LOADER is ${LOADER_SIZE} bytes -- too small to be the"
+        echo "            Khronos loader.  A GPU blob has overwritten it, so ICD"
+        echo "            manifests and Vulkan layers will be ignored at runtime."
+        echo "            On an incremental tree the loader is not reinstalled on"
+        echo "            its own -- force it:  make <board>-shell BATCH_MODE=1 \\"
+        echo "              CMD=\"make O=/<board> BR2_EXTERNAL=/build -C /build/buildroot \\"
+        echo "                   vulkan-loader-reinstall\""
+        exit 1
+    fi
+    echo "Vulkan loader intact (${LOADER_SIZE} bytes)"
+fi
+
+# Ship ld.so.cache; the host ldconfig skips foreign-arch libs, so use the target's
+LDCONFIG="${TARGET_DIR}/sbin/ldconfig"
+QEMU=
+grep -q "^BR2_aarch64=y$" "${BR2_CONFIG}" && QEMU="${HOST_DIR}/bin/qemu-aarch64"
+grep -q "^BR2_arm=y$" "${BR2_CONFIG}" && QEMU="${HOST_DIR}/bin/qemu-arm"
+if [ -x "$LDCONFIG" ] && [ -n "$QEMU" ] && [ -x "$QEMU" ]; then
+    rm -f "${TARGET_DIR}/etc/ld.so.cache"
+    "$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -X -r "${TARGET_DIR}" || exit 1
+    echo "ld.so.cache: $("$QEMU" -L "${TARGET_DIR}" "$LDCONFIG" -r "${TARGET_DIR}" -p | head -1)"
+fi
+
+# Without plugins.dat, libvlc dlopens every plugin when ES starts
+VLC_CACHE_GEN="${TARGET_DIR}/usr/lib/vlc/vlc-cache-gen"
+if [ -x "$VLC_CACHE_GEN" ] && [ -n "$QEMU" ] && [ -x "$QEMU" ]; then
+    "$QEMU" -L "${TARGET_DIR}" "$VLC_CACHE_GEN" "${TARGET_DIR}/usr/lib/vlc/plugins" || exit 1
+    echo "vlc plugins.dat: $(stat -c %s "${TARGET_DIR}/usr/lib/vlc/plugins/plugins.dat") bytes"
 fi

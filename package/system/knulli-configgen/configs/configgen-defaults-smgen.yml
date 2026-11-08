@@ -1,0 +1,31 @@
+default:
+  options:
+    # menu retroarch
+    retroarch.menu_driver: ozone
+    retroarch.menu_scale_factor: "1.200000"
+    retroarch.audio_driver: alsathread
+    retroarch.ozone_font_scale: "1"
+    retroarch.ozone_font_scale_factor_global: "1.200000"
+    gfxbackend: vulkan
+
+3ds:
+  emulator: azahar
+  core:     azahar
+flash:
+  emulator: lightspark
+  core:     lightspark
+fmtowns:
+  emulator: libretro
+  core:     mame
+n64:
+  emulator: libretro
+  core:     mupen64plus-next
+nds:
+  emulator: libretro
+  core:     melonds
+ps2:
+  emulator: aethersx2
+  core:     aethersx2
+cdi:
+  emulator: libretro
+  core:     same_cdi

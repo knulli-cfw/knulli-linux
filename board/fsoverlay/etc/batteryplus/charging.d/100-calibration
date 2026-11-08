@@ -1,8 +1,9 @@
 #!/bin/sh
 
+STATUS_FILE="/tmp/battery.status"
 CALIBRATED_FILE="/userdata/system/configs/batteryplus/batteryplus-calibrated"
 WATCH_FILE="/var/run/batteryplus-calibration-watch"
-MAX_CALIBRATION_WAIT_S=60
+MAX_CALIBRATION_WAIT_S=65 # batteryplus v full learning is 60 seconds max
 
 [ "$1" = "100" ] || exit 0
 
@@ -11,22 +12,27 @@ case "$2" in
   *) exit 0 ;;
 esac
 
+# Already calibrated.
+[ -e "$CALIBRATED_FILE" ] && exit 0
+
 [ -e "$WATCH_FILE" ] && exit 0
 touch "$WATCH_FILE"
 
 (
     trap 'rm -f "$WATCH_FILE"' EXIT
 
-    while [ "$(knulli-battery-check status 2>/dev/null)" != "Discharging" ]; do sleep 1; done
+    curl -s http://localhost:1234/notify -d "Battery calibration ready. Unplug charger to finish" >/dev/null
 
-    rm -f "$CALIBRATED_FILE"
+    while [ "$(cat "$STATUS_FILE" 2>/dev/null)" != "Discharging" ]; do
+      inotifywait -q -t 1 -e close_write "$STATUS_FILE" >/dev/null 2>&1
+    done
 
     curl -s http://localhost:1234/notify -d "Battery calibration in progress. Please wait..." >/dev/null
 
     waited=0
     while [ ! -e "$CALIBRATED_FILE" ]; do
       if [ "$waited" -ge "$MAX_CALIBRATION_WAIT_S" ]; then
-        curl -s http://localhost:1234/notify -d "Battery calibration failed" >/dev/null
+        curl -s http://localhost:1234/notify -d "Battery calibration failed. Charge to 100% and try again" >/dev/null
         exit 1
       fi
 

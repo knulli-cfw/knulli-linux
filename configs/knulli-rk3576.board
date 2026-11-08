@@ -20,18 +20,17 @@ BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/knulli-cfw/linux-6.1.y-rockchip.git"
 BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="1629d4d841456f20b8b4736e9815d4539b0dd0ae"
-BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_BATOCERA_PATH)/board/rockchip/rk3576/linux_patches"
+BR2_LINUX_KERNEL_PATCH="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3566/linux_bsp_patches $(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3576/linux_bsp_patches"
 BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
-BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_BATOCERA_PATH)/board/rockchip/rk3576/linux-defconfig.config"
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_BATOCERA_PATH)/board/rockchip/rk3576/linux-defconfig-fragment.config"
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3576/linux-bsp-defconfig.config"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_KNULLI_PATH)/board/rockchip/rk3576/linux-defconfig-fragment.config"
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 
 # U-Boot blobs for RK3576 BSP boards
 BR2_PACKAGE_UBOOT_RK3576=y
 
-# FIXME: Build the DTB from the kernel sources
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3576-evb1-v10-linux"
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3576-anbernic-rg-vita-pro"
 
 # Bootloader
 #BR2_PACKAGE_UBOOT_RK3588=y
@@ -60,6 +59,8 @@ BR2_PACKAGE_LIBGTK3_WAYLAND=y
 
 #BR2_PACKAGE_BATOCERA_SWAY=y
 BR2_PACKAGE_BATOCERA_WAYLAND=y
+BR2_PACKAGE_BATOCERA_WAYLAND_LABWC=y
+BR2_PACKAGE_VULKAN_WSI_LAYER=y
 BR2_PACKAGE_WESTON=y
 BR2_PACKAGE_WESTON_DEFAULT_DRM=y
 BR2_PACKAGE_WESTON_DEFAULT_COMPOSITOR="drm"
@@ -73,9 +74,29 @@ BR2_PACKAGE_BATOCERA_SPLASH_MPV=y
 
 BR2_PACKAGE_XUTIL_UTIL_MACROS=y
 
-# VITA-PRO custom modules
-BR2_PACKAGE_VITA_PRO_MODULES=y
-
 # ADB
 BR2_PACKAGE_ANDROID_TOOLS=y
 BR2_PACKAGE_ANDROID_TOOLS_ADBD=y
+
+# Libretro cores are NOT compiled by Buildroot.  The gate below turns off every
+# "select BR2_PACKAGE_LIBRETRO_*" in knulli-system/Config.in; the cores come
+# from the external libretro-super build instead (package/cores/libretro-super).
+#
+# The DEVICE names which devices/<name>.device file describes this board, and
+# that file names the ABI profile it consumes.  Boards sharing a profile share
+# the compiled cores: the drop is built once and reused, so only the first
+# board on a given ABI pays the compile.
+BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES=y
+BR2_PACKAGE_LIBRETRO_SUPER_DEVICE="rk3576"
+
+# Vulkan via the loader shim and the mali blob's ICD, as on a133 and a527 -- not
+# batocera's mesa-driver path.  Reference board for the aarch64-v8a emulator
+# drop, so this is also what compiles the payload's Vulkan backends.
+BR2_PACKAGE_KNULLI_MALI_G52_VULKAN=y
+
+# Consumes the drop like every other board on the profile.  Being the reference
+# board is not a reason to compile them twice: make rk3576-emulators-drop strips
+# this symbol for its own build, so producing the drop still works.
+BR2_PACKAGE_KNULLI_EXTERNAL_EMULATORS=y
+BR2_PACKAGE_IPUTILS=y
+BR2_PACKAGE_MPV=y

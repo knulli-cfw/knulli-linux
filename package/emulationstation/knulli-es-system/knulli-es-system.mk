@@ -8,6 +8,26 @@ KNULLI_ES_SYSTEM_DEPENDENCIES = host-python3 host-python-pyyaml knulli-configgen
 KNULLI_ES_SYSTEM_SOURCE=
 KNULLI_ES_SYSTEM_VERSION=1.03
 
+# es_systems.yml gates cores on BR2_PACKAGE_LIBRETRO_* symbols that no longer
+# exist when the cores come from a prebuilt drop.  libretro-super stages a
+# fragment listing the ones it actually installed; without it every libretro
+# system, and every roms/<system> folder, disappears.
+ifeq ($(BR2_PACKAGE_LIBRETRO_SUPER),y)
+KNULLI_ES_SYSTEM_DEPENDENCIES += libretro-super
+KNULLI_ES_SYSTEM_EXTRA_CONFIG = \
+	--extra-config $(STAGING_DIR)/usr/share/knulli/libretro-cores.config \
+	--libretro-cores $(STAGING_DIR)/usr/share/knulli/libretro-cores.list
+endif
+
+# The same problem for the standalone emulators and ports: es_systems.yml gates
+# them on BR2_PACKAGE_<EMULATOR>, and the gate that stops building them removes
+# those symbols too.
+ifeq ($(BR2_PACKAGE_KNULLI_EMULATORS_DROP),y)
+KNULLI_ES_SYSTEM_DEPENDENCIES += knulli-emulators-drop
+KNULLI_ES_SYSTEM_EXTRA_CONFIG += \
+	--extra-config $(STAGING_DIR)/usr/share/knulli/emulators-drop.config
+endif
+
 define KNULLI_ES_SYSTEM_BUILD_CMDS
 	$(HOST_DIR)/bin/python \
 		$(BR2_EXTERNAL_KNULLI_PATH)/package/emulationstation/knulli-es-system/knulli-es-system.py \
@@ -23,7 +43,8 @@ define KNULLI_ES_SYSTEM_BUILD_CMDS
 		$(STAGING_DIR)/usr/share/knulli/configgen/configgen-defaults.yml \
 		$(STAGING_DIR)/usr/share/knulli/configgen/configgen-defaults-arch.yml \
 		$(BR2_EXTERNAL_KNULLI_PATH)/package/emulationstation/knulli-es-system/roms \
-		$(@D)/roms $(KNULLI_SYSTEM_ARCH)
+		$(@D)/roms $(KNULLI_SYSTEM_ARCH) \
+		$(KNULLI_ES_SYSTEM_EXTRA_CONFIG)
 		# translations
 		mkdir -p $(BR2_EXTERNAL_KNULLI_PATH)/package/emulationstation/knulli-es-system/locales
 		(echo "$(@D)/es_external_translations.h"; echo "$(@D)/es_keys_translations.h") | xgettext --language=C --add-comments=TRANSLATION -f - -o $(BR2_EXTERNAL_KNULLI_PATH)/package/emulationstation/knulli-es-system/locales/knulli-es-system.pot --no-location --keyword=_

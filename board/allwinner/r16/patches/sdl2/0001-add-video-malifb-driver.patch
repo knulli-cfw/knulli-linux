@@ -557,7 +557,7 @@ diff -urN sdl2-2.0.22/src/video/mali-fbdev/SDL_malivideo.c build/sdl2-2.0.22/src
 diff -urN sdl2-2.0.22/src/video/mali-fbdev/SDL_malivideo.h build/sdl2-2.0.22/src/video/mali-fbdev/SDL_malivideo.h
 --- a/src/video/mali-fbdev/SDL_malivideo.h	1970-01-01 00:00:00.000000000 +0000
 +++ b/src/video/mali-fbdev/SDL_malivideo.h	2022-09-12 15:58:19.342361438 +0000
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,80 @@
 +/*
 +  Simple DirectMedia Layer
 +  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
@@ -594,6 +594,7 @@ diff -urN sdl2-2.0.22/src/video/mali-fbdev/SDL_malivideo.h build/sdl2-2.0.22/src
 +#include <sys/stat.h>
 +#include <fcntl.h>
 +#include <unistd.h>
++#include <sys/ioctl.h>
 +#include <stdlib.h>
 +
 +typedef struct SDL_DisplayData

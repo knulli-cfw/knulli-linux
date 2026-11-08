@@ -1,0 +1,386 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Anbernic RG28XX, on the orangepi 5.4 sun50iw9 BSP.
+ *
+ * Generated from the vendor 4.9 device tree by
+ * board/allwinner/h700/scripts/build_dts.py.  The vendor U-Boot 2018
+ * shares this DTB with the kernel: it wants the legacy /clocks tree, the
+ * sys_config nodes under /soc and allwinner,* pin properties, which the 5.4
+ * kernel either ignores or understands as a fallback.
+ */
+
+/dts-v1/;
+
+#include "sun50i-h700-anbernic.dtsi"
+
+/ {
+	model = "Anbernic RG28XX";
+	/* the extlinux entry this tree belongs to (S01knulli-device) */
+	knulli,device = "rg28xx";
+
+	joypad: rocknix-singleadc-joypad {
+		pwms = <&pwm 2 1000000 0>;
+		pwm-names = "enable";
+		rumble-boost-weak = <0>;
+		rumble-boost-strong = <0>;
+		joypad-name = "Anbernic RG28XX Controller";
+		amux-count = <0>;
+		rocknix,dpad-joystick;
+
+		keymenu {
+			label = "GPIO Key Menu";
+			gpios = <&pio 4 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PE3 */
+			linux,code = <BTN_MODE>;
+		};
+
+		keyvol-up {
+			label = "GPIO Key Vol up";
+			gpios = <&pio 4 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PE1 */
+			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		keyvol-down {
+			label = "GPIO Key vol down";
+			gpios = <&pio 4 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PE2 */
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+	};
+};
+
+&dram {
+	dram_tpr13 = <0x2000c60>;
+};
+
+/ {
+	uboot-display {
+		v_disp_01000000: disp@01000000 {
+			hdmi_mode_check = <0x00>;
+			fb0_width = <0x1e0>;
+			fb0_height = <0x280>;
+		};
+
+		v_lcd0_01c0c000: lcd0@01c0c000 {
+			lcd_driver_name = "fog_fj035fhd05_v1";
+			lcd_x = <0x1e0>;
+			lcd_y = <0x280>;
+			lcd_dclk_freq = <0x18>;
+			lcd_hbp = <0x38>;
+			lcd_ht = <0x24a>;
+			lcd_hspw = <0x06>;
+			lcd_vbp = <0x1a>;
+			lcd_vt = <0x2ae>;
+			lcd_vspw = <0x06>;
+			lcd_frm = <0x00>;
+			lcd_hv_clk_phase = <0x00>;
+			lcd_hv_sync_polarity = <0x00>;
+		};
+
+		v_pwm2_0300a000: pwm2@0300a000 {
+			pinctrl-0 = <&v_pwm2_0>;
+			pinctrl-1 = <&v_pwm2_1>;
+			clk_bypass_output = <0x01>;
+			status = "okay";
+		};
+	};
+};
+
+&soc {
+		charger0 {
+			pmu_safe_vol = <0xdac>;
+		};
+
+		dram_select_para {
+			select_mode = <0x00>;
+			select_gpio0;
+			select_gpio1;
+			select_gpio2 = <&pio 0x07 0x09 0x00 0x01 0xffffffff 0xffffffff>;
+			select_gpio3;
+		};
+
+		dram_para14 {
+			dram_clk = <0x318>;
+			dram_type = <0x03>;
+			dram_dx_odt = <0x8080808>;
+			dram_dx_dri = <0xe0e0e0e>;
+			dram_ca_dri = <0xe0e>;
+			dram_odt_en = <0x01>;
+			dram_mr0 = <0x840>;
+			dram_mr1 = <0x04>;
+			dram_mr2 = <0x08>;
+			dram_mr3 = <0x00>;
+			dram_tpr2 = <0x00>;
+			dram_tpr6 = <0x33808080>;
+			dram_tpr10 = <0xf83438>;
+			dram_tpr11 = <0x00>;
+			dram_tpr12 = <0x00>;
+			dram_tpr13 = <0x40>;
+		};
+
+		dram_para15 {
+			dram_clk = <0x318>;
+			dram_type = <0x03>;
+			dram_odt_en = <0x01>;
+			dram_para1 = <0x30fa>;
+			dram_para2 = <0x1000>;
+			dram_mr0 = <0x840>;
+			dram_mr1 = <0x04>;
+			dram_mr2 = <0x08>;
+			dram_mr3 = <0x00>;
+			dram_mr4 = <0x00>;
+			dram_mr11 = <0x00>;
+			dram_mr12 = <0x00>;
+			dram_mr14 = <0x00>;
+			dram_mr22 = <0x00>;
+			dram_tpr2 = <0x00>;
+			dram_tpr6 = <0x33808080>;
+			dram_tpr10 = <0xf83438>;
+			dram_tpr13 = <0x40>;
+		};
+};
+
+&pio {
+	lcd_id_pin: lcd-id-pin {
+		allwinner,pull = <0>;
+	};
+
+		v_pwm2_0: v-pwm2-0 {
+			allwinner,pins = "PH2";
+			allwinner,function = "pwm2";
+			allwinner,muxsel = <0x04>;
+			allwinner,drive = <0xffffffff>;
+			allwinner,pull = <0x00>;
+			allwinner,data = <0xffffffff>;
+			drive-strength = <10>;
+		};
+
+		v_pwm2_1: v-pwm2-1 {
+			allwinner,pins = "PH2";
+			allwinner,function = "io_disabled";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0xffffffff>;
+			allwinner,pull = <0x00>;
+			allwinner,data = <0xffffffff>;
+			drive-strength = <10>;
+			function = "gpio_in";
+		};
+
+		v_uart0_1: v-uart0-1 {
+			allwinner,pins = "PH0", "PH1";
+			allwinner,function = "uart0";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0x01>;
+			allwinner,pull = <0x00>;
+		};
+
+		v_sdc0_0: v-sdc0-0 {
+			allwinner,pins = "PF0", "PF1", "PF2", "PF3", "PF4", "PF5";
+			allwinner,function = "sdc0";
+			allwinner,muxsel = <0x02>;
+			allwinner,drive = <0x03>;
+			allwinner,pull = <0x01>;
+		};
+
+		v_sdc2_0: v-sdc2-0 {
+			allwinner,pins = "PC1", "PC5", "PC6", "PC8", "PC9", "PC10", "PC11", "PC13", "PC14", "PC15", "PC16";
+			allwinner,function = "sdc2";
+			allwinner,muxsel = <0x03>;
+			allwinner,drive = <0x02>;
+			allwinner,pull = <0x01>;
+		};
+
+		v_sdc2_2: v-sdc2-2 {
+			allwinner,pins = "PC0";
+			allwinner,function = "sdc2";
+			allwinner,muxsel = <0x03>;
+			allwinner,drive = <0x02>;
+			allwinner,pull = <0x02>;
+		};
+
+		v_sdc2_1: v-sdc2-1 {
+			allwinner,pins = "PC0", "PC1", "PC5", "PC6", "PC8", "PC9", "PC10", "PC11", "PC13", "PC14", "PC15", "PC16";
+			allwinner,function = "io_disabled";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0x01>;
+			allwinner,pull = <0x01>;
+			function = "gpio_in";
+		};
+
+		v_uart1_0: v-uart1-0 {
+			allwinner,pins = "PG6", "PG7", "PG8", "PG9";
+			allwinner,pname = "uart1_tx", "uart1_rx", "uart1_rts", "uart1_cts";
+			allwinner,function = "uart1";
+			allwinner,muxsel = <0x02>;
+			allwinner,drive = <0x01>;
+			allwinner,pull = <0x01>;
+		};
+
+		v_uart1_1: v-uart1-1 {
+			allwinner,pins = "PG6", "PG7", "PG8", "PG9";
+			allwinner,function = "io_disabled";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0x01>;
+			allwinner,pull = <0x00>;
+			function = "gpio_in";
+		};
+
+		v_sdc1_0: v-sdc1-0 {
+			allwinner,pins = "PG0", "PG1", "PG2", "PG3", "PG4", "PG5";
+			allwinner,function = "sdc1";
+			allwinner,muxsel = <0x02>;
+			allwinner,drive = <0x03>;
+			allwinner,pull = <0x01>;
+		};
+
+		v_sdc1_1: v-sdc1-1 {
+			allwinner,pins = "PG0", "PG1", "PG2", "PG3", "PG4", "PG5";
+			allwinner,function = "io_disabled";
+			allwinner,muxsel = <0x07>;
+			allwinner,drive = <0x01>;
+			allwinner,pull = <0x01>;
+			function = "gpio_in";
+		};
+
+		v_clk_losc_0: v-clk-losc-0 {
+			allwinner,pins = "PG10";
+			allwinner,function = "x32kfout";
+			allwinner,muxsel = <0x03>;
+			allwinner,drive = <0x02>;
+			allwinner,pull = <0x01>;
+		};
+};
+
+&twi5 {
+		v_pmu: pmu {
+			v_bat_power_supply: bat-power-supply {
+				pmu_battery_cap = <0xbb8>;
+				pmu_battery_warning_level1 = <0x05>;
+				wakeup_bat_out;
+				wakeup_bat_untemp_work;
+				wakeup_bat_ovtemp_work;
+				low_pwr_led = <&pio 0x08 0x0b 0x01 0x01 0xffffffff 0x00>;
+				moto_pwm_gpio = <&pio 0x07 0x02 0x01 0x01 0xffffffff 0x00>;
+			};
+		};
+};
+
+&disp {
+	hdmi_mode_check = <0x00>;
+	fb0_width = <0x1e0>;
+	fb0_height = <0x280>;
+	/* fb0 is sized at boot: room for a double-buffered 1280x720 HDMI fb */
+	fb0_buffer_num = <6>;
+};
+
+&lcd0 {
+	lcd_driver_name = "fog_fj035fhd05_v1";
+	lcd_x = <0x1e0>;
+	lcd_y = <0x280>;
+	lcd_dclk_freq = <0x18>;
+	lcd_hbp = <0x38>;
+	lcd_ht = <0x24a>;
+	lcd_hspw = <0x06>;
+	lcd_vbp = <0x1a>;
+	lcd_vt = <0x2ae>;
+	lcd_vspw = <0x06>;
+	lcd_frm = <0x00>;
+	lcd_hv_clk_phase = <0x00>;
+	lcd_hv_sync_polarity = <0x00>;
+	/* init tables in the disp2 panel driver: PE6 high (pull-up) / low */
+	lcd_panel_init = "rg28xx";
+};
+
+/* bluetooth side of the RTL8821CS */
+&uart1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&v_uart1_0>;
+	pinctrl-1 = <&v_uart1_1>;
+	status = "okay";
+};
+
+/* RTL8821CS: PG18 wifi enable, PG19 bt reset, PG15/PG16 host wake, PG17
+ * bt wake, cldo4 the module rail, and the 32 kHz fanout on PG10.  bt_rst_n
+ * is active low for sunxi-bt: probe drives the assert level, on releases it. */
+&rfkill {
+	pinctrl-names = "default";
+	pinctrl-0 = <&v_clk_losc_0>;
+	status = "okay";
+
+	wlan {
+		compatible = "allwinner,sunxi-wlan";
+		clocks = <&rtc_ccu CLK_OSC32K_OUT>;
+		clock-names = "32k-fanout";
+		assigned-clocks = <&rtc_ccu CLK_OSC32K_OUT>;
+		assigned-clock-parents = <&rtc_ccu CLK_DCXO_32K_OUT>;
+		wlan_busnum = <1>;
+		wlan_power = "axp2202-cldo4";
+		wlan_regon = <&pio 6 18 GPIO_ACTIVE_HIGH>; /* PG18 */
+		wlan_hostwake = <&pio 6 15 GPIO_ACTIVE_HIGH>; /* PG15 */
+	};
+
+	bt {
+		compatible = "allwinner,sunxi-bt";
+		clocks = <&rtc_ccu CLK_OSC32K_OUT>;
+		clock-names = "32k-fanout";
+		bt_rst_n = <&pio 6 19 GPIO_ACTIVE_LOW>; /* PG19 */
+	};
+};
+
+&btlpm {
+	uart_index = <1>;
+	bt_wake = <&pio 6 17 GPIO_ACTIVE_HIGH>; /* PG17 */
+	bt_hostwake = <&pio 6 16 GPIO_ACTIVE_HIGH>; /* PG16 */
+	status = "okay";
+};
+
+/* Internal codec, card "audiocodec".  PI5 enables the speaker amplifier on
+ * cldo1; PI3 is the headphone jack, high when a plug is in (kernel patch
+ * 0008 mutes the amplifier while it is). */
+&codec {
+	lineout_vol = <0x1f>;
+	tx_hub_en;
+	pa_pin_max = <1>;
+	pa_pin_0 = <&pio 8 5 GPIO_ACTIVE_HIGH>; /* PI5 */
+	pa_pin_level_0 = <1>;
+	pa_pin_msleep_0 = <100>;
+	pa-supply = <&v_cldo1>;
+	hp-det-gpios = <&pio 8 3 GPIO_ACTIVE_HIGH>; /* PI3 */
+	status = "okay";
+};
+
+&codec_plat {
+	status = "okay";
+};
+
+&codec_mach {
+	status = "okay";
+};
+
+/* third reg: the EHCI2 PMU block, whose SIDDQ phy0 needs cleared (0024) */
+&udc {
+	reg = <0x0 0x05100000 0x0 0x1000>,
+	      <0x0 0x00000000 0x0 0x100>,
+	      <0x0 0x05310800 0x0 0x100>;
+	clocks = <&ccu CLK_BUS_OTG>, <&ccu CLK_USB_PHY0>, <&ccu CLK_USB_PHY2>, <&ccu CLK_BUS_EHCI2>;
+	clock-names = "bus_otg", "phy", "phy2", "bus_ehci2";
+	resets = <&ccu RST_BUS_OTG>, <&ccu RST_USB_PHY0>, <&ccu RST_USB_PHY2>, <&ccu RST_BUS_EHCI2>;
+	reset-names = "otg", "phy", "phy2", "ehci2";
+	det_vbus_supply = <&v_usb_power_supply>;
+	status = "okay";
+};
+
+&ehci0 {
+	drvvbus-supply = <&reg_usb0_vbus>;
+	status = "okay";
+};
+
+&ohci0 {
+	drvvbus-supply = <&reg_usb0_vbus>;
+	status = "okay";
+};
+
+&pwm2 {
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&v_pwm2_0>;
+	pinctrl-1 = <&v_pwm2_1>;
+	status = "okay";
+};

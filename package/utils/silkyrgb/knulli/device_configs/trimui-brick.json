@@ -1,0 +1,59 @@
+{
+    "driver": "trimui_a133p",
+    "driver_extra_params": {
+        "rgb_order": [2,1,0],
+        "patchtable": [[31,32],[32,31],[34,35],[35,34],[37,38],[38,37],[40,41],[41,40]]
+    },
+    "leds": 14,
+    "target_fps": 30,
+    "traits": ["knight-rider", "ambient"],
+    "zones": {
+        "top_middle": {
+            "type": "Line",
+            "leds": 8,
+            "pos": [0, 4],
+            "led_indexes": [0, 1, 2, 3, 4, 5, 6, 7]
+        },
+        "select": {
+            "type": "Led",
+            "leds": 1,
+            "pos": [12, 6],
+            "led_indexes": [9]
+        },
+        "start": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [12, 10],
+            "led_indexes": [8]
+        },
+        "l1": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 2],
+            "led_indexes": [10]
+        },
+        "l2": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 5],
+            "led_indexes": [11]
+        },
+        "r2": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 11],
+            "led_indexes": [12]
+        },
+        "r1": {
+            "type": "Led",
+            "secondary": 1,
+            "leds": 1,
+            "pos": [9, 14],
+            "led_indexes": [13]
+        }
+    }
+}

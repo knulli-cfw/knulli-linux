@@ -1,0 +1,27 @@
+OBSOLETE -- disabled 2026-08-06, kept for provenance.
+
+This changed D.InstalledDir to D.Dir inside GccIinstallPrefix handling.  That
+code is not clang's: it comes from BUILDROOT's own patch,
+package/llvm-project/clang/0001-lib-Driver-ToolChains-Gnu-Use-GCC_INSTALL_PREFIX-in-.patch,
+which this tree's buildroot NO LONGER SHIPS -- package/llvm-project/clang/ now
+holds only clang.hash, clang.mk and Config.in.  (batocera's older buildroot still
+carries it, which is where this came from.)
+
+So GccIinstallPrefix never appears in the source, and the hunk cannot apply:
+after retargeting the path for the monorepo layout it still fails with
+"Hunk #1 FAILED at 2303".  There is nothing left to fix up.
+
+
+diff --git a/clang/lib/Driver/ToolChains/Gnu.cpp b/clang/lib/Driver/ToolChains/Gnu.cpp
+index e4b922b911..3660a9bda2 100644
+--- a/clang/lib/Driver/ToolChains/Gnu.cpp
++++ b/clang/lib/Driver/ToolChains/Gnu.cpp
+@@ -2303,7 +2303,7 @@ void Generic_GCC::GCCInstallationDetector::init(
+         if (llvm::sys::path::is_relative(GccIinstallPrefix))
+         {
+             // Use a relative path to gcc from clang install path.
+-            Prefixes.push_back(D.InstalledDir + "/" + GccIinstallPrefix.str());
++            Prefixes.push_back(D.Dir + "/" + GccIinstallPrefix.str());
+         }
+         else
+         {

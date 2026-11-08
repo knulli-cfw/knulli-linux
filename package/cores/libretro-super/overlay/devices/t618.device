@@ -1,0 +1,17 @@
+# Device: Unisoc Tiger T618 (UMS512)  Cortex-A75 + A55, Mali-G52 MP2
+#
+# A .device is an INTEGRATION unit, not a build unit: it names the ABI profile
+# whose dist/ this device consumes.  Cores are built once per profile
+# (gen-recipe.sh <profile>), never once per device.
+#
+# ARMv8.2-A, so the same profile as sm8250, a527 and rk3566.  The profile builds
+# for the A55 baseline, which the A75 runs; per-board tuning is
+# BR2_TARGET_OPTIMIZATION's business, not the core builder's.
+
+PROFILE aarch64-v8.2a
+
+# GPU stack.  The emulators drop is keyed on PROFILE *and* this: emulators link
+# the vendor GL stack, so a Mali payload cannot run on an Adreno board (it needs
+# libmali.so.0, which such a board does not ship).  Cores are keyed on PROFILE
+# alone -- they link only libGLESv2/libEGL, which both stacks provide.
+GPU mali

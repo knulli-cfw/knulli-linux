@@ -1,0 +1,65 @@
+From: knulli
+Subject: [PATCH] video: sunxi: disp2: read U-Boot's boot state through the disp alias
+
+The vendor H700 U-Boot shares its DTB with the kernel but finds its display
+node through the "disp" alias, and that node is a U-Boot-only copy in our
+device tree.  U-Boot writes boot_disp/fb_base/boot_fb0 there, so read them
+from it; otherwise disp2 re-initialises a panel it has no driver for.
+
+diff --git a/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c b/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
+index d4dc07168..f5b96ab39 100644
+--- a/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
++++ b/drivers/video/fbdev/sunxi/disp2/disp/dev_disp.c
+@@ -1155,6 +1155,25 @@ static struct attribute_group disp_attribute_group = {
+ 	.attrs = disp_attributes
+ };
+ 
++/*
++ * U-Boot records the boot display state (boot_disp, fb_base, boot_fb0, ...)
++ * on the node its "disp" alias names.  When U-Boot and the kernel do not share
++ * that node, read the state from U-Boot's one.
++ */
++static struct device_node *disp_boot_para_node(void)
++{
++	static struct device_node *np;
++
++	if (!np) {
++		np = of_find_node_by_path("disp");
++		if (!np || !of_find_property(np, "boot_disp", NULL)) {
++			of_node_put(np);
++			np = g_disp_drv.dev->of_node;
++		}
++	}
++	return np;
++}
++
+ unsigned int disp_boot_para_parse(const char *name)
+ {
+ 	unsigned int value = 0;
+@@ -1164,7 +1183,7 @@ unsigned int disp_boot_para_parse(const char *name)
+ 	    return 0;
+ 	}
+ 
+-	if (of_property_read_u32(g_disp_drv.dev->of_node, name, &value) < 0)
++	if (of_property_read_u32(disp_boot_para_node(), name, &value) < 0)
+ 		__inf("of_property_read disp.%s fail\n", name);
+ 
+ 	__inf("[DISP] %s:0x%x\n", name, value);
+@@ -1177,7 +1196,7 @@ unsigned int disp_boot_para_parse_array(const char *name, unsigned int *value,
+ {
+ 	unsigned int ret = 0;
+ 
+-	ret = of_property_read_u32_array(g_disp_drv.dev->of_node, name,
++	ret = of_property_read_u32_array(disp_boot_para_node(), name,
+ 							  value, count);
+ 	if (ret)
+ 		__wrn("of_property_read_array disp.%s fail\n", name);
+@@ -1191,7 +1210,7 @@ const char *disp_boot_para_parse_str(const char *name)
+ {
+ 	const char *str;
+ 
+-	if (!of_property_read_string(g_disp_drv.dev->of_node, name, &str))
++	if (!of_property_read_string(disp_boot_para_node(), name, &str))
+ 		return str;
+ 
+ 	__inf("of_property_read_string disp.%s fail\n", name);

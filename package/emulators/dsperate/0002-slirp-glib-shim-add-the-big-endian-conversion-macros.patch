@@ -1,0 +1,35 @@
+From: knulli <knulli@knulli>
+Date: Fri, 25 Sep 2026 00:00:00 +0000
+Subject: [PATCH] slirp glib shim: add the big-endian conversion macros
+
+libslirp stream.c uses GUINT16/32 and GINT16/32 _TO_BE/_FROM_BE, which the
+shim does not define. GCC 14 turns the implicit declarations into errors.
+
+Signed-off-by: knulli <knulli@knulli>
+---
+--- a/src/net/slirp/glib/glib.h
++++ b/src/net/slirp/glib/glib.h
+@@ -116,6 +116,23 @@
+ #define G_OS_UNIX 1
+ #endif
+ 
++/* Big-endian conversions for stream.c (the vmstate save/load path). GCC 14
++ * makes the implicit declarations an error; older compilers only warned and
++ * the unreferenced object never reached the link. */
++#if G_BYTE_ORDER == G_LITTLE_ENDIAN
++#define GUINT16_TO_BE(v) ((guint16)__builtin_bswap16((guint16)(v)))
++#define GUINT32_TO_BE(v) ((guint32)__builtin_bswap32((guint32)(v)))
++#else
++#define GUINT16_TO_BE(v) ((guint16)(v))
++#define GUINT32_TO_BE(v) ((guint32)(v))
++#endif
++#define GUINT16_FROM_BE(v) GUINT16_TO_BE(v)
++#define GUINT32_FROM_BE(v) GUINT32_TO_BE(v)
++#define GINT16_TO_BE(v) ((gint16)GUINT16_TO_BE(v))
++#define GINT32_TO_BE(v) ((gint32)GUINT32_TO_BE(v))
++#define GINT16_FROM_BE(v) GINT16_TO_BE(v)
++#define GINT32_FROM_BE(v) GINT32_TO_BE(v)
++
+ /* ---- memory ------------------------------------------------------------ */
+ /* GLib aborts on allocation failure and libslirp is written to that
+  * contract (it never checks a g_malloc result), so the shim aborts too

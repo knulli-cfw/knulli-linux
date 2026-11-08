@@ -3,12 +3,21 @@
 # We need the graphics module in order to use SDL since we are
 # using the sdl-compat/SDL2 for rendering
 insmod /lib/modules/mali_kbase.ko
+# buttons and sticks: needed before udev for the first-boot device menu
+modprobe rocknix-singleadc-joypad 2>/dev/null
+
+# One image for every board: the device tree says which one booted
+BOARD=$(tr -d '\0' < /proc/device-tree/knulli,device 2>/dev/null)
+[ -n "$BOARD" ] || BOARD=$(cat /boot/boot/knulli.board)
 
 # Rotate screen for the rg28xx
-BOARD=$(cat /boot/boot/knulli.board)
 if [ "$BOARD" = "rg28xx" ]; then
     fbset -g 480 640 480 1280 32
 fi
+
+# First boot: which device is this?  Blocks, and reboots when the choice (or
+# the next screen class to try) needs another device tree.
+/usr/bin/knulli-device
 
 # This is needed so that on a restart charger binary is not run while plugged in
 RESTART_FLAG="/boot/restart.flag"

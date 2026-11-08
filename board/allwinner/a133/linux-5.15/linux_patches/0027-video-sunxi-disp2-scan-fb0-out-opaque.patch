@@ -1,0 +1,20 @@
+Subject: [PATCH] video: sunxi: disp2: scan fb0 out opaque
+
+fb0 is the only layer and sits on the black DE background, yet it was
+blended with per-pixel alpha, re-applied on every pan.  The PowerVR
+VK_KHR_display WSI flips into fb0 and ignores the opaque plane alpha
+the application asks for, so whatever alpha a frame carries reaches the
+screen: PPSSPP's picture has alpha 0 and showed black.  Use global
+alpha 0xff.
+---
+--- a/bsp/drivers/video/sunxi/disp2/disp/fb_platform.c
++++ b/bsp/drivers/video/sunxi/disp2/disp/fb_platform.c
+@@ -179,7 +179,7 @@
+ 	info->config.enable = 1;
+ 	info->config.info.mode = LAYER_MODE_BUFFER;
+ 	info->config.info.zorder = 16;
+-	info->config.info.alpha_mode = 0;
++	info->config.info.alpha_mode = 1;
+ 	info->config.info.alpha_value = 0xff;
+ 
+ 	get_fb_output_size(map->hw_display, &hw_output_width, &hw_output_height);

@@ -1,0 +1,25 @@
+mame2003-xtreme: declare mame2003_video_get_geometry before use
+
+video.c defines it, but no header declares it and libretro.c calls it from
+retro_get_system_av_info().  gcc 14 rejects the implicit declaration:
+
+  src/libretro/libretro.c:432:3: error: implicit declaration of function
+                                 'mame2003_video_get_geometry'
+
+Declare it next to the other extern declarations in that file, matching the
+definition at src/libretro/video.c:48.
+
+Build-enablement only -- no behaviour change.
+
+--- a/src/libretro/libretro.c
++++ b/src/libretro/libretro.c
+@@ -188,6 +188,9 @@
+ 
+ //
+ 
++/* Defined in src/libretro/video.c; no header declares it. */
++extern void mame2003_video_get_geometry(struct retro_game_geometry *geom);
++
+ extern const struct KeyboardInfo retroKeys[];
+ extern int retroKeyState[512];
+ extern int retroJsState[72];

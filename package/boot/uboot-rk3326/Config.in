@@ -1,0 +1,5 @@
+config BR2_PACKAGE_UBOOT_RK3326
+    bool "uboot files for Rockchip RK3326"
+    help
+        Single U-Boot image for all Rockchip RK3326 handhelds; the
+        device is detected at runtime from SARADC channel 0.

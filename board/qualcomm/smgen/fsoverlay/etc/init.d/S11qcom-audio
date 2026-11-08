@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Restart the audio services once udev has processed the sound card.
+#
+# S05qcom-adsp makes the card exist before S06audio, but PipeWire's ALSA monitor
+# goes through libudev: started before S10udevd, it finds no udev properties on
+# the card (SOUND_INITIALIZED etc.) and libudev will not even subscribe to udev
+# events while udevd is absent -- so WirePlumber stays on "Dummy Output" for the
+# whole session.  Restarting audio after udevd has settled fixes both; ES only
+# starts at S31, so nothing is holding an audio stream yet.
+#
+# The card can also register late: with a protection domain the AudioReach
+# card waits for the ADSP's PDR notification (~8 s on the TrimUI Hammer), so
+# wait for the PCM node and for udev to have initialised the card rather than
+# giving up when the node is not there yet.
+
+card_ready() {
+    [ -e /dev/snd/pcmC0D0p ] || return 1
+    udevadm info /sys/class/sound/card0 2>/dev/null | grep -q '^E: SOUND_INITIALIZED=1'
+}
+
+case "$1" in
+    start)
+        i=0
+        while ! card_ready; do
+            i=$((i + 1))
+            [ "$i" -ge 150 ] && exit 0   # 15 s, no card: nothing to restart for
+            sleep 0.1
+        done
+        udevadm settle --timeout=10 >/dev/null 2>&1
+        /etc/init.d/S06audio restart >/dev/null 2>&1
+        ;;
+    stop|restart|reload)
+        ;;
+esac
+
+exit 0

@@ -1,0 +1,22 @@
+{
+    "actions_player1": [
+        {
+            "description": "quit vice",
+            "trigger": [ "hotkey", "start" ],
+            "type": "key",
+            "target": [ "KEY_LEFTALT", "KEY_F4" ]
+        },
+        {
+            "description": "open the vice sdl menu",
+            "trigger": [ "hotkey", "a" ],
+            "type": "key",
+            "target": "KEY_F12"
+        },
+        {
+            "description": "toggle warp mode",
+            "trigger": [ "hotkey", "y" ],
+            "type": "key",
+            "target": [ "KEY_LEFTALT", "KEY_W" ]
+        }
+    ]
+}

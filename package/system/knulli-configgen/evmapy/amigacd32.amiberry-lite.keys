@@ -1,0 +1,49 @@
+{
+    "actions_player1": [
+        {
+            "description": "right stick drives the amiga mouse",
+            "trigger": "joystick2",
+            "type": "mouse"
+        },
+        {
+            "trigger": "l2",
+            "type": "key",
+            "target": "BTN_LEFT"
+        },
+        {
+            "trigger": "r2",
+            "type": "key",
+            "target": "BTN_RIGHT"
+        },
+        {
+            "description": "open the amiberry gui",
+            "trigger": [ "hotkey", "b" ],
+            "type": "key",
+            "target": "KEY_F12"
+        },
+        {
+            "description": "move the joystick between amiga port 1 and port 2",
+            "trigger": [ "hotkey", "a" ],
+            "type": "key",
+            "target": [ "KEY_END", "KEY_J" ]
+        },
+        {
+            "description": "pause / unpause the emulation",
+            "trigger": [ "hotkey", "left" ],
+            "type": "key",
+            "target": [ "KEY_END", "KEY_LEFT" ]
+        },
+        {
+            "description": "run the emulation as fast as it will go",
+            "trigger": [ "hotkey", "right" ],
+            "type": "key",
+            "target": [ "KEY_END", "KEY_RIGHT" ]
+        },
+        {
+            "description": "eject / insert the cd",
+            "trigger": [ "hotkey", "pageup" ],
+            "type": "key",
+            "target": [ "KEY_END", "KEY_F5" ]
+        }
+    ]
+}

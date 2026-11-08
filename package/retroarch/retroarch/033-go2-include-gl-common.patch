@@ -1,0 +1,16 @@
+drm_go2_ctx.c calls gl_clear() but never includes the header that declares
+it.  drm_ctx.c makes the same call and does include it.  Harmless until gcc
+14, which promotes an implicit declaration to an error, and only reachable
+with --enable-odroidgo2.
+
+--- a/gfx/drivers_context/drm_go2_ctx.c
++++ b/gfx/drivers_context/drm_go2_ctx.c
+@@ -47,6 +47,8 @@
+ #include <go2/display.h>
+ #include <drm/drm_fourcc.h>
+ 
++#include "../common/gl_common.h"
++
+ #ifdef HAVE_EGL
+ #include "../common/egl_common.h"
+ #endif

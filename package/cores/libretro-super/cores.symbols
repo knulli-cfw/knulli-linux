@@ -1,0 +1,173 @@
+# core .so  ->  Buildroot symbol
+#
+# es_systems.yml gates every libretro core on a "BR2_PACKAGE_LIBRETRO_*"
+# symbol.  Those symbols are no longer set: the cores come from the drop, and
+# BR2_PACKAGE_KNULLI_EXTERNAL_LIBRETRO_CORES switches every "select" off.  This
+# table is how the symbols come back -- gen-es-config.sh emits "<symbol>=y" for
+# each row whose .so is actually in the drop, and knulli-es-system reads that
+# alongside .config.  So es_systems.yml keeps working unmodified, and a system
+# appears in EmulationStation exactly when a core for it is on the device.
+#
+# Rows were derived from the libretro-* Buildroot packages themselves (each
+# package's Config.in symbol paired with the .so its .mk installs), so a symbol
+# here means the same core it meant before the rework.  Rows for cores no drop
+# builds are harmless; add a row when a core new to libretro-super needs to be
+# reachable from es_systems.yml.
+#
+81_libretro.so                        BR2_PACKAGE_LIBRETRO_81
+a5200_libretro.so                     BR2_PACKAGE_LIBRETRO_A5200
+arduous_libretro.so                   BR2_PACKAGE_LIBRETRO_ARDUOUS
+armgba_libretro.so                    BR2_PACKAGE_LIBRETRO_ARMGBA
+atari800_libretro.so                  BR2_PACKAGE_LIBRETRO_ATARI800
+azahar_libretro.so                    BR2_PACKAGE_LIBRETRO_AZAHAR
+beetle-saturn_libretro.so             BR2_PACKAGE_LIBRETRO_BEETLE_SATURN
+bennugd_libretro.so                   BR2_PACKAGE_LIBRETRO_BENNUGD
+bk_libretro.so                        BR2_PACKAGE_LIBRETRO_BK
+blastem_libretro.so                   BR2_PACKAGE_LIBRETRO_BLASTEM
+bluemsx_libretro.so                   BR2_PACKAGE_LIBRETRO_BLUEMSX
+boom3_libretro.so                     BR2_PACKAGE_LIBRETRO_BOOM3
+boom3_xp_libretro.so                  BR2_PACKAGE_LIBRETRO_BOOM3
+bsnes_hd_libretro.so                  BR2_PACKAGE_LIBRETRO_BSNES_HD
+bsnes_libretro.so                     BR2_PACKAGE_LIBRETRO_BSNES
+cannonball_libretro.so                BR2_PACKAGE_LIBRETRO_CANNONBALL
+cap32_libretro.so                     BR2_PACKAGE_LIBRETRO_CAP32
+chailove_libretro.so                  BR2_PACKAGE_LIBRETRO_CHAILOVE
+chimerasnes_libretro.so               BR2_PACKAGE_LIBRETRO_CHIMERASNES
+craft_libretro.so                     BR2_PACKAGE_LIBRETRO_CRAFT
+crocods_libretro.so                   BR2_PACKAGE_LIBRETRO_CROCODS
+desmume_libretro.so                   BR2_PACKAGE_LIBRETRO_DESMUME
+dice_libretro.so                      BR2_PACKAGE_LIBRETRO_DICE
+dinothawr_libretro.so                 BR2_PACKAGE_LIBRETRO_DINOTHAWR
+dolphin_libretro.so                   BR2_PACKAGE_LIBRETRO_DOLPHIN
+dosbox_pure_libretro.so               BR2_PACKAGE_LIBRETRO_DOSBOX_PURE
+doublecherrygb_libretro.so            BR2_PACKAGE_LIBRETRO_DOUBLECHERRYGB
+easyrpg_libretro.so                   BR2_PACKAGE_LIBRETRO_EASYRPG
+ecwolf_libretro.so                    BR2_PACKAGE_LIBRETRO_ECWOLF
+emuscv_libretro.so                    BR2_PACKAGE_LIBRETRO_EMUSCV
+ep128emu-core_libretro.so             BR2_PACKAGE_LIBRETRO_EP128EMU_CORE
+fake08_libretro.so                    BR2_PACKAGE_LIBRETRO_FAKE08
+fbalpha2012_cps1_libretro.so          BR2_PACKAGE_LIBRETRO_FBALPHA2012_CPS1
+fbalpha2012_cps2_libretro.so          BR2_PACKAGE_LIBRETRO_FBALPHA2012_CPS2
+fbalpha2012_neogeo_libretro.so        BR2_PACKAGE_LIBRETRO_FBALPHA2012_NEOGEO
+fbalpha_libretro.so                   BR2_PACKAGE_LIBRETRO_FBALPHA
+fbneo_libretro.so                     BR2_PACKAGE_LIBRETRO_FBNEO
+fceumm_libretro.so                    BR2_PACKAGE_LIBRETRO_FCEUMM
+flycast-xtreme_libretro.so            BR2_PACKAGE_LIBRETRO_FLYCAST_XTREME
+flycast_libretro.so                   BR2_PACKAGE_LIBRETRO_FLYCAST
+flycastvl_libretro.so                 BR2_PACKAGE_LIBRETRO_FLYCASTVL
+fmsx_libretro.so                      BR2_PACKAGE_LIBRETRO_FMSX
+freechaf_libretro.so                  BR2_PACKAGE_LIBRETRO_FREECHAF
+freeintv_libretro.so                  BR2_PACKAGE_LIBRETRO_FREEINTV
+frodo_libretro.so                     BR2_PACKAGE_LIBRETRO_FRODO
+fuse_libretro.so                      BR2_PACKAGE_LIBRETRO_FUSE
+gambatte_libretro.so                  BR2_PACKAGE_LIBRETRO_GAMBATTE
+gametank_libretro.so                  BR2_PACKAGE_LIBRETRO_GAMETANK
+gearboy_libretro.so                   BR2_PACKAGE_LIBRETRO_GEARBOY
+gearcoleco_libretro.so                BR2_PACKAGE_LIBRETRO_GEARCOLECO
+gearsystem_libretro.so                BR2_PACKAGE_LIBRETRO_GEARSYSTEM
+genesisplusgx-expanded_libretro.so    BR2_PACKAGE_LIBRETRO_GENESISPLUSGX_EXPANDED
+genesisplusgx-wide_libretro.so        BR2_PACKAGE_LIBRETRO_GENESISPLUSGX_WIDE
+genesisplusgx_libretro.so             BR2_PACKAGE_LIBRETRO_GENESISPLUSGX
+geolith_libretro.so                   BR2_PACKAGE_LIBRETRO_GEOLITH
+gme_libretro.so                       BR2_PACKAGE_LIBRETRO_GME
+gpsp_libretro.so                      BR2_PACKAGE_LIBRETRO_GPSP
+gw_libretro.so                        BR2_PACKAGE_LIBRETRO_GW
+handy_libretro.so                     BR2_PACKAGE_LIBRETRO_HANDY
+hatari_libretro.so                    BR2_PACKAGE_LIBRETRO_HATARI
+hatarib_libretro.so                   BR2_PACKAGE_LIBRETRO_HATARIB
+holani_libretro.so                    BR2_PACKAGE_LIBRETRO_HOLANI
+imame4all_libretro.so                 BR2_PACKAGE_LIBRETRO_IMAME
+kronos_libretro.so                    BR2_PACKAGE_LIBRETRO_KRONOS
+lowresnx_libretro.so                  BR2_PACKAGE_LIBRETRO_LOWRESNX
+lutro_libretro.so                     BR2_PACKAGE_LIBRETRO_LUTRO
+mame0139_libretro.so                  BR2_PACKAGE_LIBRETRO_MAME2010
+mame078plus_libretro.so               BR2_PACKAGE_LIBRETRO_MAME2003_PLUS
+mame_libretro.so                      BR2_PACKAGE_LIBRETRO_MAME
+mame2003_libretro.so                  BR2_PACKAGE_LIBRETRO_MAME2003
+mame2003_xtreme_libretro.so           BR2_PACKAGE_LIBRETRO_MAME2003_XTREME
+mednafen_lynx_libretro.so             BR2_PACKAGE_LIBRETRO_BEETLE_LYNX
+mednafen_ngp_libretro.so              BR2_PACKAGE_LIBRETRO_BEETLE_NGP
+mednafen_psx_libretro.so              BR2_PACKAGE_LIBRETRO_BEETLE_PSX
+mednafen_supafaust_libretro.so        BR2_PACKAGE_LIBRETRO_SUPAFAUST
+mednafen_supergrafx_libretro.so       BR2_PACKAGE_LIBRETRO_BEETLE_SUPERGRAFX
+mednafen_wswan_libretro.so            BR2_PACKAGE_LIBRETRO_BEETLE_WSWAN
+melonds_libretro.so                   BR2_PACKAGE_LIBRETRO_MELONDS
+melondsds_libretro.so                 BR2_PACKAGE_LIBRETRO_MELONDS_DS
+mesen-s_libretro.so                   BR2_PACKAGE_LIBRETRO_MESENS
+mesen_libretro.so                     BR2_PACKAGE_LIBRETRO_MESEN
+mgba_libretro.so                      BR2_PACKAGE_LIBRETRO_MGBA
+minivmac_libretro.so                  BR2_PACKAGE_LIBRETRO_MINIVMAC
+mrboom_libretro.so                    BR2_PACKAGE_LIBRETRO_MRBOOM
+mupen64plus-next_libretro.so          BR2_PACKAGE_LIBRETRO_MUPEN64PLUS_NEXT
+neocd_libretro.so                     BR2_PACKAGE_LIBRETRO_NEOCD
+nekop2_libretro.so                    BR2_PACKAGE_LIBRETRO_NEKOP2
+nestopia_libretro.so                  BR2_PACKAGE_LIBRETRO_NESTOPIA
+np2kai_libretro.so                    BR2_PACKAGE_LIBRETRO_PC98
+nxengine_libretro.so                  BR2_PACKAGE_LIBRETRO_NXENGINE
+o2em_libretro.so                      BR2_PACKAGE_LIBRETRO_O2EM
+openlara_libretro.so                  BR2_PACKAGE_LIBRETRO_OPENLARA
+opera_libretro.so                     BR2_PACKAGE_LIBRETRO_OPERA
+panda3ds_libretro.so                  BR2_PACKAGE_LIBRETRO_PANDA3DS
+parallel_n64_libretro.so              BR2_PACKAGE_LIBRETRO_PARALLEL_N64
+pce_fast_libretro.so                  BR2_PACKAGE_LIBRETRO_BEETLE_PCE_FAST
+pce_libretro.so                       BR2_PACKAGE_LIBRETRO_BEETLE_PCE
+pcfx_libretro.so                      BR2_PACKAGE_LIBRETRO_BEETLE_PCFX
+pcsx2_libretro.so                     BR2_PACKAGE_LIBRETRO_PCSX2
+pcsx_rearmed_libretro.so              BR2_PACKAGE_LIBRETRO_PCSX
+picodrive_libretro.so                 BR2_PACKAGE_LIBRETRO_PICODRIVE
+play_libretro.so                      BR2_PACKAGE_LIBRETRO_PLAY
+pocketsnes_libretro.so                BR2_PACKAGE_LIBRETRO_POCKETSNES
+pokemini_libretro.so                  BR2_PACKAGE_LIBRETRO_POKEMINI
+potator_libretro.so                   BR2_PACKAGE_LIBRETRO_WATARA
+ppsspp_libretro.so                    BR2_PACKAGE_LIBRETRO_PPSSPP
+prboom_libretro.so                    BR2_PACKAGE_LIBRETRO_PRBOOM
+prosystem_libretro.so                 BR2_PACKAGE_LIBRETRO_PROSYSTEM
+puae2021_libretro.so                  BR2_PACKAGE_LIBRETRO_PUAE2021
+puae_libretro.so                      BR2_PACKAGE_LIBRETRO_PUAE
+px68k_libretro.so                     BR2_PACKAGE_LIBRETRO_PX68K
+quasi88_libretro.so                   BR2_PACKAGE_LIBRETRO_PC88
+quicknes_libretro.so                  BR2_PACKAGE_LIBRETRO_QUICKNES
+race_libretro.so                      BR2_PACKAGE_LIBRETRO_RACE
+reminiscence_libretro.so              BR2_PACKAGE_LIBRETRO_REMINISCENCE
+retro8_libretro.so                    BR2_PACKAGE_LIBRETRO_RETRO8
+same_cdi_libretro.so                  BR2_PACKAGE_LIBRETRO_SAME_CDI
+sameboy_libretro.so                   BR2_PACKAGE_LIBRETRO_SAMEBOY
+sameduck_libretro.so                  BR2_PACKAGE_LIBRETRO_SAMEDUCK
+scummvm_libretro.so                   BR2_PACKAGE_LIBRETRO_SCUMMVM
+smsplus_libretro.so                   BR2_PACKAGE_LIBRETRO_SMSPLUS_GX
+snes9x2005_libretro.so                BR2_PACKAGE_LIBRETRO_SNES9X2005
+snes9x2005_plus_libretro.so           BR2_PACKAGE_LIBRETRO_SNES9X2005_PLUS
+snes9x_libretro.so                    BR2_PACKAGE_LIBRETRO_SNES9X
+snes9x_next_libretro.so               BR2_PACKAGE_LIBRETRO_SNES9X_NEXT
+stella2014_libretro.so                BR2_PACKAGE_LIBRETRO_STELLA2014
+stella_libretro.so                    BR2_PACKAGE_LIBRETRO_STELLA
+superbroswar_libretro.so              BR2_PACKAGE_LIBRETRO_SUPERBROSWAR
+superflappybirds_libretro.so          BR2_PACKAGE_LIBRETRO_SUPERFLAPPYBIRDS
+swanstation_libretro.so               BR2_PACKAGE_LIBRETRO_SWANSTATION
+tgbdual_libretro.so                   BR2_PACKAGE_LIBRETRO_TGBDUAL
+theodore_libretro.so                  BR2_PACKAGE_LIBRETRO_THEODORE
+tic80_libretro.so                     BR2_PACKAGE_LIBRETRO_TIC80
+tyrquake_libretro.so                  BR2_PACKAGE_LIBRETRO_TYRQUAKE
+uae4arm_libretro.so                   BR2_PACKAGE_LIBRETRO_UAE4ARM
+uzem_libretro.so                      BR2_PACKAGE_LIBRETRO_UZEM
+vb_libretro.so                        BR2_PACKAGE_LIBRETRO_BEETLE_VB
+vba-m_libretro.so                     BR2_PACKAGE_LIBRETRO_VBA_M
+vba_next_libretro.so                  BR2_PACKAGE_LIBRETRO_VBA_NEXT
+vecx_libretro.so                      BR2_PACKAGE_LIBRETRO_VECX
+vemulator_libretro.so                 BR2_PACKAGE_LIBRETRO_VEMULATOR
+vice_x128_libretro.so                 BR2_PACKAGE_LIBRETRO_VICE
+vice_x64_libretro.so                  BR2_PACKAGE_LIBRETRO_VICE
+vice_x64sc_libretro.so                BR2_PACKAGE_LIBRETRO_VICE
+vice_xpet_libretro.so                 BR2_PACKAGE_LIBRETRO_VICE
+vice_xplus4_libretro.so               BR2_PACKAGE_LIBRETRO_VICE
+vice_xscpu64_libretro.so              BR2_PACKAGE_LIBRETRO_VICE
+vice_xvic_libretro.so                 BR2_PACKAGE_LIBRETRO_VICE
+vircon32_libretro.so                  BR2_PACKAGE_LIBRETRO_VIRCON32
+virtualjaguar_libretro.so             BR2_PACKAGE_LIBRETRO_VIRTUALJAGUAR
+vitaquake2_libretro.so                BR2_PACKAGE_LIBRETRO_VITAQUAKE2
+vm_libretro.so                        BR2_PACKAGE_LIBRETRO_VM
+wasm4_libretro.so                     BR2_PACKAGE_LIBRETRO_WASM4
+x1_libretro.so                        BR2_PACKAGE_LIBRETRO_XMIL
+xrick_libretro.so                     BR2_PACKAGE_LIBRETRO_XRICK
+yabasanshiro_libretro.so              BR2_PACKAGE_LIBRETRO_YABASANSHIRO
+zc210_libretro.so                     BR2_PACKAGE_LIBRETRO_ZC210

@@ -1,0 +1,82 @@
+# hwrev.ini -- manual board override for RK3326
+#
+# Rename to hwrev.ini in the root of this (FAT) partition to use it.
+#
+# U-Boot identifies the device from SARADC channel 0 and sets the variables
+# below.  Several RK3326 handhelds read within a few counts of each other, so
+# detection can pick the wrong one -- and a device with no range at all falls
+# through to a generic entry.  Every line here is a U-Boot command, run right
+# after detection, so anything set here wins.
+#
+# THE SHORT FORM: name the board and nothing else.
+#
+#   setenv hwrev mymini
+#
+# U-Boot then applies that board's whole profile and throws the SARADC result
+# away.  Prefer this over listing the variables by hand: a file that corrects
+# hwrev but forgets, say, dtb_kernel leaves the device running half one board's
+# settings and half another's, which is worse than the misdetection it was
+# meant to fix.  Boards with a profile:
+#
+#   v10  v11  v10-go3  r36s  rppocket  xf40h  gkd-pixel2  batlexp-g350
+#   rg351v  mymini  magicx-mini-m  r36max
+#
+# Lines after the board name still override individual variables, so the long
+# form below remains available for a board with no profile yet.
+#
+#   hwrev          board name; reaches Linux as board=<hwrev> and becomes
+#                  /boot/boot/knulli.board's counterpart for capabilities
+#   dtb_uboot      DTB U-Boot uses for its own display init; path included,
+#                  normally dtbs/<name>.dtb on this partition
+#   dtb_kernel     DTB handed to Linux; path included, boot/<name>.dtb
+#   logo_filename  boot splash matching the panel resolution.  Artwork is named
+#                  WITHOUT a directory -- it always comes from logos/, because
+#                  logo_suffix below builds filenames by pattern and so cannot
+#                  carry one.
+#   logo_suffix    suffix for the status images (logos/low_battery_<suffix>.bmp
+#                  and the battery_N charge animation)
+#   fb_rotate      console/SDL rotation: 0, 1, 2 or 3
+#   preload_boot   set to 1 on boards whose MMC stops working after U-Boot
+#                  applies the kernel DTB ("MMC: no card present" followed by
+#                  a stall right after the splash).  Kernel, initrd and DTB are
+#                  then staged from boot.ini before that happens.  Defaults on
+#                  for R36S, off elsewhere.
+#   lcd_vcc_gpio   GPIO index (bank * 32 + pin) of a GPIO-gated LCD supply that
+#                  U-Boot fails to drive itself -- the symptom is "gpio A13 not
+#                  reserved" / "Can't set regulator ... gpio to: 1" just before
+#                  the DSI init commands.
+#
+# To find your device's ADC value, watch the serial console for:
+#   adc0 (hw rev) <value>
+#
+# Worked example -- R36 Max.  This one is not optional: the R36 Max carries the
+# XF40H design with a smaller battery, and on both boards SARADC channel 0 is
+# the left stick's X axis rather than a board-ID divider, so detection reads the
+# stick and lands on xf40h.  Without this line the fuel gauge is told the pack
+# is 3228 mAh when it is 2832, so the battery percentage reads high.  Charging
+# itself is unaffected -- both boards stop at 4.2 V / 800 mA.
+#
+#setenv hwrev r36max
+
+# Worked example -- XiFan MyMini, which reads ADC 513 and so is detected as an
+# RG351V.  Uncomment to use:
+#
+#setenv hwrev mymini
+
+# Worked example -- MagicX Mini-M.  Its profile covers the panel; preload_boot
+# is separate because it depends on the DTB it adopts (an RG351V-derived one
+# that breaks MMC after dm_scan_fdt):
+#
+#setenv hwrev magicx-mini-m
+#setenv preload_boot 1
+#setenv lcd_vcc_gpio 13
+
+# Long form, for a board with no profile of its own.  Every variable must be
+# given -- whatever is left out keeps the misdetected board's value:
+#
+#setenv hwrev myboard
+#setenv dtb_uboot dtbs/rk3326-myboard.dtb
+#setenv dtb_kernel boot/rk3326-myboard-linux.dtb
+#setenv logo_filename logo_640x480.bmp
+#setenv logo_suffix _640x480
+#setenv fb_rotate 0

@@ -84,6 +84,15 @@ add_file_entry() {
     fi
 }
 
+# --- libretro cores image ---
+# Shipped beside the rootfs as boot/cores and mounted over /usr/lib/libretro.
+# Absent on boards that build cores into the rootfs.
+sign_cores() {
+    local cores="${BINARIES_DIR}/cores.squashfs"
+    [[ -f "$cores" ]] || return 0
+    add_file_entry "$cores" "boot/cores" "cores.squashfs"
+}
+
 # --- Allwinner BSP signature (h700, a133) ---
 # These boards have pre-built partition images written via dd; they are tracked
 # by filename only (no _path entry needed — the upgrade script has hardcoded
@@ -141,6 +150,8 @@ generate_signature_allwinner_bsp() {
     echo "rootfs.squashfs_md5=${md5}"   >> "$SIGNATURE_FILE"
     echo "rootfs.squashfs_size=${size}" >> "$SIGNATURE_FILE"
     log_info "Signed rootfs: (MD5: ${md5:0:8}..., Size: ${size} bytes)"
+
+    sign_cores
 }
 
 # --- Simple boot-FAT signature (rk3326, rk3566/rk3568, sm8250, etc.) ---
@@ -167,10 +178,12 @@ generate_signature_boot_fat() {
     echo "rootfs.squashfs_size=${size}" >> "$SIGNATURE_FILE"
     log_info "Signed rootfs: (MD5: ${md5:0:8}..., Size: ${size} bytes)"
 
+    sign_cores
+
     # --- Files in boot/boot/ (kernel, initrd, DTBs) ---
     # Skip the rootfs file (knulli / knulli.update) and per-device config files
     # that are not firmware (knulli.board, firmware.sig, autoresize).
-    local skip_pattern="^(knulli|knulli\.update|knulli\.board|firmware\.sig|autoresize)$"
+    local skip_pattern="^(knulli|knulli\.update|knulli\.board|cores|firmware\.sig|autoresize)$"
     if [[ -d "${BOOT_DIR}/boot" ]]; then
         for f in "${BOOT_DIR}/boot/"*; do
             [[ -f "$f" ]] || continue

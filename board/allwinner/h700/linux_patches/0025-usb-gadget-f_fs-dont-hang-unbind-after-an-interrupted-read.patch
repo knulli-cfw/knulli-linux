@@ -1,0 +1,16 @@
+usb: gadget: f_fs: don't hang unbind after an interrupted read
+
+Killing adbd mid-read left ep->context set, so ffs_epfile_io_wait waited
+forever on io_finished and the gadget unbind (and reboot) hung.
+
+--- a/drivers/usb/gadget/function/f_fs.c
++++ b/drivers/usb/gadget/function/f_fs.c
+@@ -1112,6 +1112,8 @@
+ 
+ 		if (interrupted) {
+ 			ret = -EINTR;
++			/* finished: don't leave ffs_epfile_io_wait waiting for it */
++			ep->context = NULL;
+ 		} else if (io_data->read && ep->status > 0) {
+ 			ret = __ffs_epfile_read_data(epfile, data, ep->status,
+ 						     &io_data->data);

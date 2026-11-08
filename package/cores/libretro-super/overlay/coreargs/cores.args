@@ -1,0 +1,353 @@
+# Per-core build args -- the (arch profile x core) half of the matrix.
+#
+# The .profile carries what is true of the WHOLE ABI (toolchain, platform=unix,
+# EXTRA_ARGS).  This file carries what is true of ONE CORE, gated on the
+# profile's ARCH_CLASS.  gen-recipe.sh appends the matching args to that core's
+# recipe line.
+#
+# Format, whitespace separated:
+#
+#    <core> <scope> <arg> [<arg> ...]
+#
+# <core>  = recipe field 1 (the core name, not the checkout dir).
+# <scope> = any | arm32 | arm64 -- matched against the profile's ARCH_CLASS.
+#           A core may appear more than once with different scopes; all
+#           matching lines are concatenated, in file order.
+#
+# POLICY: a line is only active here once it has been BUILT AND VERIFIED for at
+# least one profile.  Everything below the "UNVERIFIED" fence is commented out
+# and must stay that way until someone builds it -- uncommenting is a build
+# behaviour change, not a cleanup.
+
+# ---------------------------------------------------------------------------
+# VERIFIED -- carried over verbatim from recipes/linux/cores-atm7051{,-tier2},
+# which produced the 80-core dist/armv7-neon-cortexa9-hf/ set.
+# ---------------------------------------------------------------------------
+
+# Cyclone = hand-written ARM32 asm 68000 core; DrZ80 = ARM32 asm Z80.
+# Both are ARM32-only by construction (no aarch64 port exists upstream).
+fbneo          arm32  USE_CYCLONE=1
+mame2003       arm32  USE_CYCLONE=1 USE_DRZ80=1
+mame2003_plus  arm32  USE_CYCLONE=1 USE_DRZ80=1
+
+# ari64 = the ARM32 MIPS dynarec; BUILTIN_GPU=neon is the NEON software
+# rasteriser.  HAVE_NEON here is redundant with the profile's EXTRA_ARGS but is
+# kept explicit because pcsx_rearmed's Makefile reads it in more than one place.
+pcsx_rearmed   arm32  DYNAREC=ari64 HAVE_NEON=1 BUILTIN_GPU=neon
+
+# gpsp selects its dynarec backend from CPU_ARCH.  REQUIRED, not an optimisation:
+# under platform=unix its Makefile derives CPU_ARCH from UNAME, i.e. the HOST's
+# uname -m.  Cross-compiling from x86_64 it therefore picks CPU_ARCH=x86_32 and
+# tries to assemble x86/x86_stub.S, which fails on any ARM target.
+# HAVE_DYNAREC is set by that same host-x86_64 branch; passed explicitly so the
+# dynarec does not depend on what machine we happen to build on.
+gpsp           arm32  CPU_ARCH=arm   HAVE_DYNAREC=1
+gpsp           arm64  CPU_ARCH=arm64 HAVE_DYNAREC=1
+
+# -ffast-math refusals.  The wrapper appends -ffast-math unless NO_FAST_MATH is
+# set, and these sources #error out rather than miscompile silently:
+#   mednafen/sound/OwlResampler.cpp  "not compatible with unsafe math optimizations!"
+#   mednafen/sound/DSPUtility.cpp    same
+#   craft's vendored SQLite          "will not work correctly with the -ffast-math option"
+mednafen_pce        any  NO_FAST_MATH=1
+mednafen_pcfx       any  NO_FAST_MATH=1
+mednafen_supafaust  any  NO_FAST_MATH=1
+craft               any  NO_FAST_MATH=1
+
+# GLES selection.  Every knulli device is GLES-only (Mali/PowerVR blobs) except
+# sm8250 (mainline + Mesa).  These cores default to desktop GL and fail on our
+# sysroot with "fatal error: GL/gl.h: No such file or directory".
+# Make command-line variables override in-file assignments, so these beat the
+# HAVE_OPENGL=1 the Makefiles set in their unix branches.
+# These compile once GLES=1 is set, but their Makefiles still link -lGL
+# (GL_LIB := -lGL in the unix branch), so they fail with "cannot find -lGL" or
+# undefined glActiveTexture/eglGetProcAddress.  The quoted value is why
+# coreargs supports quoting at all -- see gen-recipe.sh's @SP@ handling.
+openlara       any  GLES=1 GL_LIB="-lGLESv2 -lEGL -Wl,--unresolved-symbols=ignore-all"
+vitaquake2     any  GLES=1 GL_LIB="-lGLESv2 -lEGL -Wl,--unresolved-symbols=ignore-all"
+craft          any  GL_LIB="-lGLESv2 -lEGL -Wl,--unresolved-symbols=ignore-all"
+melonds        any  HAVE_OPENGL=0 HAVE_OPENGLES3=1
+
+# Host-arch leakage.  Under platform=unix these Makefiles resolve the target
+# architecture from the BUILD HOST -- `uname -m`, `uname -a`, `uname -p` -- so
+# cross-compiling from x86_64 they emit -m64/-msse2 and assemble x86 asm.
+# ${UNAME_M} expands to the profile's target uname -m (aarch64 / armv7l), so one
+# line serves every profile.  Each core names the variable it actually reads;
+# make command-line variables override the in-file assignment.
+melonds        any  ARCH=${UNAME_M}
+
+# NOT every core can be fixed this way -- two counter-examples, both left to the
+# per-core composite-platform route instead:
+#
+# ppsspp: libretro/Makefile:19 does `ifneq (,$(findstring 64,$(TARGET_ARCH)))`
+#   -> TARGET_ARCH := x86_64.  "aarch64" CONTAINS "64", so passing the real
+#   uname -m makes it WORSE, not better (and "arm64" would too).  That block
+#   only ever understood x86; ARM must be selected another way.
+#ppsspp        any  TARGET_ARCH=${UNAME_M}   # HARMFUL -- do not re-enable
+#
+# blastem: Makefile.libretro:36 `ifeq ($(UNAMEM),x86_64)` is correctly avoided
+#   by UNAMEM=aarch64, but -m64 still appears from a later branch -- unresolved.
+#blastem       any  UNAMEM=${UNAME_M}
+
+# Upstream's Makefile only names the .so correctly on an explicit platform=unix;
+# the buildbot's own platform plumbing does not reach it.
+doublecherrygb any    platform=unix TARGET_NAME=doublecherrygb
+
+# snes9x2005_plus IS snes9x2005 built with the accurate (Blargg) APU -- the
+# arg is what makes the "_plus" variant a different core, not a tuning knob.
+snes9x2005_plus any    USE_BLARGG_APU=1
+
+# The six vice_* cores are one repo built six times; EMUTYPE picks the machine.
+# Identity args, never arch-gated.
+vice_x64sc     any    EMUTYPE=x64sc
+vice_x128      any    EMUTYPE=x128
+vice_xvic      any    EMUTYPE=xvic
+vice_xplus4    any    EMUTYPE=xplus4
+vice_xpet      any    EMUTYPE=xpet
+
+# ---------------------------------------------------------------------------
+# Host-arch leakage.  platform=unix leaves these cores deriving their target
+# from the BUILD host (x86_64), so they emit x86 flags an aarch64 gcc rejects.
+# From the first aarch64-v8.2a run; each is the direct cause of that core's
+# only build error.
+# ---------------------------------------------------------------------------
+
+# Makefile:222 "CPU := $(shell uname -m)" -> x86_64 -> "-DX86_64 -m64" at :234.
+# Naming any non-x86 CPU takes the NEW_CORE branch (:241), the portable C
+# interpreter, which is the only correct path here: the alternative is blastem's
+# x86-only JIT.
+blastem        any    CPU=${UNAME_M}
+
+# Makefile:5 defaults HAVE_SSE=1 and :263 turns that into "-msse -mfpmath=sse".
+# Every branch that clears it is a named BOARD (odroid, rockpro64, ...), none of
+# which we are, so under platform=unix the x86 default survives.
+kronos         any    HAVE_SSE=0
+
+# Makefile.libretro derives ARCH from the build host; batocera's own package
+# passes exactly this for BR2_aarch64.  Literal, not ${UNAME_M}: the Makefile
+# tests for "arm64", while uname -m on this target reports "aarch64".
+emuscv         arm64  ARCH=arm64 -j1
+# generated res/*.data.h races a parallel build
+emuscv         arm32  -j1
+
+# Makefile:63 "ARCH = $(shell uname -m)" feeds :67 "WITH_DYNAREC ?= $(ARCH)",
+# so the host arch picks the DYNAREC: x86_64 selects the x86 one and its -msse.
+# aarch64 is a dynarec this core actually has (:219).
+mupen64plus_next any  ARCH=${UNAME_M}
+# Makefile:94 links with -Wl,--no-undefined and :98 sets GL_LIB := -lGLESv2.
+# The sysroot's libGLESv2.so is a vendor shim exporting no gl* symbols -- the
+# real ones are in libmali.so behind a DT_NEEDED, which ld will not resolve
+# through -- so every glEnable comes out undefined.  Same fix as openlara and
+# craft: resolve at runtime via the device's own shim, and keep the artifact
+# GPU-vendor-neutral (a133 on this ABI is PowerVR, not Mali).
+mupen64plus_next any  GL_LIB="-lGLESv2 -lEGL -Wl,--unresolved-symbols=ignore-all"
+
+# ---------------------------------------------------------------------------
+# GLES3.  Every aarch64 device on our profiles has a GLES3-capable GPU (Mali
+# G31/G52/G610, PowerVR GE8300, Adreno 620); the two armv7 profiles do not
+# (Mali-400/450 are GLES2), which is why these are arm64-scoped.
+#
+# NOT done profile-wide.  The profile's EXTRA_ARGS reach every core, but only a
+# handful read a GLES3 knob at all -- and the two that read FORCE_GLES without
+# understanding FORCE_GLES3 (craft, parallel_n64) would silently lose their GLES
+# hint and fall back to desktop GL.  So it is opt-in per core, like the rest of
+# this file.
+# ---------------------------------------------------------------------------
+
+# Makefile:99 -- FORCE_GLES is tested FIRST, so the profile's FORCE_GLES=1 wins
+# unless it is cleared here; :100 then sets GLES3=1 internally.
+mupen64plus_next arm64 FORCE_GLES=0 FORCE_GLES3=1
+
+# These three take GLES3 directly (vecx:731, vitaquake2:265, beetle_psx:5).
+vecx           arm64  GLES3=1
+vitaquake2     arm64  GLES3=1
+mednafen_psx   arm64  GLES3=1
+
+# ---------------------------------------------------------------------------
+# UNVERIFIED -- candidates from the 136-core arm-asm scan.  Each has real
+# arch-gated asm or a dynarec that our current default build is NOT enabling.
+# Enable ONE at a time, build, and only then move the line above this fence.
+# ---------------------------------------------------------------------------
+
+# picodrive: 21 arm32 .S files -- the largest unused ARM32 asm body in the set.
+# Needs the composite platform string, not platform=unix, for its DRC.
+#picodrive     arm32  platform=armv-neon-cortexa9-hardfloat
+
+# mgba: 27 arm32 .S files behind ARM_ASM.
+#mgba          arm32  ARM_ASM=1
+
+# fbalpha2012: same Cyclone/DrZ80 asm as fbneo, different vintage.
+#fbalpha2012   arm32  USE_CYCLONE=1 USE_DRZ80=1
+
+# mame2010 / mame2003_xtreme / imame: DRC + Cyclone/DrZ80 gates.
+#mame2010      arm32  DRC=1
+#mame2003_xtreme arm32 USE_CYCLONE=1 USE_DRZ80=1
+#imame         arm32  USE_CYCLONE=1 USE_DRZ80=1
+
+# pocketsnes: ARM_ASM CPU core.
+#pocketsnes    arm32  ARM_ASM=1
+
+# aarch64 side -- unverified because no aarch64 profile has been built yet.
+#gpsp          arm64  CPU_ARCH=arm64
+#pcsx_rearmed  arm64  DYNAREC=ari64
+
+# ---------------------------------------------------------------------------
+# Platform token lists, taken from knulli's own package rules.
+#
+# retroarch.mk:224 builds LIBRETRO_PLATFORM as a SPACE-SEPARATED TOKEN LIST --
+#   aarch64 + NEON -> "unix arm64 neon"
+#   armv7   + NEON -> "unix armv7 neon"
+# -- NOT the hyphenated composite (armv-neon-cortexa9-hardfloat) that measured
+# 25/57.  Cores test these with $(findstring ...).  Opt in PER CORE: plain
+# platform=unix still wins for the majority.
+# ---------------------------------------------------------------------------
+
+# parallel_n64: knulli maps our aarch64 SoCs to the board platform "h5", but NO
+# h5 branch exists in this upstream -- platform=h5 matches nothing, TARGET is
+# never set, and make only runs the clean pass.  Line 113 is
+# `ifneq (,$(findstring unix,$(platform)))`, a findstring, so the token list
+# matches here (contrast mednafen_pcfx, which exact-matches `unix`).
+parallel_n64   arm64  platform="unix arm64 neon" WITH_DYNAREC=aarch64 FORCE_GLES=1 GL_LIB="-lGLESv2 -lEGL -Wl,--unresolved-symbols=ignore-all"
+parallel_n64   arm32  platform="unix armv7 neon" FORCE_GLES=1
+
+# mednafen_pcfx: do NOT pass a platform token list here.  Makefile:68 is
+# `ifeq ($(platform), unix)` -- an EXACT match -- so "unix arm64 neon" misses it
+# and falls through to the x86 default.  Keep platform=unix and kill the real
+# culprit instead: Makefile:72 sets IS_X86=1 from `uname -p` on the BUILD HOST.
+mednafen_pcfx  any  IS_X86=0
+
+# ---------------------------------------------------------------------------
+# CMAKE cores.  The buildbot passes CORE_ARGS straight to cmake, so the
+# cross-compile setup rides in as -DCMAKE_TOOLCHAIN_FILE; without it cmake
+# configures a NATIVE build and find_package resolves HOST libraries.
+# Option values below are knulli's own, from each core's .mk CONF_OPTS.
+# ---------------------------------------------------------------------------
+
+# flycast: knulli picks USE_GLES for GLES3 devices, USE_GLES2 for GLES2 ones --
+# which is why this is scoped per ARCH_CLASS (aarch64 => GLES3, armv7 => GLES2).
+flycast  arm64  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DLIBRETRO=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_EXTERNAL=OFF -DUSE_GLES=ON -DUSE_GLES2=OFF -DUSE_VULKAN=OFF -DUSE_DX9=OFF -DUSE_DX11=OFF
+flycast  arm32  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DLIBRETRO=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_EXTERNAL=OFF -DUSE_GLES2=ON -DUSE_GLES=OFF -DUSE_VULKAN=OFF -DUSE_DX9=OFF -DUSE_DX11=OFF
+
+# ppsspp: knulli builds this with cmake + ninja, NOT its Makefile -- which is
+# why it failed as a GENERIC core emitting x86 flags.
+ppsspp   any    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DUSING_GLES2=ON -DUSING_EGL=ON -DUSING_X11_VULKAN=OFF -DCMAKE_BUILD_TYPE=Release -DLIBRETRO=ON -DBUILD_SHARED_LIBS=OFF -DUSE_SYSTEM_FFMPEG=OFF -DUSE_DISCORD=OFF -DUSING_FBDEV=OFF -DUNITTEST=OFF -DSIMULATOR=OFF -DENABLE_CTEST=OFF -DVULKAN=OFF -DANDROID=OFF -DWIN32=OFF -DAPPLE=OFF
+
+# play: the top-level CMakeLists builds the Qt desktop front-end by default,
+# so configure dies in Source/ui_qt on a missing Qt5 long before it ever
+# looks at the libretro target.  Select the core explicitly.
+play  any  -DBUILD_PLAY=OFF -DBUILD_LIBRETRO_CORE=ON -DBUILD_TESTS=OFF
+# deps/Framework/build_cmake/FrameworkOpenGl/CMakeLists.txt turns USE_GLES on
+# for TARGET_PLATFORM_UNIX_ARM but has no aarch64 case, so a 64-bit ARM build
+# falls to the desktop-GL branch and then fails on "Could NOT find GLEW".
+# batocera patches the condition; setting the cache variable does the same job
+# without carrying a patch -- "set(... CACHE ...)" does not overwrite a value
+# already given on the command line.
+play  arm64  -DUSE_GLES=ON
+
+# tic80: BUILD_LIBRETRO defaults OFF, so cmake configures fine and then
+# `cmake --build --target tic80_libretro` dies with "No rule to make target" --
+# the target simply was never generated.  The rest turn off the desktop app.
+tic80  any  -DBUILD_LIBRETRO=ON -DBUILD_SDL=OFF -DBUILD_PLAYER=OFF -DBUILD_EDITORS=OFF -DBUILD_TOOLS=OFF
+
+# play: its vendored sqlite-3.20.1 has `#error SQLite will not work correctly
+# with the -ffast-math option of GCC`, which the wrapper adds by default.
+# NO_FAST_MATH is a wrapper env var, not a cmake -D; the CMAKE branch exports
+# VAR=value tokens instead of forwarding them to cmake.  Same cause as
+# mednafen's OwlResampler.cpp.
+play  any  NO_FAST_MATH=1
+
+# mame2010 / same_cdi: both size their pointers and pick a DRC backend from
+# the BUILD HOST's `uname -m`, so an x86_64 host makes them compile
+# src/emu/cpu/drcbex64.c -> "'REG_RBX' was not declared".  Same root cause as
+# gpsp's CPU_ARCH.  Neither has an ARM DRC backend, so the portable C one is
+# the only option; PTR64 is `?=` / plain `=`, both of which a command-line
+# assignment beats, and FORCE_DRC_C_BACKEND is tested with ifndef.
+#
+# same_cdi additionally needs LIBRETRO_CPU set DIRECTLY, not via ARCH:
+# Makefile.libretro:46 reads `ifeq ($(ARCH),)` / `LIBRETRO_CPU = $(ARCH)`,
+# i.e. it copies ARCH only when ARCH is EMPTY (an upstream ifeq/ifneq
+# typo), so ARCH= never reaches LIBRETRO_CPU and it falls through to the
+# host's uname -m.  CROSS_BUILD=1 activates the patch that forwards
+# OVERRIDE_CC/OVERRIDE_CXX to genie -- without it the core is compiled
+# with the HOST gcc regardless of what CC says.
+mame2010  arm32  PTR64=0 FORCE_DRC_C_BACKEND=1
+same_cdi  arm32  LIBRETRO_CPU=arm PTR64=0 FORCE_DRC_C_BACKEND=1 CROSS_BUILD=1
+same_cdi  arm64  LIBRETRO_CPU=arm64 PTR64=1 FORCE_DRC_C_BACKEND=1 CROSS_BUILD=1
+
+# openlara: arm64 only.  knulli's aarch64 sysroots ship libmali, whose
+# libGLESv2.so is a ~6 KB dispatch STUB -- 19 dynamic symbols, no
+# glDeleteTextures -- because entry points are resolved at runtime through
+# eglGetProcAddress.  openlara's Makefile links with -Wl,--no-undefined, so
+# every direct GL call becomes an undefined reference.  Note the GL_LIB
+# override on the `any` line above cannot help: under GLES=1 the Makefile
+# hardcodes `LIBS += -lGLESv2 -lEGL` and reads GL_LIB only in its desktop-GL
+# else-branch.  LIBS is no good either -- it is built with +=, which a
+# command-line assignment discards.  So drop --no-undefined at its source by
+# overriding SHARED.  The armv7 sysroot has a real SGX540 libGLESv2 with the
+# symbols actually present, and needs none of this.
+openlara  arm64  SHARED="-shared -Wl,--version-script=link.T"
+
+# azahar: options mirror the standalone azahar package (which builds from this
+# same tree and works), changing only which frontend is produced -- libretro
+# instead of the SDL2 one.  NOT yet built here: this is the first recipe for
+# the core, so the next cores-drop is what verifies it.
+azahar  arm64  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON -DENABLE_SDL2_FRONTEND=OFF -DENABLE_QT=OFF -DBUILD_SHARED_LIBS=OFF -DENABLE_TESTS=OFF -DENABLE_ROOM=OFF -DENABLE_WEB_SERVICE=OFF -DUSE_DISCORD_PRESENCE=OFF -DCITRA_WARNINGS_AS_ERRORS=OFF -DENABLE_SOFTWARE_RENDERER=ON -DENABLE_SSE42=OFF -DENABLE_LTO=OFF -DUSE_SYSTEM_BOOST=OFF
+
+# TARGET_NAME: all three flycast trees ship `TARGET_NAME := flycast` and build
+# $(TARGET_NAME)_libretro.so.  A command-line assignment beats the makefile's
+# :=, so this is what keeps the forks from colliding in the flat dist/.  The
+# rest mirrors what the in-tree packages passed; FORCE_GLES/HAS_GLES already
+# come from the profile's EXTRA_ARGS, so they are not repeated here.
+# NOT yet built here -- the next cores-drop is what verifies these.
+flycastvl       arm64  TARGET_NAME=flycastvl HAVE_OPENMP=1 ARCH=arm64 HAVE_GENERIC_JIT=0 LDFLAGS=-lrt
+flycast-xtreme  arm64  TARGET_NAME=flycast-xtreme HAVE_OPENMP=1 ARCH=arm64 HAVE_GENERIC_JIT=0 LDFLAGS=-lrt
+
+# dosbox_pure: `target` (lowercase) is its own arch switch, unrelated to the
+# profile's platform.  WITH_FAKE_SDL=1 is what every non-x86 batocera build
+# uses -- the core talks to libretro, not to a real SDL.
+dosbox_pure  arm64  target=arm64 WITH_FAKE_SDL=1
+dosbox_pure  arm32  target=arm WITH_FAKE_SDL=1
+
+# mame2003_xtreme: the aarch64 branch of the in-tree package used platform=unix
+# (the profile default, so nothing to add here); the 32-bit one turns on the
+# hand-written ARM asm cores, same as mame2003/mame2003_plus above.
+km_mame2003_xtreme_amped  arm32  HAS_CYCLONE=1 HAS_DRZ80=1
+
+# panda3ds: mirrors the in-tree package's aarch64 branch.  NOT yet built here.
+panda3ds  arm64  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DBUILD_LIBRETRO_CORE=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON -DENABLE_OPENGL=ON -DOPENGL_PROFILE=OpenGLES -DENABLE_VULKAN=OFF -DENABLE_LTO=ON -DENABLE_DISCORD_RPC=OFF -DENABLE_GIT_VERSIONING=OFF -DENABLE_RENDERDOC_API=OFF -DUSE_SYSTEM_SDL2=ON -DSDL_VIDEO=OFF -DSDL_AUDIO=OFF -DCRYPTOPP_OPT_DISABLE_ASM=ON -DENABLE_LUAJIT=OFF
+
+# mgba: builds with cmake from the upstream tree (mgba-emu/mgba), not with a
+# libretro Makefile -- options copied from the knulli package, which is the
+# build that works.  GLES3 rather than desktop GL, as everywhere else here.
+mgba  any  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DBUILD_LIBRETRO=ON -DSKIP_LIBRARY=ON -DBUILD_QT=OFF -DBUILD_SDL=OFF -DUSE_DISCORD_RPC=OFF -DUSE_SQLITE3=OFF -DUSE_EDITLINE=OFF -DUSE_EPOXY=OFF -DBUILD_GL=OFF -DBUILD_GLES2=OFF -DBUILD_GLES3=ON
+
+# melondsds: without these it configures for desktop GL and melonDS's
+# OpenGLSupport.h fails on GLuint.  Same pair the knulli package passes.
+melondsds  any  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DENABLE_EGL=ON -DENABLE_OPENGL=OFF
+# melonDS has no arm32 JIT backend
+melondsds  arm32  -DENABLE_JIT=OFF
+
+# yabasanshiro: the profile's platform=unix makes its Makefile emit -mfpmath=sse,
+# which aarch64 gcc rejects.  CORE_ARGS land AFTER `platform=` on the make line
+# and the last assignment wins, so this is how a core overrides the profile.
+# arm64_cortex_a53_gles3 is what the knulli package used for h700/a133.
+yabasanshiro  arm64  platform=arm64_cortex_a53_gles3 SHARED="-shared -Wl,--version-script=link.T"
+
+# easyrpg: PLAYER_TARGET_PLATFORM=libretro selects the core over the SDL
+# executable.  liblcf is a separate buildroot package in knulli, so it is not
+# in the sysroot this builds against -- PLAYER_BUILD_LIBLCF makes Player clone
+# and build it in-tree instead, which is what that option exists for.
+easyrpg  any  -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN} -DCMAKE_BUILD_TYPE=Release -DPLAYER_TARGET_PLATFORM=libretro -DBUILD_SHARED_LIBS=ON -DPLAYER_BUILD_LIBLCF=ON
+
+# dolphin: the sysroot libEGL.so is a ~5.9 KB dispatch stub that exports none of
+# the egl* entry points (same as libGLESv2 -- see openlara below); mali resolves
+# them at runtime through eglGetProcAddress.  So linking -lEGL cannot help, and
+# the core's own -Wl,--no-undefined makes every eglSwapBuffers fatal.  ld takes
+# the LAST of --no-undefined / --unresolved-symbols, and STANDARD_LIBRARIES is
+# appended at the very end of the link line.
+#
+# NOTE: one token, no quotes.  A quoted value with a space only works for
+# COMMAND=GENERIC cores -- gen-recipe.sh encodes the space as @SP@ and only the
+# MAKE branch of libretro-buildbot-recipe.sh decodes it, so a CMAKE core would
+# receive the literal "@SP@" (ld: cannot find -lEGL@SP@-Wl,...).
+dolphin  arm64  -DCMAKE_CXX_STANDARD_LIBRARIES=-Wl,--unresolved-symbols=ignore-all

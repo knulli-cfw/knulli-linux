@@ -29,6 +29,9 @@ case "$BOARD" in
     # Clamp to at least 0.2s so the pulse is felt
     awk -v d="$DURATION" 'BEGIN{ exit (d+0 < 0.2) ? 0 : 1 }' >/dev/null 2>&1 && DURATION="0.2"
     ;;
+  helegaly-action-pi)
+    DEVICE_NAME="Action Pi Controller"
+    ;;
   *)
     ;;
 esac
@@ -43,6 +46,6 @@ EVENT_NODE=$(
 
 [ -n "$EVENT_NODE" ] || { echo "No rumble device found for $DEVICE_NAME" >&2; exit 1; }
 
-exec "$RUMBLE_FILE" "$EVENT_NODE" "$DURATION" ${MAG:+$MAG}
+exec "$RUMBLE_FILE" "$DURATION" "${MAG:-75}" "$EVENT_NODE"
 
 exit 0

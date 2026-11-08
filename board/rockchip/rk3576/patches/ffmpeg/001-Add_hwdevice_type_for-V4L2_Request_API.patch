@@ -1,145 +1,7 @@
-From patchwork Tue Aug  6 09:06:00 2024
-Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-X-Patchwork-Submitter: Jonas Karlman <jonas@kwiboo.se>
-X-Patchwork-Id: 50900
-Delivered-To: ffmpegpatchwork2@gmail.com
-Received: by 2002:a05:612c:1f5a:b0:489:2eb3:e4c4 with SMTP id
- jm26csp1907360vqb;
-        Tue, 6 Aug 2024 02:06:52 -0700 (PDT)
-X-Forwarded-Encrypted: i=2;
- AJvYcCWpu82wy5KTfnKl/T06+sewa3cSLwaTqzDcc3SzJ7yMouue9KEohurmss5wGuZMzbgqddGES8qwvGTecpXwgqLz@gmail.com
-X-Google-Smtp-Source: 
- AGHT+IEA2ErUGPfdp5vIW8BsEuwm6k55putewwgNgn+6QYFuR6yNa+WlYrkz5SsdbynilhBuOlp6
-X-Received: by 2002:a17:906:c113:b0:a72:5470:1d6a with SMTP id
- a640c23a62f3a-a7dc4fd7edfmr799145866b.35.1722935211999;
-        Tue, 06 Aug 2024 02:06:51 -0700 (PDT)
-ARC-Seal: i=1; a=rsa-sha256; t=1722935211; cv=none;
-        d=google.com; s=arc-20160816;
-        b=shgzhfd8BwTqave+QD/tcJxPG9ESfoUrjyOvqEwtaENjfJcpFT2R3pVA5elY0+Zh2o
-         2qtFWmPcMTfGONVcYsoJPkF0T9gvaZl+caXob/BBLHw1DcID+wNZ8dwjEkPO/VMi98UU
-         hkSy0bI/8d5vef9b4zDdalsAk5ZrXBDV64RpK0c14SzEQdE7Vr8FvpbdFuZCI4RtYRFx
-         aqUZKzeEdwsvIl4lnp1tX3ioeaDcezMQiDW4YWeA8jUtBnyMtcsbBuIpIfGt/bSuZYwh
-         UrO4IeEj0TMhS6mNkzaEFu/ys+dBb8ED+OaPdOZ5BF89iqLlvYVOgYO7GasKFS0bifqT
-         UYdQ==
-ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
- s=arc-20160816;
-        h=sender:errors-to:content-transfer-encoding:cc:reply-to
-         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
-         :list-id:precedence:subject:mime-version:references:in-reply-to
-         :message-id:date:to:from:dkim-signature:delivered-to;
-        bh=/iBLVEb0g4+nEWG4KB7S+GP3ZZVrlUYU6Qwc05wb3SU=;
-        fh=F0y82oXdVu1PBU0SjSpsDDU9xEVfmDCmSjHZdwqvnK8=;
-        b=PAFW4GYM0EwKz1B6sYmIRxHSMpav0Lg9yISdUK6LWfJnK7n9zjvt3AWvG9GnatBJ+5
-         pLzBK2Luvsu74oPplkpKxh8qxj1TVhcwCQ/GqFCUJGUA1xTvLkPnwn/WZ3gCMHXD+AAg
-         x2RT+ms/a+s3mPRNeWBVp3hRq8NJNWRfrQVv5XaZps+n38nBKpdNUBVYOWLTG6E9vSVF
-         xDkoYvvI6yyxwxRxmznthlmmXFcX8jliiUxSv7ymBe+IQzojps5Nr4wWiypXBWkjbtWI
-         UpomraFQs3+u9ckP81JfwfhTXOCARudppYhnwXEifK/qUQbugFai5qFL3a3nusQmCh9P
-         EIMw==;
-        dara=google.com
-ARC-Authentication-Results: i=1; mx.google.com;
-       dkim=neutral (body hash did not verify) header.i=@kwiboo.se
- header.s=fe-e1b5cab7be header.b=Gyi5iJDy;
-       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
- designates 79.124.17.100 as permitted sender)
- smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org;
-       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=kwiboo.se
-Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
-Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
-        by mx.google.com with ESMTP id
- a640c23a62f3a-a7dc9bd4fb4si520677666b.142.2024.08.06.02.06.51;
-        Tue, 06 Aug 2024 02:06:51 -0700 (PDT)
-Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
- designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
-Authentication-Results: mx.google.com;
-       dkim=neutral (body hash did not verify) header.i=@kwiboo.se
- header.s=fe-e1b5cab7be header.b=Gyi5iJDy;
-       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
- designates 79.124.17.100 as permitted sender)
- smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org;
-       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=kwiboo.se
-Received: from [127.0.1.1] (localhost [127.0.0.1])
-	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id DB0B568D965;
-	Tue,  6 Aug 2024 12:06:35 +0300 (EEST)
-X-Original-To: ffmpeg-devel@ffmpeg.org
-Delivered-To: ffmpeg-devel@ffmpeg.org
-Received: from smtp.forwardemail.net (smtp.forwardemail.net [149.28.215.223])
- by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 7B98968D876
- for <ffmpeg-devel@ffmpeg.org>; Tue,  6 Aug 2024 12:06:27 +0300 (EEST)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kwiboo.se;
- h=Content-Transfer-Encoding: MIME-Version: References: In-Reply-To:
- Message-ID: Date: Subject: Cc: To: From; q=dns/txt; s=fe-e1b5cab7be;
- t=1722935182; bh=mIqBqa34Jk9m5652GC7Iow4NQ3N7xS8BlKFrKr/QWRA=;
- b=Gyi5iJDyH1aRzLzxwVRb6Z28hI2JxbzICzYNSTtNBhr2nKmJaFxYK7hzbTrFrYRdF1CACpfi9
- w+yyuf+Xg33sqh9rx+Q18CnMiuR0pknAotRTKdH8JA6iIaiChC4PK+dOYxDI/kBzQo7/atBVqbJ
- nyv00o2fwuHmp7zwecHDJCcmjYCxGX5V/V6nW+a27ZCtDKzc16nS+xHQxAUSsv7eOodUikf8n0g
- minBfKvInQQzKp0SmTiMSNGC21qly6l8MS2smZzvl4MoFkFz3aWWz2f4MU26NGBFBlNFZKwsGJR
- 37XlTyO8f1yly/OCzj1+/gJK/e/uxPKRcOhhip5HJtyg==
-From: Jonas Karlman <jonas@kwiboo.se>
-To: ffmpeg-devel@ffmpeg.org
-Date: Tue,  6 Aug 2024 09:06:00 +0000
-Message-ID: <20240806090607.43240-2-jonas@kwiboo.se>
-X-Mailer: git-send-email 2.45.2
-In-Reply-To: <20240806090607.43240-1-jonas@kwiboo.se>
-References: <20240806090607.43240-1-jonas@kwiboo.se>
-MIME-Version: 1.0
-X-Report-Abuse-To: abuse@forwardemail.net
-X-Report-Abuse: abuse@forwardemail.net
-X-Complaints-To: abuse@forwardemail.net
-X-ForwardEmail-Version: 0.4.40
-X-ForwardEmail-Sender: rfc822; jonas@kwiboo.se, smtp.forwardemail.net,
- 149.28.215.223
-X-ForwardEmail-ID: 66b1e78e8ac7bd7d98d34c3a
-Subject: [FFmpeg-devel] [PATCH v2 1/8] avutil/hwcontext: Add hwdevice type
- for V4L2 Request API
-X-BeenThere: ffmpeg-devel@ffmpeg.org
-X-Mailman-Version: 2.1.29
-Precedence: list
-List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
-List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
- <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
-List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
-List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
-List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
-List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
- <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
-Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
-Cc: Benjamin Gaignard <benjamin.gaignard@collabora.com>,
- Jonas Karlman <jonas@kwiboo.se>, Alex Bee <knaerzche@gmail.com>,
- Jernej Skrabec <jernej.skrabec@gmail.com>,
- Boris Brezillon <boris.brezillon@collabora.com>,
- Nicolas Dufresne <nicolas.dufresne@collabora.com>
-Errors-To: ffmpeg-devel-bounces@ffmpeg.org
-Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
-X-TUID: YHNPKOw54WT1
-
-Add a hwdevice type for V4L2 Request API with transfer_data_from support
-for AV_PIX_FMT_DRM_PRIME, based on AV_HWDEVICE_TYPE_DRM.
-
-AVV4L2RequestDeviceContext.media_fd can be set by the application or a
-media device path can be supplied when hwdevice is created. When none
-is supplied it default to -1 and hwaccel will auto-detect a media device
-with a capable video device.
-
-Signed-off-by: Jonas Karlman <jonas@kwiboo.se>
----
- configure                         |   7 +
- libavutil/Makefile                |   3 +
- libavutil/hwcontext.c             |   4 +
- libavutil/hwcontext.h             |   1 +
- libavutil/hwcontext_internal.h    |   1 +
- libavutil/hwcontext_v4l2request.c | 261 ++++++++++++++++++++++++++++++
- libavutil/hwcontext_v4l2request.h |  41 +++++
- 7 files changed, 318 insertions(+)
- create mode 100644 libavutil/hwcontext_v4l2request.c
- create mode 100644 libavutil/hwcontext_v4l2request.h
-
-diff --git a/configure b/configure
-index 37178d7d81..23d00edc48 100755
---- a/configure
-+++ b/configure
-@@ -358,6 +358,7 @@ External library support:
+diff -urN a/configure b/configure
+--- a/configure	2026-06-17 02:17:51.000000000 +0000
++++ b/configure	2026-08-03 17:22:27.084319311 +0000
+@@ -368,6 +368,7 @@
    --enable-omx-rpi         enable OpenMAX IL code for Raspberry Pi [no]
    --enable-rkmpp           enable Rockchip Media Process Platform code [no]
    --disable-v4l2-m2m       disable V4L2 mem2mem code [autodetect]
@@ -147,7 +9,7 @@ index 37178d7d81..23d00edc48 100755
    --disable-vaapi          disable Video Acceleration API (mainly Unix/Intel) code [autodetect]
    --disable-vdpau          disable Nvidia Video Decode and Presentation API for Unix code [autodetect]
    --disable-videotoolbox   disable VideoToolbox code [autodetect]
-@@ -2023,6 +2024,7 @@ HWACCEL_LIBRARY_LIST="
+@@ -2162,6 +2163,7 @@
      mmal
      omx
      opencl
@@ -155,15 +17,15 @@ index 37178d7d81..23d00edc48 100755
  "
  
  DOCUMENT_LIST="
-@@ -3148,6 +3150,7 @@ dxva2_deps="dxva2api_h DXVA2_ConfigPictureDecode ole32 user32"
+@@ -3341,6 +3343,7 @@
  ffnvcodec_deps_any="libdl LoadLibrary"
- mediacodec_deps="android mediandk"
+ mediacodec_deps="android mediandk pthreads"
  nvdec_deps="ffnvcodec"
 +v4l2_request_deps="linux_media_h v4l2_timeval_to_ns"
  vaapi_x11_deps="xlib_x11"
  videotoolbox_hwaccel_deps="videotoolbox pthreads"
  videotoolbox_hwaccel_extralibs="-framework QuartzCore"
-@@ -7172,6 +7175,10 @@ if enabled v4l2_m2m; then
+@@ -7588,6 +7591,10 @@
      check_cc vp9_v4l2_m2m linux/videodev2.h "int i = V4L2_PIX_FMT_VP9;"
  fi
  
@@ -174,49 +36,20 @@ index 37178d7d81..23d00edc48 100755
  check_headers sys/videoio.h
  test_code cc sys/videoio.h "struct v4l2_frmsizeenum vfse; vfse.discrete.width = 0;" && enable_sanitized struct_v4l2_frmivalenum_discrete
  
-diff --git a/libavutil/Makefile b/libavutil/Makefile
-index 6e6fa8d800..1ce46157dd 100644
---- a/libavutil/Makefile
-+++ b/libavutil/Makefile
-@@ -48,6 +48,7 @@ HEADERS = adler32.h                                                     \
-           hwcontext_qsv.h                                               \
-           hwcontext_mediacodec.h                                        \
-           hwcontext_opencl.h                                            \
-+          hwcontext_v4l2request.h                                       \
-           hwcontext_vaapi.h                                             \
-           hwcontext_videotoolbox.h                                      \
-           hwcontext_vdpau.h                                             \
-@@ -201,6 +202,7 @@ OBJS-$(CONFIG_MACOS_KPERF)              += macos_kperf.o
- OBJS-$(CONFIG_MEDIACODEC)               += hwcontext_mediacodec.o
- OBJS-$(CONFIG_OPENCL)                   += hwcontext_opencl.o
- OBJS-$(CONFIG_QSV)                      += hwcontext_qsv.o
-+OBJS-$(CONFIG_V4L2_REQUEST)             += hwcontext_v4l2request.o
- OBJS-$(CONFIG_VAAPI)                    += hwcontext_vaapi.o
- OBJS-$(CONFIG_VIDEOTOOLBOX)             += hwcontext_videotoolbox.o
- OBJS-$(CONFIG_VDPAU)                    += hwcontext_vdpau.o
-@@ -222,6 +224,7 @@ SKIPHEADERS-$(CONFIG_D3D12VA)          += hwcontext_d3d12va.h
- SKIPHEADERS-$(CONFIG_DXVA2)            += hwcontext_dxva2.h
- SKIPHEADERS-$(CONFIG_QSV)              += hwcontext_qsv.h
- SKIPHEADERS-$(CONFIG_OPENCL)           += hwcontext_opencl.h
-+SKIPHEADERS-$(CONFIG_V4L2_REQUEST)     += hwcontext_v4l2request.h
- SKIPHEADERS-$(CONFIG_VAAPI)            += hwcontext_vaapi.h
- SKIPHEADERS-$(CONFIG_VIDEOTOOLBOX)     += hwcontext_videotoolbox.h
- SKIPHEADERS-$(CONFIG_VDPAU)            += hwcontext_vdpau.h
-diff --git a/libavutil/hwcontext.c b/libavutil/hwcontext.c
-index fa99a0d8a4..7fae9381da 100644
---- a/libavutil/hwcontext.c
-+++ b/libavutil/hwcontext.c
-@@ -65,6 +65,9 @@ static const HWContextType * const hw_table[] = {
- #endif
+diff -urN a/libavutil/hwcontext.c b/libavutil/hwcontext.c
+--- a/libavutil/hwcontext.c	2026-06-17 02:17:51.000000000 +0000
++++ b/libavutil/hwcontext.c	2026-08-03 17:22:27.084319311 +0000
+@@ -66,6 +66,9 @@
  #if CONFIG_VULKAN
      &ff_hwcontext_type_vulkan,
-+#endif
+ #endif
 +#if CONFIG_V4L2_REQUEST
 +    &ff_hwcontext_type_v4l2request,
++#endif
+ #if CONFIG_AMF
+     &ff_hwcontext_type_amf,
  #endif
-     NULL,
- };
-@@ -77,6 +80,7 @@ static const char *const hw_type_names[] = {
+@@ -83,6 +86,7 @@
      [AV_HWDEVICE_TYPE_D3D12VA] = "d3d12va",
      [AV_HWDEVICE_TYPE_OPENCL] = "opencl",
      [AV_HWDEVICE_TYPE_QSV]    = "qsv",
@@ -224,23 +57,21 @@ index fa99a0d8a4..7fae9381da 100644
      [AV_HWDEVICE_TYPE_VAAPI]  = "vaapi",
      [AV_HWDEVICE_TYPE_VDPAU]  = "vdpau",
      [AV_HWDEVICE_TYPE_VIDEOTOOLBOX] = "videotoolbox",
-diff --git a/libavutil/hwcontext.h b/libavutil/hwcontext.h
-index bac30debae..8cf50ddbd0 100644
---- a/libavutil/hwcontext.h
-+++ b/libavutil/hwcontext.h
-@@ -38,6 +38,7 @@ enum AVHWDeviceType {
-     AV_HWDEVICE_TYPE_MEDIACODEC,
-     AV_HWDEVICE_TYPE_VULKAN,
-     AV_HWDEVICE_TYPE_D3D12VA,
+diff -urN a/libavutil/hwcontext.h b/libavutil/hwcontext.h
+--- a/libavutil/hwcontext.h	2026-06-17 02:17:51.000000000 +0000
++++ b/libavutil/hwcontext.h	2026-08-03 17:22:27.098319311 +0000
+@@ -41,6 +41,7 @@
+     AV_HWDEVICE_TYPE_AMF,
+     /* OpenHarmony Codec device */
+     AV_HWDEVICE_TYPE_OHCODEC,
 +    AV_HWDEVICE_TYPE_V4L2REQUEST,
  };
  
  /**
-diff --git a/libavutil/hwcontext_internal.h b/libavutil/hwcontext_internal.h
-index e32b786238..fd0cf29c6e 100644
---- a/libavutil/hwcontext_internal.h
-+++ b/libavutil/hwcontext_internal.h
-@@ -158,6 +158,7 @@ extern const HWContextType ff_hwcontext_type_drm;
+diff -urN a/libavutil/hwcontext_internal.h b/libavutil/hwcontext_internal.h
+--- a/libavutil/hwcontext_internal.h	2026-06-17 02:17:51.000000000 +0000
++++ b/libavutil/hwcontext_internal.h	2026-08-03 17:22:27.084319311 +0000
+@@ -158,6 +158,7 @@
  extern const HWContextType ff_hwcontext_type_dxva2;
  extern const HWContextType ff_hwcontext_type_opencl;
  extern const HWContextType ff_hwcontext_type_qsv;
@@ -248,11 +79,9 @@ index e32b786238..fd0cf29c6e 100644
  extern const HWContextType ff_hwcontext_type_vaapi;
  extern const HWContextType ff_hwcontext_type_vdpau;
  extern const HWContextType ff_hwcontext_type_videotoolbox;
-diff --git a/libavutil/hwcontext_v4l2request.c b/libavutil/hwcontext_v4l2request.c
-new file mode 100644
-index 0000000000..833fbf9f40
---- /dev/null
-+++ b/libavutil/hwcontext_v4l2request.c
+diff -urN a/libavutil/hwcontext_v4l2request.c b/libavutil/hwcontext_v4l2request.c
+--- a/libavutil/hwcontext_v4l2request.c	1970-01-01 00:00:00.000000000 +0000
++++ b/libavutil/hwcontext_v4l2request.c	2026-08-03 17:22:27.084319311 +0000
 @@ -0,0 +1,261 @@
 +/*
 + * This file is part of FFmpeg.
@@ -515,11 +344,9 @@ index 0000000000..833fbf9f40
 +        AV_PIX_FMT_NONE
 +    },
 +};
-diff --git a/libavutil/hwcontext_v4l2request.h b/libavutil/hwcontext_v4l2request.h
-new file mode 100644
-index 0000000000..0fe42f97b4
---- /dev/null
-+++ b/libavutil/hwcontext_v4l2request.h
+diff -urN a/libavutil/hwcontext_v4l2request.h b/libavutil/hwcontext_v4l2request.h
+--- a/libavutil/hwcontext_v4l2request.h	1970-01-01 00:00:00.000000000 +0000
++++ b/libavutil/hwcontext_v4l2request.h	2026-08-03 17:22:27.084319311 +0000
 @@ -0,0 +1,41 @@
 +/*
 + * This file is part of FFmpeg.
@@ -562,3 +389,22 @@ index 0000000000..0fe42f97b4
 +} AVV4L2RequestDeviceContext;
 +
 +#endif /* AVUTIL_HWCONTEXT_V4L2REQUEST_H */
+diff -urN a/libavutil/Makefile b/libavutil/Makefile
+--- a/libavutil/Makefile	2026-06-17 02:17:51.000000000 +0000
++++ b/libavutil/Makefile	2026-08-03 17:22:27.084319311 +0000
+@@ -214,6 +214,7 @@
+ OBJS-$(CONFIG_OHCODEC)                  += hwcontext_oh.o
+ OBJS-$(CONFIG_OPENCL)                   += hwcontext_opencl.o
+ OBJS-$(CONFIG_QSV)                      += hwcontext_qsv.o
++OBJS-$(CONFIG_V4L2_REQUEST)             += hwcontext_v4l2request.o
+ OBJS-$(CONFIG_VAAPI)                    += hwcontext_vaapi.o
+ OBJS-$(CONFIG_VIDEOTOOLBOX)             += hwcontext_videotoolbox.o
+ OBJS-$(CONFIG_VDPAU)                    += hwcontext_vdpau.o
+@@ -245,6 +246,7 @@
+                                           hwcontext_amf_internal.h
+ SKIPHEADERS-$(CONFIG_QSV)              += hwcontext_qsv.h
+ SKIPHEADERS-$(CONFIG_OPENCL)           += hwcontext_opencl.h
++SKIPHEADERS-$(CONFIG_V4L2_REQUEST)     += hwcontext_v4l2request.h
+ SKIPHEADERS-$(CONFIG_VAAPI)            += hwcontext_vaapi.h
+ SKIPHEADERS-$(CONFIG_VIDEOTOOLBOX)     += hwcontext_videotoolbox.h
+ SKIPHEADERS-$(CONFIG_VDPAU)            += hwcontext_vdpau.h

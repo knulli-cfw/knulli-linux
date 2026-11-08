@@ -1,0 +1,57 @@
+2048 libretro-2048 https://github.com/libretro/libretro-2048.git master YES GENERIC Makefile.libretro .
+81 libretro-81 https://github.com/libretro/81-libretro.git master YES GENERIC Makefile .
+atari800 libretro-atari800 https://github.com/libretro/libretro-atari800.git master YES GENERIC Makefile .
+bk libretro-bk https://github.com/libretro/bk-emulator.git master YES GENERIC Makefile.libretro .
+bluemsx libretro-bluemsx https://github.com/libretro/blueMSX-libretro.git master YES GENERIC Makefile.libretro .
+cap32 libretro-cap32 https://github.com/libretro/libretro-cap32.git master YES GENERIC Makefile .
+chimerasnes libretro-chimerasnes https://github.com/jamsilva/chimerasnes.git master YES GENERIC Makefile .
+crocods libretro-crocods https://github.com/libretro/libretro-crocods.git master YES GENERIC Makefile .
+dinothawr libretro-dinothawr https://github.com/libretro/Dinothawr.git master YES GENERIC Makefile .
+doublecherrygb libretro-doublecherrygb https://github.com/TimOelrichs/doublecherryGB-libretro.git master YES GENERIC Makefile . platform=unix TARGET_NAME=doublecherrygb
+fbalpha2012_cps1 libretro-fbalpha2012_cps1 https://github.com/libretro/fbalpha2012_cps1.git master YES GENERIC makefile.libretro .
+fbalpha2012_cps2 libretro-fbalpha2012_cps2 https://github.com/libretro/fbalpha2012_cps2.git master YES GENERIC makefile.libretro .
+fbalpha2012_neogeo libretro-fbalpha_neogeo https://github.com/libretro/fbalpha2012_neogeo.git master YES GENERIC Makefile .
+fceumm libretro-fceumm https://github.com/libretro/libretro-fceumm.git master YES GENERIC Makefile.libretro .
+fmsx libretro-fmsx https://github.com/libretro/fmsx-libretro.git master YES GENERIC Makefile .
+freechaf libretro-freechaf https://github.com/libretro/FreeChaF.git master YES GENERIC Makefile .
+freeintv libretro-freeintv https://github.com/libretro/FreeIntv.git master YES GENERIC Makefile .
+frodo libretro-frodo https://github.com/libretro/frodo-libretro.git  master YES GENERIC Makefile .
+fuse libretro-fuse https://github.com/libretro/fuse-libretro.git master YES GENERIC Makefile .
+gambatte libretro-gambatte https://github.com/libretro/gambatte-libretro.git master YES GENERIC Makefile .
+gearboy libretro-gearboy https://github.com/drhelius/Gearboy.git master YES GENERIC Makefile platforms/libretro
+gearsystem libretro-gearsystem https://github.com/drhelius/Gearsystem.git master YES GENERIC Makefile platforms/libretro
+genesis_plus_gx libretro-genesis_plus_gx https://github.com/libretro/Genesis-Plus-GX.git master YES GENERIC Makefile.libretro .
+genesis_plus_gx_wide libretro-genesis_plus_gx_wide https://github.com/libretro/Genesis-Plus-GX-Wide.git main YES GENERIC Makefile.libretro .
+gme libretro-gme https://github.com/libretro/libretro-gme.git master YES GENERIC Makefile .
+gw libretro-gw https://github.com/libretro/gw-libretro.git master YES GENERIC Makefile .
+handy libretro-handy https://github.com/libretro/libretro-handy.git master YES GENERIC Makefile .
+lowresnx libretro-lowresnx https://github.com/timoinutilis/lowres-nx.git retroarch YES GENERIC Makefile platform/LibRetro
+mame2000 libretro-mame2000 https://github.com/libretro/mame2000-libretro.git master YES GENERIC Makefile .
+mednafen_lynx libretro-beetle_lynx https://github.com/libretro/beetle-lynx-libretro.git master YES GENERIC Makefile .
+mednafen_ngp libretro-beetle_ngp https://github.com/libretro/beetle-ngp-libretro.git master YES GENERIC Makefile .
+mednafen_pce_fast libretro-beetle_pce_fast https://github.com/libretro/beetle-pce-fast-libretro.git master YES GENERIC Makefile .
+mednafen_vb libretro-beetle_vb https://github.com/libretro/beetle-vb-libretro.git master YES GENERIC Makefile .
+mednafen_wswan libretro-beetle_wswan https://github.com/libretro/beetle-wswan-libretro.git master YES GENERIC Makefile .
+mgba libretro-mgba https://github.com/libretro/mgba.git master YES GENERIC Makefile.libretro .
+mrboom libretro-mrboom https://github.com/libretro/mrboom-libretro.git master YES GENERIC Makefile .
+nestopia libretro-nestopia https://github.com/libretro/nestopia.git master YES GENERIC Makefile libretro
+nxengine libretro-nxengine https://github.com/libretro/nxengine-libretro.git master YES GENERIC Makefile .
+o2em libretro-o2em https://github.com/libretro/libretro-o2em.git master YES GENERIC Makefile .
+pokemini libretro-pokemini https://github.com/libretro/PokeMini.git master YES GENERIC Makefile .
+prosystem libretro-prosystem https://github.com/libretro/prosystem-libretro.git master YES GENERIC Makefile .
+quicknes libretro-quicknes https://github.com/libretro/QuickNES_Core.git master YES GENERIC Makefile .
+sameboy libretro-sameboy https://github.com/libretro/SameBoy.git buildbot YES GENERIC Makefile libretro
+snes9x2002 libretro-snes9x2002 https://github.com/libretro/snes9x2002.git master YES GENERIC Makefile .
+snes9x2005 libretro-snes9x2005 https://github.com/libretro/snes9x2005.git master YES GENERIC Makefile .
+snes9x2005_plus libretro-snes9x2005_plus https://github.com/libretro/snes9x2005.git master YES GENERIC Makefile . USE_BLARGG_APU=1
+stella2014 libretro-stella2014 https://github.com/libretro/stella2014-libretro.git master YES GENERIC Makefile .
+tgbdual libretro-tgbdual https://github.com/libretro/tgbdual-libretro.git master YES GENERIC Makefile .
+theodore libretro-theodore https://github.com/Zlika/theodore.git master YES GENERIC Makefile .
+vecx libretro-vecx https://github.com/libretro/libretro-vecx.git master YES GENERIC Makefile.libretro .
+vice_x64 libretro-vice_x64 https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile .
+vice_x64sc libretro-vice_x64sc https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile . EMUTYPE=x64sc
+vice_x128 libretro-vice_x128 https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile . EMUTYPE=x128
+vice_xvic libretro-vice_xvic https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile . EMUTYPE=xvic
+vice_xplus4 libretro-vice_xplus4 https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile . EMUTYPE=xplus4
+vice_xpet libretro-vice_xpet https://github.com/libretro/vice-libretro.git master YES GENERIC Makefile . EMUTYPE=xpet
+xrick libretro-xrick https://github.com/libretro/xrick-libretro.git master YES GENERIC Makefile .

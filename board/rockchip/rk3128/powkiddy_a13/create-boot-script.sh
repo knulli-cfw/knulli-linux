@@ -18,7 +18,7 @@ mkdir -p "${KNULLI_BINARIES_DIR}/boot/boot"     || exit 1
 mkdir -p "${KNULLI_BINARIES_DIR}/boot/extlinux" || exit 1
 
 cp "${BINARIES_DIR}/zImage"             "${KNULLI_BINARIES_DIR}/boot/boot/linux"           || exit 1
-#cp "${BINARIES_DIR}/initrd.lz4"          "${KNULLI_BINARIES_DIR}/boot/boot/"                || exit 1
+cp "${BINARIES_DIR}/uInitrd"           "${KNULLI_BINARIES_DIR}/boot/boot/uInitrd"         || exit 1
 cp "${BINARIES_DIR}/rootfs.squashfs"    "${KNULLI_BINARIES_DIR}/boot/boot/knulli.update" || exit 1
 
 for DTB in rk3128-powkiddy-a13-rev-ab.dtb rk3128-powkiddy-a12-rev-c.dtb rk3128-powkiddy-a12-rev-d.dtb
@@ -28,10 +28,5 @@ done
 
 cp "${BOARD_DIR}/boot/extlinux.conf"    "${KNULLI_BINARIES_DIR}/boot/extlinux/" || exit 1
 cp "${BOARD_DIR}/boot/bootlogo.bmp"     "${KNULLI_BINARIES_DIR}/boot/bootlogo.bmp" || exit 1
-
-# Create empty swap partition
-truncate -s 1024M "${KNULLI_BINARIES_DIR}/swap.img"
-chmod 0600 "${KNULLI_BINARIES_DIR}/swap.img"
-mkswap "${KNULLI_BINARIES_DIR}/swap.img"
 
 exit 0

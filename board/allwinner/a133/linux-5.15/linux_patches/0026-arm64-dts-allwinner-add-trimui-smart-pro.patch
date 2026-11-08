@@ -1,0 +1,95 @@
+Subject: [PATCH] arm64: dts: allwinner: add TrimUI Smart Pro
+
+---
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-a133-trimui-smart-pro.dts
+@@ -0,0 +1,79 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * TrimUI Smart Pro (A133P): the Brick with a 720x1280 panel shown
++ * landscape, a 5000 mAh battery and the stick MCUs on uart3/uart4.
++ */
++#include "sun50i-a133-trimui-brick.dts"
++
++/ {
++	model = "TrimUI Smart Pro";
++	compatible = "trimui,smart-pro", "arm,sun50iw10p1";
++	knulli,device = "trimui-smart-pro";
++};
++
++&usb_power_supply {
++	pmu_usb_typec_used = <0x0>;
++};
++
++&bat_power_supply {
++	pmu_battery_cap = <5000>;
++};
++
++&codec {
++	pa-pin-msleep-0 = <120>;
++};
++
++/* stick MCUs, receive only: /dev/ttyS3 and /dev/ttyS4 for trimui_inputd */
++&pio {
++	uart3_pd_pins_a: uart3-pd@0 {
++		pins = "PD15";
++		function = "uart3";
++		drive-strength = <10>;
++		bias-pull-up;
++	};
++
++	uart3_pd_pins_b: uart3-pd@1 {
++		pins = "PD15";
++		function = "io_disabled";
++	};
++
++	uart4_pd_pins_a: uart4-pd@0 {
++		pins = "PD19";
++		function = "uart4";
++		drive-strength = <10>;
++		bias-pull-up;
++	};
++
++	uart4_pd_pins_b: uart4-pd@1 {
++		pins = "PD19";
++		function = "io_disabled";
++	};
++};
++
++&uart3 {
++	pinctrl-0 = <&uart3_pd_pins_a>;
++	pinctrl-1 = <&uart3_pd_pins_b>;
++	status = "okay";
++};
++
++&uart4 {
++	pinctrl-0 = <&uart4_pd_pins_a>;
++	pinctrl-1 = <&uart4_pd_pins_b>;
++	status = "okay";
++};
++
++&disp {
++	fb0_width = <1280>;
++	fb0_height = <720>;
++	fb0_rot_used = <1>;
++	fb0_rot_degree = <3>;
++};
++
++&lcd0 {
++	lcd_x = <720>;
++	lcd_y = <1280>;
++	lcd_dclk_freq = <70>;
++	lcd_hbp = <88>;
++	lcd_ht = <880>;
++	lcd_vt = <1320>;
++};
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -24,6 +24,7 @@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-xu20.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-powkiddy-v90s.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-powkiddy-v20.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-a133-trimui-smart-pro.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-bananapi-m2-plus-v1.2.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-emlid-neutis-n5-devboard.dtb

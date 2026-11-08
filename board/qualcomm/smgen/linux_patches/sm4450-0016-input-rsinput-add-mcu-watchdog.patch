@@ -1,0 +1,197 @@
+MERGE NOTE (knulli unified series): the sm4450 copy of the RSInput driver (0016-input-add-rsinput-gamepad) was the sm8550 driver plus an MCU link watchdog and a few log-level downgrades. This patch carries only that delta, applied on top of the sm8550 driver (0031 + 0300 dpad-to-hat + 1003 force feedback). The watchdog is only started on qcom,sm4450 machines so sm8550 behaviour is unchanged.
+From: Philippe Simons <simons.philippe@gmail.com>
+Subject: [PATCH] input: rsinput: add MCU link watchdog (sm4450)
+
+diff --git a/drivers/input/joystick/rsinput.c b/drivers/input/joystick/rsinput.c
+index 5979891e6..e15cc043c 100644
+--- a/drivers/input/joystick/rsinput.c
++++ b/drivers/input/joystick/rsinput.c
+@@ -17,6 +17,7 @@
+ #include <linux/of.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/serdev.h>
++#include <linux/workqueue.h>
+ #include <linux/slab.h>
+ #include <linux/platform_device.h>
+ #include <uapi/linux/sched/types.h>
+@@ -139,6 +140,12 @@ struct rsinput_driver {
+     bool invert_ry;
+     uint8_t rx_buf[1024];
+     uint8_t sequence_number;
++    struct delayed_work rx_watchdog;
++    unsigned int valid_frames;
++    unsigned int wd_seen_frames;
++    unsigned int wd_attempts;
++    unsigned int wd_probes;
++    bool version_logged;
+ };
+ 
+ static bool rumble_enable = true;
+@@ -151,6 +158,11 @@ static const unsigned int keymap[] = {
+     BTN_THUMBL,  BTN_THUMBR,    BTN_MODE,	   BTN_BACK
+ };
+ 
++#define RSINPUT_WD_DELAY          msecs_to_jiffies(1000)
++#define RSINPUT_WD_PATROL         msecs_to_jiffies(5000)
++#define RSINPUT_WD_MCU_BOOT       msecs_to_jiffies(3000)
++#define RSINPUT_WD_PORT_CYCLES    2
++
+ static uint8_t compute_checksum(const uint8_t *data, size_t len) {
+     uint8_t checksum = 0;
+ 
+@@ -242,7 +254,10 @@ static void handle_cmd_commod(struct rsinput_driver *drv, const uint8_t *data, s
+                 }
+                 memcpy(mcu_version, &data[FRAME_POS_DATA_1], version_length);
+                 mcu_version[version_length] = '\0';
+-                dev_info(&drv->serdev->dev, "MCU Version: %s\n", mcu_version);
++                if (!drv->version_logged) {
++                    dev_info(&drv->serdev->dev, "MCU Version: %s\n", mcu_version);
++                    drv->version_logged = true;
++                }
+             } else {
+                 dev_err(&drv->serdev->dev, "Invalid MCU version response length\n");
+             }
+@@ -251,7 +266,7 @@ static void handle_cmd_commod(struct rsinput_driver *drv, const uint8_t *data, s
+             dev_info(&drv->serdev->dev, "MCU parameters set successfully\n");
+             break;
+         default:
+-            dev_warn(&drv->serdev->dev, "Unhandled CMD_COMMOD sub-command: 0x%02x\n", data[FRAME_POS_DATA_1]);
++            dev_dbg(&drv->serdev->dev, "Unhandled CMD_COMMOD sub-command: 0x%02x\n", data[FRAME_POS_DATA_1]);
+             break;
+     }
+ }
+@@ -361,6 +376,8 @@ static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data
+             continue;
+         }
+ 
++        drv->valid_frames++;
++
+         switch (data[FRAME_POS_CMD]) {
+             case CMD_COMMOD:
+                 handle_cmd_commod(drv, data, payload_length);
+@@ -399,7 +416,7 @@ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t co
+     memcpy(drv->rx_buf, data, count);
+ 
+     if (count < MCU_PKT_SIZE_MIN) {
+-        dev_warn_ratelimited(&serdev->dev, "Frame too short for checksum validation\n");
++        dev_dbg_ratelimited(&serdev->dev, "Frame too short for checksum validation\n");
+         goto error;
+     }
+ 
+@@ -408,7 +425,7 @@ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t co
+     computed_checksum = compute_checksum(drv->rx_buf, count);
+ 
+     if (computed_checksum != received_checksum) {
+-        dev_warn_ratelimited(&serdev->dev, "Checksum mismatch\n");
++        dev_dbg_ratelimited(&serdev->dev, "Checksum mismatch\n");
+         goto error;
+     }
+ 
+@@ -461,6 +478,84 @@ static ssize_t rumble_enable_store(struct device *dev, struct device_attribute *
+ 
+ static DEVICE_ATTR_RW(rumble_enable);
+ 
++static void rsinput_rx_watchdog(struct work_struct *work) {
++    struct rsinput_driver *drv =
++        container_of(to_delayed_work(work), struct rsinput_driver, rx_watchdog);
++    uint8_t version_request[] = {DATA_COMMOD_VERSION};
++    unsigned long delay = RSINPUT_WD_DELAY;
++    int error;
++
++    if (drv->wd_probes > 0 && drv->valid_frames != drv->wd_seen_frames) {
++        if (drv->wd_attempts) {
++            dev_info(&drv->serdev->dev,
++                     "link alive after %u recovery attempt(s)\n",
++                     drv->wd_attempts);
++            drv->wd_attempts = 0;
++        }
++        delay = RSINPUT_WD_PATROL;
++    } else if (drv->wd_probes > 0) {
++        drv->wd_attempts++;
++
++        serdev_device_close(drv->serdev);
++
++        if (drv->wd_attempts <= RSINPUT_WD_PORT_CYCLES) {
++            dev_warn(&drv->serdev->dev,
++                     "link silent, cycling port (attempt %u)\n",
++                     drv->wd_attempts);
++        } else {
++            if (drv->wd_attempts <= RSINPUT_WD_PORT_CYCLES + 3)
++                dev_warn(&drv->serdev->dev,
++                         "link still silent, power-cycling MCU (attempt %u)\n",
++                         drv->wd_attempts);
++
++            if (drv->enable_gpio)
++                gpiod_set_value_cansleep(drv->enable_gpio, 0);
++            regulator_disable(drv->vdd);
++            msleep(100);
++            error = regulator_enable(drv->vdd);
++            if (error)
++                dev_err(&drv->serdev->dev,
++                        "Unable to re-enable MCU supply: %d\n", error);
++
++            delay = RSINPUT_WD_MCU_BOOT;
++        }
++
++        error = serdev_device_open(drv->serdev);
++        if (error) {
++            dev_err(&drv->serdev->dev,
++                    "Unable to re-open UART device, retrying\n");
++            schedule_delayed_work(&drv->rx_watchdog, RSINPUT_WD_PATROL);
++            return;
++        }
++        serdev_device_set_baudrate(drv->serdev, 115200);
++        serdev_device_set_flow_control(drv->serdev, false);
++
++        if (drv->wd_attempts > RSINPUT_WD_PORT_CYCLES) {
++            /* Redo power up */
++            error = rsinput_init_commands(drv);
++            if (error < 0)
++                dev_err(&drv->serdev->dev,
++                        "MCU re-init failed: %d\n", error);
++            /* A dead MCU */
++            if (drv->wd_attempts > RSINPUT_WD_PORT_CYCLES + 3)
++                delay = 6 * RSINPUT_WD_PATROL;
++        }
++
++        drv->wd_seen_frames = drv->valid_frames;
++        rsinput_send_command(drv, CMD_COMMOD, version_request,
++                             sizeof(version_request));
++        drv->wd_probes++;
++        schedule_delayed_work(&drv->rx_watchdog, delay);
++        return;
++    }
++
++    drv->wd_seen_frames = drv->valid_frames;
++    rsinput_send_command(drv, CMD_COMMOD, version_request,
++                         sizeof(version_request));
++    drv->wd_probes++;
++    schedule_delayed_work(&drv->rx_watchdog, delay);
++}
++
+ static int rsinput_probe(struct serdev_device *serdev) {
+     struct rsinput_driver *drv;
+     u32 gamepad_bus = 0;
+@@ -627,12 +722,22 @@ static int rsinput_probe(struct serdev_device *serdev) {
+         return error;
+     }
+ 
++    INIT_DELAYED_WORK(&drv->rx_watchdog, rsinput_rx_watchdog);
++    /*
++     * The MCU link watchdog was introduced for the sm4450 devices (Retroid
++     * Pocket Classic, RG55G1); keep it off elsewhere until it has been
++     * exercised on the sm8550 boards.
++     */
++    if (of_machine_is_compatible("qcom,sm4450"))
++        schedule_delayed_work(&drv->rx_watchdog, RSINPUT_WD_DELAY);
++
+     return 0;
+ }
+ 
+ static void rsinput_remove(struct serdev_device *serdev) {
+     struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
+ 
++    cancel_delayed_work_sync(&drv->rx_watchdog);
+     serdev_device_close(serdev);
+     input_unregister_device(drv->input);
+     if (drv->enable_gpio)

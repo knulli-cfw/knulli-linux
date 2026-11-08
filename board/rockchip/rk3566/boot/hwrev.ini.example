@@ -1,0 +1,35 @@
+# hwrev.ini -- manual board override for RK3566
+#
+# Rename to hwrev.ini in the root of this (FAT) partition to use it.
+#
+# U-Boot identifies the device from SARADC channels 0 and 1 (and, for the RG
+# DS and RG DS Plus, the RAM size) and sets the variables below.  If it picks the wrong board,
+# name the right one here.  Every line is a U-Boot command, run right after
+# detection, so anything set here wins.
+#
+# THE SHORT FORM: name the board and nothing else.
+#
+#   setenv hwrev rg-ds-plus
+#
+# U-Boot then applies that board's whole profile and throws the SARADC result
+# away.  Prefer this over listing the variables by hand: a file that corrects
+# hwrev but forgets dtb_kernel leaves the device running half one board's
+# settings and half another's.  Boards with a profile:
+#
+#   rg-arc-s  powkiddy-rgb30  miniloong  powkiddy-x55  rg-ds  rg-ds-plus
+#   miyoo-flip
+#
+# Lines after the board name still override individual variables:
+#
+#   hwrev       board name; reaches Linux as board=<hwrev>
+#   dtb_uboot   DTB U-Boot uses for its own display/charge init; path included,
+#               normally dtbs/<name>.dtb on this partition
+#   dtb_kernel  DTB handed to Linux, a file name in fdts/
+#   fb_rotate   console rotation: 0, 1, 2 or 3
+#
+# To find your device's ADC values, watch the serial console for:
+#   hwrev: saradc ch0=<value> ch1=<value>, <RAM> MiB -> <board>
+
+# Example: force the Anbernic RG DS Plus
+#
+#setenv hwrev rg-ds-plus

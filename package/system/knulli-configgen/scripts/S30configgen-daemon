@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# configgend: keeps configgen imported and warm so emulatorlauncher only has to
+# fork a worker per launch.  Started once ES is up, to stay off the boot path;
+# emulatorlauncher runs in-process whenever the daemon is not there.
+#
+
+DAEMON="/usr/bin/configgend"
+PIDFILE="/var/run/configgend.pid"
+SOCKET="/run/configgend.sock"
+READY="/tmp/emulationstation.ready"
+LOG="/var/log/configgend.log"
+
+[ -x "$DAEMON" ] || exit 0
+
+start() {
+    if start-stop-daemon --status --pidfile "$PIDFILE" >/dev/null 2>&1; then
+        echo "configgend already running."
+        return 0
+    fi
+    rm -f "$SOCKET"
+    (
+        i=0
+        while [ ! -e "$READY" ] && [ "$i" -lt 300 ]; do
+            i=$((i + 1))
+            sleep 0.1
+        done
+        start-stop-daemon --start --quiet --background --make-pidfile \
+            --pidfile "$PIDFILE" --startas /bin/sh -- -c \
+            "exec $DAEMON >>'$LOG' 2>&1"
+    ) &
+}
+
+stop() {
+    start-stop-daemon --stop --quiet --pidfile "$PIDFILE"
+    rm -f "$PIDFILE" "$SOCKET"
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; start ;;
+    *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac
+
+exit 0

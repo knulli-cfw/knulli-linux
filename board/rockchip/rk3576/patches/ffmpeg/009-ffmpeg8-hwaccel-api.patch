@@ -1,0 +1,71 @@
+diff -urN a/libavcodec/v4l2_request_decode.c b/libavcodec/v4l2_request_decode.c
+--- a/libavcodec/v4l2_request_decode.c	2026-08-03 18:06:00.298443707 +0000
++++ b/libavcodec/v4l2_request_decode.c	2026-08-03 18:06:00.781443535 +0000
+@@ -378,7 +378,7 @@
+ static int v4l2_request_post_process(void *logctx, AVFrame *frame)
+ {
+     V4L2RequestFrameDescriptor *desc = v4l2_request_framedesc(frame);
+-    FrameDecodeData *fdd = (FrameDecodeData*)frame->private_ref->data;
++    FrameDecodeData *fdd = frame->private_ref;
+     V4L2RequestContext *ctx = fdd->hwaccel_priv;
+ 
+     // Wait on capture buffer before returning the frame to application
+@@ -403,7 +403,7 @@
+ {
+     V4L2RequestContext *ctx = v4l2_request_context(avctx);
+     V4L2RequestFrameDescriptor *desc = v4l2_request_framedesc(frame);
+-    FrameDecodeData *fdd = (FrameDecodeData*)frame->private_ref->data;
++    FrameDecodeData *fdd = frame->private_ref;
+     int ret;
+ 
+     // Get next output buffer from circular queue
+diff -urN a/libavcodec/v4l2_request_h264.c b/libavcodec/v4l2_request_h264.c
+--- a/libavcodec/v4l2_request_h264.c	2026-08-03 18:06:00.309443703 +0000
++++ b/libavcodec/v4l2_request_h264.c	2026-08-03 18:06:00.774443537 +0000
+@@ -227,6 +227,7 @@
+ }
+ 
+ static int v4l2_request_h264_start_frame(AVCodecContext *avctx,
++                                         av_unused const AVBufferRef *buffer_ref,
+                                          av_unused const uint8_t *buffer,
+                                          av_unused uint32_t size)
+ {
+diff -urN a/libavcodec/v4l2_request_hevc.c b/libavcodec/v4l2_request_hevc.c
+--- a/libavcodec/v4l2_request_hevc.c	2026-08-03 18:06:00.313443702 +0000
++++ b/libavcodec/v4l2_request_hevc.c	2026-08-03 18:06:00.775443537 +0000
+@@ -362,6 +362,7 @@
+ }
+ 
+ static int v4l2_request_hevc_start_frame(AVCodecContext *avctx,
++                                         av_unused const AVBufferRef *buffer_ref,
+                                          av_unused const uint8_t *buffer,
+                                          av_unused uint32_t size)
+ {
+@@ -627,7 +628,7 @@
+     return v4l2_request_hevc_queue_decode(avctx, true);
+ }
+ 
+-static void v4l2_request_hevc_free_frame_priv(FFRefStructOpaque hwctx, void *data)
++static void v4l2_request_hevc_free_frame_priv(AVRefStructOpaque hwctx, void *data)
+ {
+     V4L2RequestControlsHEVC *controls = data;
+ 
+diff -urN a/libavcodec/v4l2_request_mpeg2.c b/libavcodec/v4l2_request_mpeg2.c
+--- a/libavcodec/v4l2_request_mpeg2.c	2026-08-03 18:06:00.301443706 +0000
++++ b/libavcodec/v4l2_request_mpeg2.c	2026-08-03 18:06:00.780443535 +0000
+@@ -20,6 +20,7 @@
+ 
+ #include "hwaccel_internal.h"
+ #include "hwconfig.h"
++#include "mathops.h"
+ #include "mpegvideo.h"
+ #include "v4l2_request.h"
+ 
+@@ -31,6 +32,7 @@
+ } V4L2RequestControlsMPEG2;
+ 
+ static int v4l2_request_mpeg2_start_frame(AVCodecContext *avctx,
++                                          av_unused const AVBufferRef *buffer_ref,
+                                           av_unused const uint8_t *buffer,
+                                           av_unused uint32_t size)
+ {

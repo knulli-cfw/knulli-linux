@@ -7,18 +7,21 @@ CONF_FILE="/etc/batteryplus/batteryplus.conf"
 
 # Ensure config exists with defaults if empty
 ensure_conf() {
-  if [ ! -f "$CONF_FILE" ]; then
-    mkdir -p "$(dirname "$CONF_FILE")"
-    cat >"$CONF_FILE" <<'EOF'
-# data_dir is required and should be an absolute path to a persistent directory
+    if [ ! -s "$CONF_FILE" ]; then
+        mkdir -p "$(dirname "$CONF_FILE")" || return 1
+        cat >"$CONF_FILE" <<'EOF'
+# data_dir should be an absolute persistent directory
+# if blank BatteryPlus uses $XDG_CONFIG_HOME/batteryplus
+# or $HOME/.config/batteryplus when XDG_CONFIG_HOME is not valid
+# <data_dir>/batteryplus.conf may override settings (except data_dir)
 # possible modes: voltage(default) and pmic
 [Config]
 mode=voltage
 data_dir=/userdata/system/configs/batteryplus
-V_EMPTY_CHG=3400
-V_EMPTY_DIS=3250
+V_EMPTY=3250
+debug=false
 EOF
-  fi
+    fi
 }
 
 set_mode() {
@@ -40,39 +43,78 @@ set_mode() {
     fi
 }
 
-do_initialize() {
-    BOOT_BOARD="/boot/boot/knulli.board"
+set_debug() {
+    DEBUG="$(/usr/bin/knulli-settings-get system.batteryplus.debug 2>/dev/null)"
 
-    [ -f "$CONF_FILE" ] || return 0
+    case "$DEBUG" in
+        1|true|0|false)
+            ;;
+        *)
+            DEBUG="false"
+            /usr/bin/knulli-settings-set system.batteryplus.debug "$DEBUG"
+            ;;
+    esac
 
-    DATA_DIR=$(sed -nE 's/^[[:space:]]*data_dir[[:space:]]*=[[:space:]]*(.+)[[:space:]]*$/\1/p' "$CONF_FILE" | head -n 1)
-
-    [ -n "$DATA_DIR" ] || return 0
-    [ -f "$BOOT_BOARD" ] || return 0
-
-    mkdir -p "$DATA_DIR"
-
-    DATA_BOARD="$DATA_DIR/knulli.board"
-    CAL_FLAG="$DATA_DIR/batteryplus-calibrated"
-    MAP_FILE="$DATA_DIR/batteryplus-voltage.map"
-    PERCENT_FILE="/tmp/battery.percent"
-    RESTORE_FILE="$DATA_DIR/batteryplus-restore.state"
-
-    if [ ! -f "$DATA_BOARD" ]; then
-        cp -f "$BOOT_BOARD" "$DATA_BOARD"
+    if grep -qE '^[[:space:]]*debug[[:space:]]*=' "$CONF_FILE"; then
+        sed -i -E "s|^[[:space:]]*debug[[:space:]]*=.*|debug=$DEBUG|" "$CONF_FILE"
     else
-        if ! cmp -s "$BOOT_BOARD" "$DATA_BOARD"; then
-            cp -f "$BOOT_BOARD" "$DATA_BOARD"
+        sed -i "/^\[Config\]/a debug=$DEBUG" "$CONF_FILE"
+    fi
+}
 
-            # Device changed, remove learned calibration and device specific data
-            rm -f "$CAL_FLAG"
-            rm -f "$MAP_FILE"
-            rm -f "$RESTORE_FILE"
-        fi
+get_data_dir() {
+    local DATA_DIR
+
+    DATA_DIR=$(sed -nE \
+        's/^[[:space:]]*data_dir[[:space:]]*=[[:space:]]*(.*)$/\1/p' \
+        "$CONF_FILE" | tail -n 1)
+    DATA_DIR="${DATA_DIR%"${DATA_DIR##*[![:space:]]}"}"
+
+    if [ -z "$DATA_DIR" ]; then
+        case "${XDG_CONFIG_HOME:-}" in
+            /*) DATA_DIR="$XDG_CONFIG_HOME/batteryplus" ;;
+            *)
+                case "${HOME:-}" in
+                    /*) DATA_DIR="$HOME/.config/batteryplus" ;;
+                    *) return 1 ;;
+                esac
+                ;;
+        esac
     fi
 
-    # Always remove file in case mode changed so generates new
-    rm -f "$PERCENT_FILE"
+    case "$DATA_DIR" in
+        /*) printf '%s\n' "$DATA_DIR" ;;
+        *) return 1 ;;
+    esac
+}
+
+do_initialize() {
+    local BOOT_BOARD="/boot/boot/knulli.board"
+    local DATA_DIR
+    local DATA_BOARD
+
+    DATA_DIR=$(get_data_dir) || {
+        echo "$DAEMON_NAME: invalid data directory." >&2
+        return 1
+    }
+
+    mkdir -p "$DATA_DIR" || return 1
+    DATA_BOARD="$DATA_DIR/knulli.board"
+
+    if [ -f "$BOOT_BOARD" ]; then
+        if [ -f "$DATA_BOARD" ] && ! cmp -s "$BOOT_BOARD" "$DATA_BOARD"; then
+            # Device changed, discard its calibration and restore state.
+            rm -f \
+                "$DATA_DIR/batteryplus-calibrated" \
+                "$DATA_DIR/batteryplus-voltage.map" \
+                "$DATA_DIR/batteryplus-restore.state" || return 1
+        fi
+
+        # Record the device only after cleanup succeeds.
+        cp -f "$BOOT_BOARD" "$DATA_BOARD" || return 1
+    fi
+
+    return 0
 }
 
 start_daemon() {
@@ -101,18 +143,26 @@ stop_daemon() {
     fi
 
     PID="$(cat "$PIDFILE" 2>/dev/null)"
+    case "$PID" in
+        ''|*[!0-9]*|0|1)
+            echo "$DAEMON_NAME: invalid pidfile." >&2
+            return 1
+            ;;
+    esac
 
-    if [ -z "$PID" ] || [ ! -d "/proc/$PID" ]; then
+    if [ ! -d "/proc/$PID" ]; then
         echo "$DAEMON_NAME is not running."
         rm -f "$PIDFILE"
         return 0
     fi
 
-    start-stop-daemon --stop --quiet --pidfile "$PIDFILE" || {
-        echo "$DAEMON_NAME is not running."
-        rm -f "$PIDFILE"
-        return 0
-    }
+    if ! start-stop-daemon --stop --quiet \
+        --pidfile "$PIDFILE" --exec "$DAEMON"; then
+        if [ -d "/proc/$PID" ]; then
+            echo "$DAEMON_NAME could not be stopped." >&2
+            return 1
+        fi
+    fi
 
     # Wait for daemon to exit so it can write batteryplus-restore.state file
     for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -136,9 +186,17 @@ stop_daemon() {
 
 case "$1" in
     start)
-        ensure_conf
-        set_mode
-        do_initialize
+        # Check before changing config or device data.
+        if [ -f "$PIDFILE" ] &&
+            start-stop-daemon --status --pidfile "$PIDFILE" >/dev/null 2>&1; then
+            echo "$DAEMON_NAME is already running."
+            exit 0
+        fi
+
+        ensure_conf || exit 1
+        set_mode || exit 1
+        set_debug || exit 1
+        do_initialize || exit 1
         start_daemon || exit 1
         ;;
     stop)
@@ -146,10 +204,10 @@ case "$1" in
         ;;
     restart)
         stop_daemon || exit 1
-        sleep 0.5
-        ensure_conf
-        set_mode
-        do_initialize
+        ensure_conf || exit 1
+        set_mode || exit 1
+        set_debug || exit 1
+        do_initialize || exit 1
         start_daemon || exit 1
         ;;
     *)

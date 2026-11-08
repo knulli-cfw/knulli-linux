@@ -1,0 +1,36 @@
+OBSOLETE -- disabled 2026-08-06, kept for provenance.
+
+This removed the "${CMAKE_CURRENT_SOURCE_DIR}/../cmake" include from
+llvm's CMakeLists.txt, which was needed when buildroot built llvm from the
+standalone llvm-<version>.src.tar.xz: that tarball has no sibling cmake/
+directory, so the include failed.
+
+Buildroot now builds from the llvm-project MONOREPO
+(package/llvm-project/llvm, LLVM_SUBDIR = llvm).  Patches apply at the monorepo
+root, so "a/CMakeLists.txt" no longer resolves -- the file is at
+a/llvm/CMakeLists.txt -- which is the visible failure:
+
+  Applying 001-fix-cmake.patch using patch:
+  can't find file to patch at input line 5
+
+Retargeting it would be wrong, not just unnecessary.  The monorepo DOES ship
+cmake/ beside llvm/, so "../cmake" now resolves; and LLVM_COMMON_CMAKE_UTILS,
+which this patch deletes, is still used further down the same file (for
+LLVMVersion.cmake and the module search path).  Removing it would break the
+build rather than fix it.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c5fa66390b..ad40ef0b45 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2,10 +2,6 @@
+ 
+ cmake_minimum_required(VERSION 3.20.0)
+ 
+-set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+-include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
+-  NO_POLICY_SCOPE)
+-
+ # Builds with custom install names and installation rpath setups may not work
+ # in the build tree. Allow these cases to use CMake's default build tree
+ # behavior by setting `LLVM_NO_INSTALL_NAME_DIR_FOR_BUILD_TREE` to do this.

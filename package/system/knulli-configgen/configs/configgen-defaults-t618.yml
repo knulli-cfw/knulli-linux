@@ -1,0 +1,21 @@
+default:
+  options:
+    # menu retroarch
+    retroarch.menu_driver: ozone
+    retroarch.menu_scale_factor: "1.500000"
+    retroarch.audio_driver: alsathread
+    retroarch.ozone_font_scale: "1"
+    retroarch.ozone_font_scale_factor_global: "1.200000"
+
+3ds:
+  emulator: azahar
+  core:     azahar
+nds:
+  emulator: advanced_drastic
+  core:     advanced_drastic
+fmtowns:
+  emulator: libretro
+  core:     mame
+flash:
+  emulator: lightspark
+  core:     lightspark

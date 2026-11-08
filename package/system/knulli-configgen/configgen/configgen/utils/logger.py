@@ -31,8 +31,8 @@ def setup_logging() -> Iterator[None]:
         stderr.setFormatter(formatter)
         stderr.setLevel(error_level)
 
-        # Configure logger
-        logger.setLevel(logging.DEBUG)
+        # Configure logger; DEBUG only on request (configgen.debug, see emulatorlauncher.start_rom)
+        logger.setLevel(logging.INFO)
         logger.addHandler(stdout)
         logger.addHandler(stderr)
 

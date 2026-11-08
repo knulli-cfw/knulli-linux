@@ -6,7 +6,15 @@ KNULLI_OVERRIDE_PACKAGES = libretro-flycastvl es-background-musics retroarch-ass
 							common-shaders glsl-shaders slang-shaders batocera-shaders \
 							batocera-triggerhappy azahar zramswap syncthing \
 							libretro-gpsp libretro-melonds-ds dolphin-emu vita3k gzdoom \
-							ppsspp
+							rocknix-abl rocknix-joypad libretro-gearcoleco \
+							cargo-c sdl3 wildmidi \
+							ppsspp mangohud toolchain-optional-linaro-aarch64 \
+							uboot-rk3326 rk915 \
+							uboot-ps5000 uboot-ps7000 uboot-powkiddy-a13 \
+							mali-mp400-gbm
+
+# boot-package infra (rk3128 u-boot packages)
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/package/batocera/pkg-boot.mk
 
 # Knulli packages
 include $(sort $(wildcard $(BR2_EXTERNAL_KNULLI_PATH)/package/audio/*/*.mk \
@@ -29,6 +37,11 @@ $(BR2_EXTERNAL_KNULLI_PATH)/package/themes/*/*.mk \
 $(BR2_EXTERNAL_KNULLI_PATH)/package/toolchain/*/*.mk \
 $(BR2_EXTERNAL_KNULLI_PATH)/package/utils/*/*.mk \
 $(BR2_EXTERNAL_KNULLI_PATH)/package/weston-legacy/*/*.mk))
+
+# batocera's local-python infra and the python-src packages knulli uses
+# (python-batocera-common: hotkeygen, batocera-led-handheld)
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/package/batocera/pkg-local-python.mk
+include $(BR2_EXTERNAL_KNULLI_PATH)/batocera/python-src/python-batocera-common/python-batocera-common.mk
 
 # Include batocera packages but exclude conflicting ones
 include $(sort $(filter-out $(addprefix %/,$(addsuffix .mk,$(KNULLI_OVERRIDE_PACKAGES))), \

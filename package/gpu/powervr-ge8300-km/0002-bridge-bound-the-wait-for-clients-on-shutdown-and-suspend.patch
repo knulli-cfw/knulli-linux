@@ -1,0 +1,52 @@
+Subject: [PATCH] bridge: bound the wait for clients on shutdown and suspend
+
+A client stuck in the server (e.g. waiting for a display flip that never
+comes) kept LinuxBridgeBlockClientsAccess() spinning forever, hanging
+reboot, poweroff and suspend.  Give up after 2 s: shutdown proceeds,
+suspend is undone and fails so the PM core aborts it.
+---
+--- a/services/server/env/linux/pvr_bridge_k.c
++++ b/services/server/env/linux/pvr_bridge_k.c
+@@ -305,6 +305,7 @@
+ 	PVRSRV_ERROR eError;
+ 	IMG_HANDLE hEvent;
+ 	IMG_INT iSuspendCount;
++	unsigned long timeout;
+ 
+ 	eError = OSEventObjectOpen(g_hDriverThreadEventObject, &hEvent);
+ 	if (eError != PVRSRV_OK)
+@@ -327,19 +328,26 @@
+ 		goto CloseEventObject;
+ 	}
+ 
+-	/* now wait for any threads currently in the server to exit */
++	/* now wait for any threads currently in the server to exit; a client
++	 * stuck in the server must not hang reboot/poweroff or suspend */
++	timeout = jiffies + 2 * HZ;
+ 	while (OSAtomicRead(&g_iNumActiveDriverThreads) != 0 ||
+ 		   (OSAtomicRead(&g_iNumActiveKernelThreads) != 0 && !bShutdown))
+ 	{
+-		if (OSAtomicRead(&g_iNumActiveDriverThreads) != 0)
++		if (time_after(jiffies, timeout))
+ 		{
+-			PVR_LOG(("%s: waiting for user threads (%d)", __func__,
+-			        OSAtomicRead(&g_iNumActiveDriverThreads)));
+-		}
+-		if (OSAtomicRead(&g_iNumActiveKernelThreads) != 0)
+-		{
+-			PVR_LOG(("%s: waiting for kernel threads (%d)", __func__,
++			PVR_LOG(("%s: %d user / %d kernel threads still active",
++			        __func__, OSAtomicRead(&g_iNumActiveDriverThreads),
+ 			        OSAtomicRead(&g_iNumActiveKernelThreads)));
++			if (bShutdown)
++				break;
++			/* undo the suspend so the device keeps working */
++			OSAtomicCompareExchange(&psDevPriv->suspended, _SUSPENDED,
++			                        _NOT_SUSPENDED);
++			OSAtomicDecrement(&g_iDriverSuspendCount);
++			OSEventObjectSignal(g_hDriverThreadEventObject);
++			eError = PVRSRV_ERROR_TIMEOUT;
++			goto CloseEventObject;
+ 		}
+ 		/* Regular wait is called here (and not OSEventObjectWaitKernel) because
+ 		 * this code is executed by the caller of .suspend/.shutdown callbacks

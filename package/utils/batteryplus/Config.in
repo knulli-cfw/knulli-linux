@@ -1,0 +1,5 @@
+config BR2_PACKAGE_BATTERYPLUS
+	bool "batteryplus"
+	depends on BR2_INSTALL_LIBSTDCPP
+	help
+	  Battery percentage daemon for handheld Linux systems.

@@ -1,0 +1,14 @@
+Subject: [PATCH] sched: export sched_setscheduler for vendor wifi drivers
+
+---
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7614,6 +7614,8 @@
+ {
+ 	return _sched_setscheduler(p, policy, param, true);
+ }
++/* vendor wifi drivers (xr829) adjust their threads' policy at runtime */
++EXPORT_SYMBOL_GPL(sched_setscheduler);
+ 
+ int sched_setattr(struct task_struct *p, const struct sched_attr *attr)
+ {

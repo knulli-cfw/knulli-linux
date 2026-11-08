@@ -5,10 +5,11 @@ if ! knulli-board-capability "lid"; then
     exit 1
 fi
 
+# lid still closed after a resume (woken by something else): suspend again.
+# The lid switch is PE7 (gpio-keys "Lid Switch", active low: lo = closed).
 case "$1" in
     thaw|resume)
-        read -r HALLKEY < /sys/class/power_supply/axp2202-battery/hallkey
-        if [ "$HALLKEY" = "0" ]; then
+        if grep -q "(.*|Lid Switch *) in  lo" /sys/kernel/debug/gpio 2>/dev/null; then
             ( sleep 1 && knulli-suspend ) &
         fi
         ;;

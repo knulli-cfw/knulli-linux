@@ -1,0 +1,515 @@
+Add a VK_KHR_display Vulkan surface to the mali-fbdev video driver.
+
+The backend owns a bare framebuffer -- no DRM, no GBM, no compositor -- so
+SDL had no way to hand out a Vulkan surface and SDL_CreateWindow(SDL_WINDOW_
+VULKAN) failed outright.  Emulators that ask SDL for their surface (PPSSPP)
+could not use Vulkan on any fbdev board even with a working ICD installed;
+RetroArch was unaffected only because it creates its own display surface.
+
+VK_KHR_display is the whole answer here: the display is exclusive and its
+mode is fixed, which is what a handheld running one fullscreen emulator
+wants.  Modelled on SDL_kmsdrmvulkan.c, minus the DRM half, and with three
+changes it needs on vendor blobs: fall back to physical device 0 when none
+reports as a GPU, never try vkCreateDisplayModeKHR (the panel mode is fixed
+and the blobs reject it), and test plane alpha as a bitmask rather than for
+equality.
+
+configure.ac already globs src/video/mali-fbdev/*.c, so the new file needs
+no build wiring.
+
+--- a/src/video/mali-fbdev/SDL_malivideo.c
++++ b/src/video/mali-fbdev/SDL_malivideo.c
+@@ -16,6 +16,7 @@
+ 
+ #include "SDL_malivideo.h"
+ #include "SDL_maliopengles.h"
++#include "SDL_malivulkan.h"
+ 
+ static void
+ MALI_Destroy(SDL_VideoDevice * device)
+@@ -70,6 +71,14 @@
+     device->GL_SwapWindow = MALI_GLES_SwapWindow;
+     device->GL_DeleteContext = MALI_GLES_DeleteContext;
+ 
++#if SDL_VIDEO_VULKAN
++    device->Vulkan_LoadLibrary = MALI_Vulkan_LoadLibrary;
++    device->Vulkan_UnloadLibrary = MALI_Vulkan_UnloadLibrary;
++    device->Vulkan_GetInstanceExtensions = MALI_Vulkan_GetInstanceExtensions;
++    device->Vulkan_GetDrawableSize = MALI_Vulkan_GetDrawableSize;
++    device->Vulkan_CreateSurface = MALI_Vulkan_CreateSurface;
++#endif
++
+     device->PumpEvents = MALI_PumpEvents;
+ 
+     return device;
+@@ -221,25 +230,32 @@
+     window->w = fb_width;
+     window->h = fb_height;
+ 
+-    /* OpenGL ES is the law here */
+-    window->flags |= SDL_WINDOW_OPENGL;
++    /* A Vulkan window gets its surface from VK_KHR_display, not from EGL, and
++       creating one here would bind the display to GLES before Vulkan asks for
++       it.  Everything else is GLES, which is the law here. */
++    if (window->flags & SDL_WINDOW_VULKAN) {
++        windowdata->egl_surface = EGL_NO_SURFACE;
++    } else {
++        window->flags |= SDL_WINDOW_OPENGL;
+ 
+-    if (!_this->egl_data) {
+-        if (SDL_GL_LoadLibrary(NULL) < 0) {
+-            return -1;
++        if (!_this->egl_data) {
++            if (SDL_GL_LoadLibrary(NULL) < 0) {
++                SDL_free(windowdata);
++                return -1;
++            }
+         }
+-    }
+-    
++
+ #ifndef SDL2_POWERVR_GE8300
+-    windowdata->egl_surface = SDL_EGL_CreateSurface(_this, (NativeWindowType) &displaydata->native_display);
++        windowdata->egl_surface = SDL_EGL_CreateSurface(_this, (NativeWindowType) &displaydata->native_display);
+ #else
+-    windowdata->egl_surface = SDL_EGL_CreateSurface(_this, (NativeWindowType) displaydata->native_display);
++        windowdata->egl_surface = SDL_EGL_CreateSurface(_this, (NativeWindowType) displaydata->native_display);
+ #endif
+ 
+-
+-    if (windowdata->egl_surface == EGL_NO_SURFACE) {
+-        MALI_VideoQuit(_this);
+-        return SDL_SetError("mali-fbdev: Can't create EGL window surface");
++        if (windowdata->egl_surface == EGL_NO_SURFACE) {
++            SDL_free(windowdata);
++            MALI_VideoQuit(_this);
++            return SDL_SetError("mali-fbdev: Can't create EGL window surface");
++        }
+     }
+ 
+     /* Setup driver data for this window */
+--- /dev/null
++++ b/src/video/mali-fbdev/SDL_malivulkan.h
+@@ -0,0 +1,50 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++
++/* Based on SDL_kmsdrmvulkan.c by Manuel Alfayate Corchere. */
++
++#include "../../SDL_internal.h"
++
++#ifndef SDL_malivulkan_h_
++#define SDL_malivulkan_h_
++
++#include "../SDL_vulkan_internal.h"
++#include "../SDL_sysvideo.h"
++
++#if defined(SDL_VIDEO_VULKAN) && defined(SDL_VIDEO_DRIVER_MALI)
++
++int MALI_Vulkan_LoadLibrary(_THIS, const char *path);
++void MALI_Vulkan_UnloadLibrary(_THIS);
++SDL_bool MALI_Vulkan_GetInstanceExtensions(_THIS,
++                                           SDL_Window *window,
++                                           unsigned *count,
++                                           const char **names);
++void MALI_Vulkan_GetDrawableSize(_THIS, SDL_Window *window, int *w, int *h);
++SDL_bool MALI_Vulkan_CreateSurface(_THIS,
++                                   SDL_Window *window,
++                                   VkInstance instance,
++                                   VkSurfaceKHR *surface);
++
++#endif
++
++#endif /* SDL_malivulkan_h_ */
++
++/* vi: set ts=4 sw=4 expandtab: */
+--- /dev/null
++++ b/src/video/mali-fbdev/SDL_malivulkan.c
+@@ -0,0 +1,369 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++
++/* Based on SDL_kmsdrmvulkan.c by Manuel Alfayate Corchere.
++ *
++ * The mali-fbdev backend owns a bare framebuffer: no DRM, no GBM, no compositor.
++ * VK_KHR_display is the only WSI available to it, and it is enough -- the
++ * display is exclusive and its mode is fixed, which is exactly what a handheld
++ * running one fullscreen emulator wants. */
++
++#include "../../SDL_internal.h"
++
++#if defined(SDL_VIDEO_VULKAN) && defined(SDL_VIDEO_DRIVER_MALI)
++
++#include "SDL_assert.h"
++#include "SDL_loadso.h"
++#include "SDL_malivideo.h"
++#include "SDL_malivulkan.h"
++#include "SDL_syswm.h"
++
++#define DEFAULT_VULKAN "libvulkan.so.1"
++
++int MALI_Vulkan_LoadLibrary(_THIS, const char *path)
++{
++    VkExtensionProperties *extensions = NULL;
++    Uint32 i, extensionCount = 0;
++    SDL_bool hasSurfaceExtension = SDL_FALSE;
++    SDL_bool hasDisplayExtension = SDL_FALSE;
++    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = NULL;
++
++    if (_this->vulkan_config.loader_handle) {
++        return SDL_SetError("Vulkan already loaded");
++    }
++
++    if (!path) {
++        path = SDL_getenv("SDL_VULKAN_LIBRARY");
++    }
++    if (!path) {
++        path = DEFAULT_VULKAN;
++    }
++
++    _this->vulkan_config.loader_handle = SDL_LoadObject(path);
++    if (!_this->vulkan_config.loader_handle) {
++        return -1;
++    }
++
++    SDL_strlcpy(_this->vulkan_config.loader_path, path,
++                SDL_arraysize(_this->vulkan_config.loader_path));
++
++    vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)SDL_LoadFunction(
++        _this->vulkan_config.loader_handle, "vkGetInstanceProcAddr");
++    if (!vkGetInstanceProcAddr) {
++        goto fail;
++    }
++
++    _this->vulkan_config.vkGetInstanceProcAddr = (void *)vkGetInstanceProcAddr;
++    _this->vulkan_config.vkEnumerateInstanceExtensionProperties =
++        (void *)vkGetInstanceProcAddr(VK_NULL_HANDLE,
++                                      "vkEnumerateInstanceExtensionProperties");
++    if (!_this->vulkan_config.vkEnumerateInstanceExtensionProperties) {
++        goto fail;
++    }
++
++    extensions = SDL_Vulkan_CreateInstanceExtensionsList(
++        (PFN_vkEnumerateInstanceExtensionProperties)
++            _this->vulkan_config.vkEnumerateInstanceExtensionProperties,
++        &extensionCount);
++    if (!extensions) {
++        goto fail;
++    }
++
++    for (i = 0; i < extensionCount; i++) {
++        if (SDL_strcmp(VK_KHR_SURFACE_EXTENSION_NAME, extensions[i].extensionName) == 0) {
++            hasSurfaceExtension = SDL_TRUE;
++        } else if (SDL_strcmp(VK_KHR_DISPLAY_EXTENSION_NAME, extensions[i].extensionName) == 0) {
++            hasDisplayExtension = SDL_TRUE;
++        }
++    }
++    SDL_free(extensions);
++
++    if (!hasSurfaceExtension) {
++        SDL_SetError("Installed Vulkan doesn't implement the " VK_KHR_SURFACE_EXTENSION_NAME " extension");
++        goto fail;
++    }
++    if (!hasDisplayExtension) {
++        SDL_SetError("Installed Vulkan doesn't implement the " VK_KHR_DISPLAY_EXTENSION_NAME " extension");
++        goto fail;
++    }
++
++    return 0;
++
++fail:
++    SDL_UnloadObject(_this->vulkan_config.loader_handle);
++    _this->vulkan_config.loader_handle = NULL;
++    return -1;
++}
++
++void MALI_Vulkan_UnloadLibrary(_THIS)
++{
++    if (_this->vulkan_config.loader_handle) {
++        SDL_UnloadObject(_this->vulkan_config.loader_handle);
++        _this->vulkan_config.loader_handle = NULL;
++    }
++}
++
++SDL_bool MALI_Vulkan_GetInstanceExtensions(_THIS,
++                                           SDL_Window *window,
++                                           unsigned *count,
++                                           const char **names)
++{
++    static const char *const extensionsForMALI[] = {
++        VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_DISPLAY_EXTENSION_NAME
++    };
++    if (!_this->vulkan_config.loader_handle) {
++        SDL_SetError("Vulkan is not loaded");
++        return SDL_FALSE;
++    }
++    return SDL_Vulkan_GetInstanceExtensions_Helper(
++        count, names, SDL_arraysize(extensionsForMALI), extensionsForMALI);
++}
++
++void MALI_Vulkan_GetDrawableSize(_THIS, SDL_Window *window, int *w, int *h)
++{
++    if (w) {
++        *w = window->w;
++    }
++    if (h) {
++        *h = window->h;
++    }
++}
++
++SDL_bool MALI_Vulkan_CreateSurface(_THIS,
++                                   SDL_Window *window,
++                                   VkInstance instance,
++                                   VkSurfaceKHR *surface)
++{
++    VkPhysicalDevice gpu = VK_NULL_HANDLE;
++    VkPhysicalDevice *physical_devices = NULL;
++    VkDisplayPropertiesKHR *display_props = NULL;
++    VkDisplayModePropertiesKHR *mode_props = NULL;
++    VkDisplayPlanePropertiesKHR *plane_props = NULL;
++    VkDisplaySurfaceCreateInfoKHR surface_create_info;
++    VkDisplayPlaneCapabilitiesKHR plane_caps;
++    VkDisplayPlaneAlphaFlagBitsKHR alpha_mode = VK_DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR;
++    VkDisplayKHR display;
++    VkDisplayModeKHR display_mode = VK_NULL_HANDLE;
++    VkExtent2D image_size = { 0, 0 };
++    uint32_t gpu_count = 0, display_count = 0, mode_count = 0, plane_count = 0;
++    uint32_t plane = UINT32_MAX;
++    uint32_t best_area = 0;
++    uint32_t i, j;
++    int display_index;
++    VkResult result;
++    SDL_bool ret = SDL_FALSE;
++
++    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
++        (PFN_vkGetInstanceProcAddr)_this->vulkan_config.vkGetInstanceProcAddr;
++
++#define MALI_VK_LOAD(sym) PFN_##sym sym = (PFN_##sym)vkGetInstanceProcAddr(instance, #sym)
++    MALI_VK_LOAD(vkCreateDisplayPlaneSurfaceKHR);
++    MALI_VK_LOAD(vkEnumeratePhysicalDevices);
++    MALI_VK_LOAD(vkGetPhysicalDeviceProperties);
++    MALI_VK_LOAD(vkGetPhysicalDeviceDisplayPropertiesKHR);
++    MALI_VK_LOAD(vkGetDisplayModePropertiesKHR);
++    MALI_VK_LOAD(vkGetPhysicalDeviceDisplayPlanePropertiesKHR);
++    MALI_VK_LOAD(vkGetDisplayPlaneSupportedDisplaysKHR);
++    MALI_VK_LOAD(vkGetDisplayPlaneCapabilitiesKHR);
++#undef MALI_VK_LOAD
++
++    if (!_this->vulkan_config.loader_handle) {
++        SDL_SetError("Vulkan is not loaded");
++        goto clean;
++    }
++    if (!vkCreateDisplayPlaneSurfaceKHR) {
++        SDL_SetError(VK_KHR_DISPLAY_EXTENSION_NAME
++                     " extension is not enabled in the Vulkan instance.");
++        goto clean;
++    }
++
++    vkEnumeratePhysicalDevices(instance, &gpu_count, NULL);
++    if (gpu_count == 0) {
++        SDL_SetError("Vulkan can't find physical devices (gpus).");
++        goto clean;
++    }
++    physical_devices = SDL_malloc(sizeof(VkPhysicalDevice) * gpu_count);
++    if (!physical_devices) {
++        SDL_OutOfMemory();
++        goto clean;
++    }
++    vkEnumeratePhysicalDevices(instance, &gpu_count, physical_devices);
++
++    /* Prefer a real GPU, but fall back to the first device rather than failing:
++       vendor blobs are not all honest about deviceType, and on these boards
++       there is only ever the one device anyway. */
++    gpu = physical_devices[0];
++    for (i = 0; i < gpu_count; i++) {
++        VkPhysicalDeviceProperties props;
++        vkGetPhysicalDeviceProperties(physical_devices[i], &props);
++        if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ||
++            props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
++            gpu = physical_devices[i];
++            break;
++        }
++    }
++
++    vkGetPhysicalDeviceDisplayPropertiesKHR(gpu, &display_count, NULL);
++    if (display_count == 0) {
++        SDL_SetError("Vulkan can't find any displays.");
++        goto clean;
++    }
++    display_props = SDL_malloc(display_count * sizeof(*display_props));
++    if (!display_props) {
++        SDL_OutOfMemory();
++        goto clean;
++    }
++    vkGetPhysicalDeviceDisplayPropertiesKHR(gpu, &display_count, display_props);
++
++    display_index = SDL_GetWindowDisplayIndex(window);
++    if (display_index < 0 || (uint32_t)display_index >= display_count) {
++        display_index = 0;
++    }
++    display = display_props[display_index].display;
++
++    vkGetDisplayModePropertiesKHR(gpu, display, &mode_count, NULL);
++    if (mode_count == 0) {
++        SDL_SetError("Vulkan can't find any video modes for display %d (%s)",
++                     display_index, display_props[display_index].displayName);
++        goto clean;
++    }
++    mode_props = SDL_malloc(mode_count * sizeof(*mode_props));
++    if (!mode_props) {
++        SDL_OutOfMemory();
++        goto clean;
++    }
++    vkGetDisplayModePropertiesKHR(gpu, display, &mode_count, mode_props);
++
++    /* Take the mode that matches the window, else the largest one.  No attempt
++       to create a mode: the panel is fixed, fbdev already set it, and the blobs
++       that ship on these boards reject vkCreateDisplayModeKHR anyway.  The
++       fallback also drags image_size along, because a display surface's extent
++       is the mode's -- asking for anything else scans out of bounds. */
++    for (i = 0; i < mode_count; i++) {
++        VkExtent2D visible = mode_props[i].parameters.visibleRegion;
++        if ((int)visible.width == window->w && (int)visible.height == window->h) {
++            display_mode = mode_props[i].displayMode;
++            image_size = visible;
++            break;
++        }
++        if (visible.width * visible.height > best_area) {
++            best_area = visible.width * visible.height;
++            display_mode = mode_props[i].displayMode;
++            image_size = visible;
++        }
++    }
++    if (display_mode == VK_NULL_HANDLE) {
++        SDL_SetError("Vulkan couldn't get a display mode.");
++        goto clean;
++    }
++
++    vkGetPhysicalDeviceDisplayPlanePropertiesKHR(gpu, &plane_count, NULL);
++    if (plane_count == 0) {
++        SDL_SetError("Vulkan can't find any planes.");
++        goto clean;
++    }
++    plane_props = SDL_malloc(sizeof(VkDisplayPlanePropertiesKHR) * plane_count);
++    if (!plane_props) {
++        SDL_OutOfMemory();
++        goto clean;
++    }
++    vkGetPhysicalDeviceDisplayPlanePropertiesKHR(gpu, &plane_count, plane_props);
++
++    for (i = 0; i < plane_count; i++) {
++        uint32_t supported_count = 0;
++        VkDisplayKHR *supported;
++        SDL_bool supports_display = SDL_FALSE;
++
++        if (plane_props[i].currentDisplay != display &&
++            plane_props[i].currentDisplay != VK_NULL_HANDLE) {
++            continue;
++        }
++
++        vkGetDisplayPlaneSupportedDisplaysKHR(gpu, i, &supported_count, NULL);
++        if (supported_count == 0) {
++            continue;
++        }
++        supported = SDL_malloc(sizeof(VkDisplayKHR) * supported_count);
++        if (!supported) {
++            SDL_OutOfMemory();
++            goto clean;
++        }
++        vkGetDisplayPlaneSupportedDisplaysKHR(gpu, i, &supported_count, supported);
++        for (j = 0; j < supported_count; j++) {
++            if (supported[j] == display) {
++                supports_display = SDL_TRUE;
++                break;
++            }
++        }
++        SDL_free(supported);
++        if (!supports_display) {
++            continue;
++        }
++
++        /* A bitmask test, not an equality one: a plane that supports more alpha
++           modes than the opaque one we ask for is still a plane we can use. */
++        vkGetDisplayPlaneCapabilitiesKHR(gpu, display_mode, i, &plane_caps);
++        if (plane_caps.supportedAlpha & alpha_mode) {
++            plane = i;
++            break;
++        }
++    }
++
++    if (plane == UINT32_MAX) {
++        SDL_SetError("Vulkan couldn't find an appropriate plane.");
++        goto clean;
++    }
++
++    SDL_zero(surface_create_info);
++    surface_create_info.sType = VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR;
++    surface_create_info.displayMode = display_mode;
++    surface_create_info.planeIndex = plane;
++    surface_create_info.planeStackIndex = plane_props[plane].currentStackIndex;
++    surface_create_info.transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
++    surface_create_info.globalAlpha = 1.0f;
++    surface_create_info.alphaMode = alpha_mode;
++    surface_create_info.imageExtent = image_size;
++
++    result = vkCreateDisplayPlaneSurfaceKHR(instance, &surface_create_info,
++                                            NULL, surface);
++    if (result != VK_SUCCESS) {
++        SDL_SetError("vkCreateDisplayPlaneSurfaceKHR failed: %s",
++                     SDL_Vulkan_GetResultString(result));
++        goto clean;
++    }
++
++    /* The mode decided the size, so tell SDL what it actually got. */
++    window->w = (int)image_size.width;
++    window->h = (int)image_size.height;
++
++    ret = SDL_TRUE;
++
++clean:
++    SDL_free(physical_devices);
++    SDL_free(display_props);
++    SDL_free(mode_props);
++    SDL_free(plane_props);
++    return ret;
++}
++
++#endif /* SDL_VIDEO_VULKAN && SDL_VIDEO_DRIVER_MALI */
++
++/* vim: set ts=4 sw=4 expandtab: */
