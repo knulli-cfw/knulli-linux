@@ -1341,6 +1341,16 @@ lowresnx:
     libretro:
       lowresnx: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_LOWRESNX] }
 
+makecode:
+  name:       MakeCode Arcade
+  manufacturer: Microsoft
+  release: 2019
+  hardware: console
+  extensions: [pxt64]
+  emulators:
+    libretro:
+      makecode_arcade: { requireAnyOf: [BR2_PACKAGE_LIBRETRO_MAKECODE_ARCADE] }
+
 wasm4:
   name:       wasm4
   manufacturer: Fantasy
