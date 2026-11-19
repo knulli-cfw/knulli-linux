@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Restart ConnMan on resume so Wi-Fi reconnects.
+# After a suspend the saved network's first reconnect fails, ConnMan puts the
+# service in "failure" (connect-failed) and its autoconnect skips failed
+# services, so Wi-Fi stays down until it is toggled by hand. A plain
+# "connmanctl enable wifi" does not recover it; a ConnMan restart does.
+
+# We only want to run the script if the board has wifi capability
+if ! knulli-board-capability "wifi" >/dev/null; then
+    exit 0
+fi
+
+[ "$(knulli-settings-get wifi.enabled)" = "1" ] || exit 0
+
+case "$1" in
+    thaw|resume)
+        /etc/init.d/S08connman restart >/dev/null 2>&1 &
+        ;;
+esac
+
+exit 0
